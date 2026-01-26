@@ -1,0 +1,112 @@
+# EvalStudio - User Stories
+
+## Glossary
+
+- **Project** - A workspace that contains all entities (evals, scenarios, personas, settings). Users have role-based access per project.
+- **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (e.g., HTTP, LangGraph)
+- **Eval** - A test collection combining one or more scenarios, input data, and connectors. Each scenario can have its own personas and criteria.
+- **Eval Group** - A category/tag for organizing evals (many-to-many relationship)
+- **Run** - An execution of one or more evals with specific runtime config (connector, LLM settings, etc.) - _naming TBD_
+- **Evaluator** - An LLM or human judge that scores/evaluates run results based on the eval's criteria
+
+---
+
+## User Stories
+
+### Test Personas
+
+[x] As a user, I want to create multiple personas that interact with the agent I'm testing so that I can run various scenarios against them
+[x] As a user, I want to describe each persona in natural language so that it's easy to understand and maintain
+
+### Test Scenarios
+
+[x] As a user, I want to create scenarios described in natural language so that I can define the issue or request the customer has, why they're reaching out, and background information needed to simulate the conversation
+
+### Combining Personas & Scenarios
+
+[x] As a user, I want to combine a persona with a scenario so that I can test how the agent handles specific situations with different customer types
+[x] As a user, I want to run the same scenario with multiple personas so that I can verify consistent handling
+[x] As a user, I want personas to generate realistic messages based on their description so that tests feel natural
+[x] As a user, I want to reuse personas across multiple evals so that I maintain consistency
+[x] As a user, I want to associate multiple scenarios to an eval so that I can create scenario/persona combinations and maintain evals as collections of tests to run
+
+### Conversation Seeding
+
+[x] As a user, I want to provide an initial set of messages to a scenario and let generation/evaluation continue from that point so that I can cover complex scenarios by copying real conversations and assess various endings
+[ ] As a user, I want to create/edit the Eval seeding messages with a dedicated UI which allow to add/remove messages without having to write a JSON structure
+[x] As a user, I want the system to detect who sent the last seed message: if it's from the agent, generate a persona message first; if it's from the persona, send directly to the agent for a reply
+
+### Connectors and Providers
+
+[x] As a user, I want to define an LLM Provider between multiple providers (initially OpenAI and Anthropic) to be used to generate "tester" messages and to assess success/failure criteria
+[x] As a user, I want to configure project-level LLM settings for evaluation and persona generation so that I don't need to configure LLM providers for each eval individually
+[x] As a user, I want to define connectors that bridge EvalStudio to my LangGraph Dev API endpoint so that I can test my langgraph-backed chatbot
+[x] As a user, I want to quickly test the connector just created by clicking a button somewhere on the connector itself, it should send an "hello" msg to the connected chatbot and check the response
+[x] As a user, I want connectors to be global and reusable so that I can reference them across multiple runs and evals
+[x] As a user, I want to configure connector-specific settings (endpoint URL, authentication, headers) so that I can connect to secured APIs
+
+### Running Evals
+
+[x] As a user, I want to enter a dedicated Eval page where I can see all the Eval settings on top, and the list of various runs (and results) for that specific Eval
+[x] As a user, I want to create an Eval "Run" with runtime config (connector, LLM provider, model), the run will be created in a "queued" status (later we'll implement the actual execution of queued runs), I want to create the Run from the Eval detail page
+
+### Batch Runs
+
+[ ] As a user, I want to configure run-level settings (connector, LLM provider, concurrency) so that all evals inherit shared config
+[ ] As a user, I want to compare results across runs so that I can track changes over time
+
+### Performance Monitoring
+
+[x] As a user, I want to see performance charts on Eval, Persona, and Scenario detail pages showing pass/fail rate and average latency over time so that I have a visual representation of performance trends
+[x] As a user, I want to switch performance charts between time-based and execution-based views so that I can see performance over time and also compare across batch executions
+[x] As a user, I want to see aggregated performance charts on the Dashboard showing all evals and personas pass rates so that I can get a quick overview of overall performance
+
+### Results Review & Iteration
+
+[x] As a user, I want to review the full conversation from an eval run so that I can understand what happened
+[ ] As a user, I want to edit any message in a completed run so that I can test alternative paths
+[ ] As a user, I want to re-run from an edited message so that I can see how the agent responds to the change
+[ ] As a user, I want edits to be recorded as few-shot examples so that future runs of the same scenario can learn from corrections
+[ ] As a user, I want recorded examples to be injected into the LLM system prompt so that the persona generates better messages over time
+
+### Test Execution Loop
+
+[x] As a user, I want EvalStudio to simulate a conversation by sending messages to the tested agent and generating replies based on persona/scenario until completion so that the full interaction is tested automatically
+[x] As a user, I want to define success criteria in natural language so that an LLM judge can determine when the desired outcome is achieved
+[x] As a user, I want to define failure criteria in natural language so that an LLM judge can detect undesired behavior
+[x] As a user, I want to choose when failure criteria is checked — at every turn (like success criteria) or only when max messages is reached — so that I can control whether the agent gets a chance to recover from mistakes
+[x] As a user, I want to set a maximum message limit per scenario so that tests don't run indefinitely if no criteria is met
+
+### Projects
+
+[x] As a user, I want to create multiple projects so that I can separate different evaluation contexts (e.g., different products or teams)
+[x] As a user, I want all entities (evals, scenarios, personas, settings) scoped to a project so that data is isolated between projects
+[x] As a user, I want to switch between projects easily so that I can work on different contexts
+[x] As a user, I want to initialize a local project directory so that I can keep evaluation data alongside my codebase instead of in a global location
+
+### Collaboration & Permissions
+
+[ ] As an admin, I want to invite collaborators to a project so that my team can work together
+[ ] As an admin, I want to assign roles (Viewer, Member, Admin) to collaborators so that I can control access levels
+[ ] As an admin, I want to remove collaborators from a project so that I can revoke access when needed
+[ ] As a viewer, I want to see evals, scenarios, and personas so that I can review the evaluation results
+[ ] As a member, I want to create and edit evals, scenarios, and personas so that I can contribute to the evaluation process
+[ ] As an admin, I want to manage settings (connectors, LLM providers, users) so that I can configure the project infrastructure
+[ ] As an owner, I want to be the only user who cannot be removed from the project so that the project always has a responsible party
+[ ] As an owner, I want to transfer ownership to another user so that I can hand over the project if needed
+[ ] As an owner, I want to delete the project so that I can remove it when no longer needed
+
+### Data Management
+
+[x] As a user, I want to export selected scenarios in JSONL format so that I can back them up or share them with other projects
+[x] As a user, I want to import scenarios from a JSONL file so that I can bulk-create scenarios from external sources
+[x] As a user, I want to override the storage directory via an environment variable so that I can use different data locations for different environments
+
+### Developer Experience
+
+[x] As a developer, I want the core package to have minimal dependencies so that install times are fast and the package is lightweight
+[x] As a user, I want to start the API server and web UI with a single `evalstudio serve` command so that I don't need to run separate processes
+
+### Integrations
+
+[ ] As a user I want to run Evals when a webhook is triggered from another source, e.g. a new commit on master on Github, so that it's easier to integrate the tool into other tools

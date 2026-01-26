@@ -1,0 +1,134 @@
+import { useState } from "react";
+import { Persona } from "../lib/api";
+
+interface PersonaCodeSnippetsProps {
+  persona: Persona;
+}
+
+type SnippetTab = "cli" | "api";
+
+export function PersonaCodeSnippets({ persona }: PersonaCodeSnippetsProps) {
+  const [activeTab, setActiveTab] = useState<SnippetTab>("cli");
+  const [copiedCli, setCopiedCli] = useState(false);
+  const [copiedApi, setCopiedApi] = useState(false);
+
+  const cliSnippet = `# List all personas
+evalstudio persona list --project ${persona.projectId}
+
+# Show this persona
+evalstudio persona show ${persona.id}
+
+# Create a new persona
+evalstudio persona create \\
+  --project ${persona.projectId} \\
+  --name "New Persona" \\
+  --description "Brief description" \\
+  --system-prompt "Full character instructions..."
+
+# Update this persona
+evalstudio persona update ${persona.id} \\
+  --name "Updated Name" \\
+  --description "Updated description" \\
+  --system-prompt "Updated instructions..."
+
+# Delete this persona
+evalstudio persona delete ${persona.id}`;
+
+  const apiSnippet = `# List all personas for the project
+curl "http://localhost:3000/api/personas?projectId=${persona.projectId}"
+
+# Get this persona
+curl "http://localhost:3000/api/personas/${persona.id}"
+
+# Create a new persona
+curl -X POST http://localhost:3000/api/personas \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "projectId": "${persona.projectId}",
+    "name": "New Persona",
+    "description": "Brief description",
+    "systemPrompt": "Full character instructions..."
+  }'
+
+# Update this persona
+curl -X PUT http://localhost:3000/api/personas/${persona.id} \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Updated Name",
+    "description": "Updated description",
+    "systemPrompt": "Updated instructions..."
+  }'
+
+# Delete this persona
+curl -X DELETE http://localhost:3000/api/personas/${persona.id}`;
+
+  const handleCopy = async (text: string, tab: SnippetTab) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (tab === "cli") {
+        setCopiedCli(true);
+        setTimeout(() => setCopiedCli(false), 2000);
+      } else {
+        setCopiedApi(true);
+        setTimeout(() => setCopiedApi(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  return (
+    <div className="code-snippets">
+      <div className="code-snippets-tabs">
+        <button
+          className={`code-snippets-tab ${activeTab === "cli" ? "active" : ""}`}
+          onClick={() => setActiveTab("cli")}
+        >
+          CLI
+        </button>
+        <button
+          className={`code-snippets-tab ${activeTab === "api" ? "active" : ""}`}
+          onClick={() => setActiveTab("api")}
+        >
+          REST API
+        </button>
+      </div>
+
+      <div className="code-snippets-content">
+        {activeTab === "cli" && (
+          <div className="code-snippet-container">
+            <div className="code-snippet-header">
+              <span className="code-snippet-label">@evalstudio/cli</span>
+              <button
+                className="code-snippet-copy"
+                onClick={() => handleCopy(cliSnippet, "cli")}
+              >
+                {copiedCli ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <pre className="code-snippet">
+              <code>{cliSnippet}</code>
+            </pre>
+          </div>
+        )}
+
+        {activeTab === "api" && (
+          <div className="code-snippet-container">
+            <div className="code-snippet-header">
+              <span className="code-snippet-label">@evalstudio/api (curl)</span>
+              <button
+                className="code-snippet-copy"
+                onClick={() => handleCopy(apiSnippet, "api")}
+              >
+                {copiedApi ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <pre className="code-snippet">
+              <code>{apiSnippet}</code>
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

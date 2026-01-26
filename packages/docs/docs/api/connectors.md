@@ -1,0 +1,396 @@
+---
+sidebar_position: 7
+---
+
+# Connectors API
+
+REST endpoints for managing connector configurations. Connectors belong to a project and define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/connectors` | List connectors |
+| GET | `/api/connectors/types` | List available connector types |
+| POST | `/api/connectors` | Create a connector |
+| GET | `/api/connectors/:id` | Get a connector by ID |
+| PUT | `/api/connectors/:id` | Update a connector |
+| DELETE | `/api/connectors/:id` | Delete a connector |
+| POST | `/api/connectors/:id/test` | Test connector connectivity |
+| POST | `/api/connectors/:id/invoke` | Invoke connector with messages |
+
+---
+
+## GET /api/connectors
+
+List connectors, optionally filtered by project.
+
+### Query Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `projectId` | string | Filter by project ID |
+
+### Response (200 OK)
+
+```json
+[
+  {
+    "id": "987fcdeb-51a2-3bc4-d567-890123456789",
+    "projectId": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "LangGraph Dev",
+    "type": "langgraph",
+    "baseUrl": "http://localhost:8123",
+    "authType": "api-key",
+    "authValue": "lg-dev-key",
+    "config": {
+      "assistantId": "my-assistant"
+    },
+    "createdAt": "2026-01-29T10:00:00.000Z",
+    "updatedAt": "2026-01-29T10:00:00.000Z"
+  }
+]
+```
+
+### Example
+
+```bash
+# List all connectors
+curl http://localhost:3000/api/connectors
+
+# List connectors for a specific project
+curl http://localhost:3000/api/connectors?projectId=123e4567-e89b-12d3-a456-426614174000
+```
+
+---
+
+## GET /api/connectors/types
+
+Get available connector types with descriptions.
+
+### Response (200 OK)
+
+```json
+{
+  "http": "Generic HTTP/REST API connector",
+  "langgraph": "LangGraph Dev API connector for langgraph-backed agents"
+}
+```
+
+### Example
+
+```bash
+curl http://localhost:3000/api/connectors/types
+```
+
+---
+
+## POST /api/connectors
+
+Create a new connector.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `projectId` | string | Yes | Parent project ID |
+| `name` | string | Yes | Connector name (unique within project) |
+| `type` | string | Yes | Connector type: "http" or "langgraph" |
+| `baseUrl` | string | Yes | Base URL for the API endpoint |
+| `authType` | string | No | Auth type: "none", "api-key", "bearer", "basic" |
+| `authValue` | string | No | Auth value (API key, token, credentials) |
+| `config` | object | No | Type-specific configuration (see below) |
+
+**Config for LangGraph connectors:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `assistantId` | string | Yes | The assistant ID to invoke |
+| `graphId` | string | No | The graph ID to use |
+| `metadata` | object | No | Additional metadata to pass to the agent |
+
+**Config for HTTP connectors:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `method` | string | No | HTTP method (GET, POST, PUT, PATCH) |
+| `headers` | object | No | Additional headers |
+| `timeout` | number | No | Request timeout in milliseconds |
+| `path` | string | No | Path to append to base URL |
+
+```json
+{
+  "projectId": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "LangGraph Dev",
+  "type": "langgraph",
+  "baseUrl": "http://localhost:8123",
+  "authType": "api-key",
+  "authValue": "lg-dev-key",
+  "config": {
+    "assistantId": "my-assistant"
+  }
+}
+```
+
+### Response (201 Created)
+
+```json
+{
+  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
+  "projectId": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "LangGraph Dev",
+  "type": "langgraph",
+  "baseUrl": "http://localhost:8123",
+  "authType": "api-key",
+  "authValue": "lg-dev-key",
+  "config": {
+    "assistantId": "my-assistant"
+  },
+  "createdAt": "2026-01-29T10:00:00.000Z",
+  "updatedAt": "2026-01-29T10:00:00.000Z"
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| 400 | Missing required field (projectId, name, type, or baseUrl) |
+| 404 | Project not found |
+| 409 | Connector with name already exists in project |
+
+### Example
+
+```bash
+curl -X POST http://localhost:3000/api/connectors \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectId": "123e4567-e89b-12d3-a456-426614174000",
+    "name": "LangGraph Dev",
+    "type": "langgraph",
+    "baseUrl": "http://localhost:8123",
+    "config": {"assistantId": "my-assistant"}
+  }'
+```
+
+---
+
+## GET /api/connectors/:id
+
+Get a connector by its ID.
+
+### Response (200 OK)
+
+```json
+{
+  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
+  "projectId": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "LangGraph Dev",
+  "type": "langgraph",
+  "baseUrl": "http://localhost:8123",
+  "config": {
+    "assistantId": "my-assistant"
+  },
+  "createdAt": "2026-01-29T10:00:00.000Z",
+  "updatedAt": "2026-01-29T10:00:00.000Z"
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| 404 | Connector not found |
+
+### Example
+
+```bash
+curl http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789
+```
+
+---
+
+## PUT /api/connectors/:id
+
+Update an existing connector.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | New connector name |
+| `type` | string | No | New connector type |
+| `baseUrl` | string | No | New base URL |
+| `authType` | string | No | New auth type |
+| `authValue` | string | No | New auth value |
+| `config` | object | No | New configuration (replaces existing) |
+
+```json
+{
+  "baseUrl": "http://localhost:8124",
+  "config": {
+    "assistantId": "new-assistant"
+  }
+}
+```
+
+### Response (200 OK)
+
+```json
+{
+  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
+  "projectId": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "LangGraph Dev",
+  "type": "langgraph",
+  "baseUrl": "http://localhost:8124",
+  "config": {
+    "assistantId": "new-assistant"
+  },
+  "createdAt": "2026-01-29T10:00:00.000Z",
+  "updatedAt": "2026-01-29T10:30:00.000Z"
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| 404 | Connector not found |
+| 409 | Connector with name already exists in project |
+
+### Example
+
+```bash
+curl -X PUT http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789 \
+  -H "Content-Type: application/json" \
+  -d '{"baseUrl": "http://localhost:8124"}'
+```
+
+---
+
+## DELETE /api/connectors/:id
+
+Delete a connector.
+
+### Response (204 No Content)
+
+Empty response on success.
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| 404 | Connector not found |
+
+### Example
+
+```bash
+curl -X DELETE http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789
+```
+
+---
+
+## POST /api/connectors/:id/test
+
+Test a connector's connectivity by sending a "hello" message and checking the response.
+
+### Response (200 OK)
+
+```json
+{
+  "success": true,
+  "latencyMs": 145,
+  "response": "Hello! How can I help you today?"
+}
+```
+
+### Response (200 OK - Test Failed)
+
+```json
+{
+  "success": false,
+  "latencyMs": 0,
+  "error": "Connection refused"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the test passed |
+| `latencyMs` | number | Response time in milliseconds |
+| `response` | string | Response message (on success) |
+| `error` | string | Error message (on failure) |
+
+### Example
+
+```bash
+curl -X POST http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789/test
+```
+
+---
+
+## POST /api/connectors/:id/invoke
+
+Invoke a connector by sending messages and receiving the assistant's response. This is used to send a conversation to an agent and get a response back.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `messages` | array | Yes | Array of message objects with `role` and `content` |
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "Hello, I need help with my order" },
+    { "role": "assistant", "content": "I'd be happy to help! What's your order number?" },
+    { "role": "user", "content": "It's #12345" }
+  ]
+}
+```
+
+### Response (200 OK)
+
+```json
+{
+  "success": true,
+  "latencyMs": 523,
+  "message": {
+    "role": "assistant",
+    "content": "I found order #12345. How can I assist you with it?"
+  }
+}
+```
+
+### Response (200 OK - Invoke Failed)
+
+```json
+{
+  "success": false,
+  "latencyMs": 145,
+  "rawResponse": "{\"error\": \"invalid_request\", \"message\": \"Missing required field\"}",
+  "error": "Failed to parse response: expected messages array"
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether the invoke succeeded |
+| `latencyMs` | number | Response time in milliseconds |
+| `message` | object | The assistant's response message (on success) |
+| `rawResponse` | string | Raw response body for debugging (on failure) |
+| `error` | string | Error message (on failure) |
+
+### Example
+
+```bash
+curl -X POST http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      { "role": "user", "content": "What is the weather like?" }
+    ]
+  }'
+```
