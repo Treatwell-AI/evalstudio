@@ -13,7 +13,7 @@ import {
   buildTestAgentSystemPrompt,
   buildTestAgentMessages,
   type BuildTestAgentPromptInput,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

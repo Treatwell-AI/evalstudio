@@ -23,7 +23,7 @@ Comprehensive command for implementing features from start to finish.
 - **Name** (kebab-case): ask if not provided
 - **Description**: brief one-liner
 - **Packages** (multi-select):
-  - [ ] `evalstudio` (core)
+  - [ ] `@evalstudio/core`
   - [ ] `@evalstudio/cli`
   - [ ] `@evalstudio/api`
   - [ ] `@evalstudio/web`
@@ -44,7 +44,7 @@ Write `.claude/current-feature.json`:
   "name": "feature-name",
   "description": "Brief description",
   "issue": "#123",
-  "packages": ["evalstudio", "@evalstudio/cli"],
+  "packages": ["@evalstudio/core", "@evalstudio/cli"],
   "startedAt": "2026-01-26T10:00:00Z",
   "checklist": {
     "specs": false,

@@ -441,7 +441,7 @@ import {
   getUserByEmail,
   verifyPassword,
   toPublicUser,
-} from "evalstudio";
+} from "@evalstudio/core";
 import { createSession, deleteSession } from "../sessions.js";
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
@@ -546,7 +546,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 // packages/api/src/routes/users.ts
 
 import { FastifyInstance } from "fastify";
-import { createUser, listUsers, toPublicUser, deleteUser } from "evalstudio";
+import { createUser, listUsers, toPublicUser, deleteUser } from "@evalstudio/core";
 
 export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 

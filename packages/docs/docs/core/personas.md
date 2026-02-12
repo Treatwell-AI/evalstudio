@@ -20,7 +20,7 @@ import {
   type Persona,
   type CreatePersonaInput,
   type UpdatePersonaInput,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

@@ -32,7 +32,7 @@ evalstudio status
 
 | Package            | Description                       |
 | ------------------ | --------------------------------- |
-| `evalstudio`       | Core evaluation engine (required) |
+| `@evalstudio/core` | Core evaluation engine (required) |
 | `@evalstudio/cli`  | Command-line interface            |
 | `@evalstudio/api`  | REST API server with WebSocket    |
 | `@evalstudio/web`  | React-based Web UI                |
@@ -67,7 +67,7 @@ curl http://localhost:3000/status
 
 **Programmatic:**
 ```typescript
-import { getStatus } from "evalstudio";
+import { getStatus } from "@evalstudio/core";
 
 const status = getStatus();
 console.log(status);

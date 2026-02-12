@@ -24,7 +24,7 @@ import {
   type UpdateLLMProviderInput,
   type ProviderType,
   type LLMProviderConfig,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

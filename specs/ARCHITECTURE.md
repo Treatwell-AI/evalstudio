@@ -68,15 +68,15 @@ Storage Options (all via Core adapters):
 
 **Package Dependencies:**
 
-- `evalstudio` (core): No dependencies on other packages (standalone)
-- `@evalstudio/cli`: Depends on `evalstudio` core
-- `@evalstudio/api`: Depends on `evalstudio` core
+- `@evalstudio/core`: No dependencies on other packages (standalone)
+- `@evalstudio/cli`: Depends on `@evalstudio/core`
+- `@evalstudio/api`: Depends on `@evalstudio/core`
 - `@evalstudio/web`: Depends on `@evalstudio/api` (API client)
 - `@evalstudio/docs`: Documentation site (independent)
 
 **Key Architectural Decisions:**
 
-1. **Core is King**: The `evalstudio` core package contains ALL business logic for:
+1. **Core is King**: The `@evalstudio/core` package contains ALL business logic for:
    - Test execution
    - Connector system
    - Evaluator implementations
@@ -194,7 +194,7 @@ interface EvaluatorResult {
 - Build System: Turborepo (for efficient builds across packages)
 - Shared TypeScript config and tooling across workspaces
 
-**Package: `evalstudio` (Core Engine)**
+**Package: `@evalstudio/core` (Core Engine)**
 
 - Runtime: Node.js 20+ with TypeScript
 - LLM Client: Native fetch() to OpenAI and Anthropic APIs
@@ -208,7 +208,7 @@ interface EvaluatorResult {
   - InMemoryExecutor: Sequential execution, no dependencies (default)
   - WorkerThreadExecutor: Parallel via Node.js worker threads
 - Testing: Vitest
-- Published as: `evalstudio` on npm
+- Published as: `@evalstudio/core` on npm
 
 **Package: `@evalstudio/cli`**
 

@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { getStatus } from "evalstudio";
+import { getStatus } from "@evalstudio/core";
 
 export const statusCommand = new Command("status")
   .description("Show EvalStudio status")

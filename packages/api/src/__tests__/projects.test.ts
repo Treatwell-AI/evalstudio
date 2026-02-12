@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { resetStorageDir, setStorageDir } from "evalstudio";
+import { resetStorageDir, setStorageDir } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
 let testDir: string;

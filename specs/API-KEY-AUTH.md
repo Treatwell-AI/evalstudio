@@ -339,7 +339,7 @@ export {
 // packages/api/src/middleware/auth.ts
 
 import { FastifyRequest, FastifyReply } from "fastify";
-import { validateApiKey } from "evalstudio";
+import { validateApiKey } from "@evalstudio/core";
 
 const PUBLIC_ROUTES = [
   "/status",           // Health check
@@ -413,7 +413,7 @@ Optional endpoints for managing API keys via the API (all protected):
 // packages/api/src/routes/api-keys.ts
 
 import { FastifyInstance } from "fastify";
-import { listApiKeys, deleteApiKey } from "evalstudio";
+import { listApiKeys, deleteApiKey } from "@evalstudio/core";
 
 export async function apiKeysRoutes(fastify: FastifyInstance): Promise<void> {
   // PROTECTED: List all keys (metadata only, no hashes)
@@ -459,7 +459,7 @@ import {
   listApiKeys,
   deleteApiKey,
   getApiKey,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 export const apiKeyCommand = new Command("api-key")
   .description("Manage API keys for authentication");

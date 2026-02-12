@@ -34,16 +34,16 @@ pnpm clean
 
 ```bash
 # Work on a specific package
-pnpm --filter evalstudio build
+pnpm --filter @evalstudio/core build
 pnpm --filter @evalstudio/cli test
 pnpm --filter @evalstudio/api dev
 pnpm --filter @evalstudio/web build
 
 # Run a single test file
-pnpm --filter evalstudio test run-processor.test.ts
+pnpm --filter @evalstudio/core test run-processor.test.ts
 
 # Watch mode for tests
-pnpm --filter evalstudio test:watch
+pnpm --filter @evalstudio/core test:watch
 ```
 
 ### Starting the Stack
@@ -77,7 +77,7 @@ evalstudio status
 ### Package Structure & Dependencies
 
 ```
-evalstudio (core)                    ← Core evaluation engine (standalone)
+@evalstudio/core                     ← Core evaluation engine (standalone)
     ↑
     ├── @evalstudio/cli              ← Command-line interface
     ├── @evalstudio/api              ← REST API server (Fastify)
@@ -86,7 +86,7 @@ evalstudio (core)                    ← Core evaluation engine (standalone)
     └── @evalstudio/docs             ← Documentation (independent)
 ```
 
-**Critical Design Principle**: All business logic lives in `evalstudio` (core). The CLI and API are thin wrappers that provide interfaces (terminal vs HTTP) but delegate all evaluation logic to core. This ensures identical behavior across all interfaces.
+**Critical Design Principle**: All business logic lives in `@evalstudio/core`. The CLI and API are thin wrappers that provide interfaces (terminal vs HTTP) but delegate all evaluation logic to core. This ensures identical behavior across all interfaces.
 
 ### Domain Model (Core Entities)
 
@@ -171,7 +171,7 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 
 ## Tech Stack Details
 
-### Core (`evalstudio`)
+### Core (`@evalstudio/core`)
 
 - Runtime: Node.js 20+, TypeScript 5.7+, ESM modules
 - LLM: Native fetch() to OpenAI and Anthropic APIs (via shared llm-client.ts)
@@ -181,7 +181,7 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 ### CLI (`@evalstudio/cli`)
 
 - Framework: Commander.js
-- Published as: `evalstudio` npm package (includes core)
+- Published as: `@evalstudio/cli` npm package (depends on `@evalstudio/core`)
 
 ### API (`@evalstudio/api`)
 
@@ -252,13 +252,13 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 pnpm test
 
 # Specific package
-pnpm --filter evalstudio test
+pnpm --filter @evalstudio/core test
 
 # Watch mode
-pnpm --filter evalstudio test:watch
+pnpm --filter @evalstudio/core test:watch
 
 # Single test file
-pnpm --filter evalstudio test run-processor.test.ts
+pnpm --filter @evalstudio/core test run-processor.test.ts
 ```
 
 ### Test Location

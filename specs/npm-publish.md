@@ -17,29 +17,25 @@ Two packages ship to npm. The rest stay as internal workspace packages.
 
 | Package | npm name | Published? | Why |
 |---------|----------|------------|-----|
-| Core | `evalstudio` | **Yes** | Library — `npm install evalstudio` for programmatic use |
+| Core | `@evalstudio/core` | **Yes** | Library — `npm install @evalstudio/core` for programmatic use |
 | CLI | `@evalstudio/cli` | **Yes** | CLI binary — `npm install -g @evalstudio/cli` for the `evalstudio` command |
 | API | `@evalstudio/api` | No (private) | Internal. Embedded in CLI via `evalstudio serve` |
 | Web | `@evalstudio/web` | No (private) | Internal. Built assets ship inside CLI as static files |
 | Docs | `@evalstudio/docs` | No (private) | Deployed as a website, not an npm package |
 
-### No package renames
-
-All packages keep their current names. No import churn, no re-export shims.
-
-| Package dir | npm name | Change |
-|-------------|----------|--------|
-| `packages/core` | `evalstudio` | No change |
-| `packages/cli` | `@evalstudio/cli` | No change |
-| `packages/api` | `@evalstudio/api` | No change (add `"private": true`) |
-| `packages/web` | `@evalstudio/web` | No change (already private) |
-| `packages/docs` | `@evalstudio/docs` | No change (already private) |
+| Package dir | npm name | Published? |
+|-------------|----------|------------|
+| `packages/core` | `@evalstudio/core` | Yes |
+| `packages/cli` | `@evalstudio/cli` | Yes |
+| `packages/api` | `@evalstudio/api` | No (private) |
+| `packages/web` | `@evalstudio/web` | No (private) |
+| `packages/docs` | `@evalstudio/docs` | No (private) |
 
 ### Why two published packages
 
-The core library (`evalstudio`) and CLI (`@evalstudio/cli`) serve different audiences:
+The core library (`@evalstudio/core`) and CLI (`@evalstudio/cli`) serve different audiences:
 
-- **`evalstudio`** — for developers who want the evaluation engine as a library: `import { createProject, executeEval } from "evalstudio"`
+- **`@evalstudio/core`** — for developers who want the evaluation engine as a library: `import { createProject, executeEval } from "@evalstudio/core"`
 - **`@evalstudio/cli`** — for users who want the CLI and web UI: `npm install -g @evalstudio/cli && evalstudio serve`
 
 The CLI depends on core as a regular npm dependency — no bundling tricks needed. The CLI also depends on `@evalstudio/api` (private), which does need bundling (see below).
@@ -61,12 +57,12 @@ evalstudio serve
 npx @evalstudio/cli serve
 
 # Library: programmatic use only
-npm install evalstudio
+npm install @evalstudio/core
 ```
 
 ```typescript
 // Library usage — clean, no wrappers
-import { createProject, listRuns, executeEval } from "evalstudio";
+import { createProject, listRuns, executeEval } from "@evalstudio/core";
 ```
 
 The CLI `bin` field maps to the `evalstudio` command regardless of the package name:
@@ -99,19 +95,20 @@ The org provides:
 
 ```jsonc
 {
-  "name": "evalstudio",
+  "name": "@evalstudio/core",
   "version": "0.1.0",
   // ... existing fields unchanged ...
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": ["eval", "evaluation", "testing", "chatbot", "ai", "llm"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropics/evalstudio.git",
+    "url": "https://github.com/Treatwell-AI/evalstudio.git",
     "directory": "packages/core"
   }
 }
 ```
-
-No `publishConfig.access` needed — unscoped packages are public by default.
 
 ### `packages/cli/package.json` (add publish metadata + bundleDependencies)
 
@@ -130,7 +127,7 @@ No `publishConfig.access` needed — unscoped packages are public by default.
     "directory": "packages/cli"
   },
   "dependencies": {
-    "evalstudio": "workspace:*",
+    "@evalstudio/core": "workspace:*",
     "@evalstudio/api": "workspace:*",
     "commander": "^13.0.0"
   },
@@ -157,7 +154,7 @@ Already `"private": true`. No changes needed.
 
 When `@evalstudio/cli` is published, pnpm replaces `workspace:*` with real versions:
 
-- `"evalstudio": "workspace:*"` → `"evalstudio": "^0.1.0"` — **works**, core exists on npm
+- `"@evalstudio/core": "workspace:*"` → `"@evalstudio/core": "^0.1.0"` — **works**, core exists on npm
 - `"@evalstudio/api": "workspace:*"` → `"@evalstudio/api": "^0.1.0"` — **fails**, API is private
 
 ### Solution: `bundleDependencies`
@@ -170,7 +167,7 @@ When `@evalstudio/cli` is published, pnpm replaces `workspace:*` with real versi
 
 This tells npm/pnpm to include `@evalstudio/api` inside the published tarball rather than resolving it from the registry. The API code ships inside the CLI package as a nested dependency.
 
-Only `@evalstudio/api` needs bundling. `evalstudio` (core) is a normal npm dependency that resolves from the registry.
+Only `@evalstudio/api` needs bundling. `@evalstudio/core` is a normal npm dependency that resolves from the registry.
 
 ### What the published tarball looks like
 
@@ -185,7 +182,7 @@ Only `@evalstudio/api` needs bundling. `evalstudio` (core) is a normal npm depen
     package.json
 ```
 
-Core (`evalstudio`) is NOT in the tarball — it's resolved from npm at install time, like any other dependency. This means core can be updated independently and deduplicated across the dependency tree.
+Core (`@evalstudio/core`) is NOT in the tarball — it's resolved from npm at install time, like any other dependency. This means core can be updated independently and deduplicated across the dependency tree.
 
 ## Version Management
 
@@ -194,7 +191,7 @@ Core (`evalstudio`) is NOT in the tarball — it's resolved from npm at install 
 Both published packages share the same version number and are released together:
 
 ```
-evalstudio@0.1.0
+@evalstudio/core@0.1.0
 @evalstudio/cli@0.1.0
 ```
 
@@ -229,8 +226,8 @@ Workflow:
 
 pnpm's `workspace:*` protocol is automatically replaced during publish:
 
-- In development: `"evalstudio": "workspace:*"` resolves to the local package
-- When published: pnpm replaces it with `"evalstudio": "^0.1.0"` (the actual version)
+- In development: `"@evalstudio/core": "workspace:*"` resolves to the local package
+- When published: pnpm replaces it with `"@evalstudio/core": "^0.1.0"` (the actual version)
 
 This happens automatically — no manual version pinning needed.
 
@@ -290,7 +287,7 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter evalstudio publish --no-git-checks
+      - run: pnpm --filter @evalstudio/core publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
@@ -379,7 +376,7 @@ This adds a verified badge on npmjs.com showing the package was built from a spe
 1. **Create npm org** — manual step on npmjs.com
 2. **Mark API as private** — add `"private": true` to `@evalstudio/api`
 3. **Add `bundleDependencies`** — so `@evalstudio/api` ships inside CLI tarball
-4. **Add package metadata** — `publishConfig`, `repository`, `keywords`
+4. **Add package metadata** — `publishConfig.access: "public"`, `repository`, `keywords`
 5. **Add CI workflow** — GitHub Actions for validation
 6. **Add publish workflow** — GitHub Actions for automated releases
 7. **First publish** — bump version, push tag, npm publish

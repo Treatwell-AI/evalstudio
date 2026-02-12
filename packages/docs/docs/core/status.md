@@ -9,7 +9,7 @@ Check the status of the EvalStudio core library, including version and environme
 ## Import
 
 ```typescript
-import { getStatus, type Status } from "evalstudio";
+import { getStatus, type Status } from "@evalstudio/core";
 ```
 
 ## Types

@@ -34,7 +34,7 @@ import {
   type RunProcessorOptions,
   type CriteriaEvaluationResult,
   type GeneratePersonaMessageResult,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

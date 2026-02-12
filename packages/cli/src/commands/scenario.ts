@@ -13,7 +13,7 @@ import {
   listScenarios,
   updateScenario,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 function loadMessagesFromFile(filePath: string): Message[] {
   try {

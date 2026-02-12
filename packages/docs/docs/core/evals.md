@@ -23,7 +23,7 @@ import {
   type CreateEvalInput,
   type UpdateEvalInput,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

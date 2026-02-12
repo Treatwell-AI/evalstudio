@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { RunProcessor } from "evalstudio";
+import { RunProcessor } from "@evalstudio/core";
 import { connectorsRoute } from "./routes/connectors.js";
 import { evalsRoute } from "./routes/evals.js";
 import { llmProvidersRoute } from "./routes/llm-providers.js";

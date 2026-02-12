@@ -7,7 +7,7 @@ import {
   listEvals,
   updateEval,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateEvalBody {
   projectId: string;

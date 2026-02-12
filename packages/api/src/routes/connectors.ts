@@ -12,7 +12,7 @@ import {
   type ConnectorConfig,
   type ConnectorType,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateConnectorBody {
   projectId: string;

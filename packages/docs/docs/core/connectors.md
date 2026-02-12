@@ -32,7 +32,7 @@ import {
   type ConnectorInvokeInput,
   type ConnectorInvokeResult,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

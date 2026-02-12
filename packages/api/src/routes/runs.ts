@@ -14,7 +14,7 @@ import {
   type RunResult,
   type RunMetadata,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateRunBody {
   evalId: string;

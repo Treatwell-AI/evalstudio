@@ -11,7 +11,7 @@ import {
   updateConnector,
   type AuthType,
   type ConnectorType,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 function resolveProject(identifier: string) {
   return getProject(identifier) ?? getProjectByName(identifier);

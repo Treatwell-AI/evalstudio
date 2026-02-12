@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { initLocalProject } from "evalstudio";
+import { initLocalProject } from "@evalstudio/core";
 
 export const initCommand = new Command("init")
   .description("Initialize a new EvalStudio project directory")

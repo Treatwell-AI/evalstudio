@@ -21,7 +21,7 @@ import {
   type CreateScenarioInput,
   type UpdateScenarioInput,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

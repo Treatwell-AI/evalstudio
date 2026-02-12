@@ -17,12 +17,12 @@ importers:
 
   packages/api:
     dependencies:
+      '@evalstudio/core':
+        specifier: workspace:*
+        version: link:../core
       '@fastify/static':
         specifier: ^9.0.0
         version: 9.0.0
-      evalstudio:
-        specifier: workspace:*
-        version: link:../core
       fastify:
         specifier: ^5.2.1
         version: 5.7.2
@@ -42,12 +42,12 @@ importers:
       '@evalstudio/api':
         specifier: workspace:*
         version: link:../api
+      '@evalstudio/core':
+        specifier: workspace:*
+        version: link:../core
       commander:
         specifier: ^13.0.0
         version: 13.1.0
-      evalstudio:
-        specifier: workspace:*
-        version: link:../core
     devDependencies:
       '@types/node':
         specifier: ^22.10.10

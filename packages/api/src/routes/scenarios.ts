@@ -10,7 +10,7 @@ import {
   updateScenario,
   type FailureCriteriaMode,
   type Message,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateScenarioBody {
   projectId: string;

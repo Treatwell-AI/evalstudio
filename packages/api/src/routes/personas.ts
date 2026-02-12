@@ -5,7 +5,7 @@ import {
   getPersona,
   listPersonas,
   updatePersona,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreatePersonaBody {
   projectId: string;

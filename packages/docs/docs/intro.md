@@ -20,7 +20,7 @@ EvalStudio is a flexible evaluation platform for testing chatbots, AI agents, an
 
 | Package | Description |
 |---------|-------------|
-| `evalstudio` | Core evaluation engine (required) |
+| `@evalstudio/core` | Core evaluation engine (required) |
 | `@evalstudio/cli` | Command-line interface |
 | `@evalstudio/api` | REST API server with WebSocket |
 | `@evalstudio/web` | React-based Web UI |

@@ -40,7 +40,7 @@ curl -X POST http://localhost:3000/api/runs/RUN_ID/retry`;
   createRun,
   RunProcessor,
   type Run,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 // Create a new run for the eval
 const run = createRun({
@@ -153,7 +153,7 @@ await processor.processOnce();
         {activeTab === "core" && (
           <div className="code-snippet-container">
             <div className="code-snippet-header">
-              <span className="code-snippet-label">evalstudio (TypeScript)</span>
+              <span className="code-snippet-label">@evalstudio/core (TypeScript)</span>
               <button
                 className="code-snippet-copy"
                 onClick={() => handleCopy(coreSnippet, "core")}

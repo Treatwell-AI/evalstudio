@@ -6,7 +6,7 @@ import {
   listProjects,
   updateProject,
   type ProjectLLMSettings,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateProjectBody {
   name: string;

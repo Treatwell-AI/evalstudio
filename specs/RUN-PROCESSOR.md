@@ -177,7 +177,7 @@ This ensures:
 The API server (`packages/api/src/index.ts`) starts the RunProcessor automatically:
 
 ```typescript
-import { RunProcessor } from "evalstudio";
+import { RunProcessor } from "@evalstudio/core";
 
 export interface ServerOptions {
   logger?: boolean;
@@ -240,7 +240,7 @@ export async function createServer(options: ServerOptions = {}) {
 The CLI (`packages/cli/src/commands/run.ts`) provides the `run process` command:
 
 ```typescript
-import { RunProcessor, listRuns, getProject } from "evalstudio";
+import { RunProcessor, listRuns, getProject } from "@evalstudio/core";
 
 new Command("process")
   .description("Process queued runs")
@@ -323,7 +323,7 @@ import {
   RunProcessor,
   type RunProcessorOptions,
   type RunStatus,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 // Create processor
 const processor = new RunProcessor({

@@ -9,7 +9,7 @@ import {
   updateLLMProvider,
   type LLMProviderConfig,
   type ProviderType,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 interface CreateLLMProviderBody {
   projectId: string;

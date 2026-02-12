@@ -217,7 +217,7 @@ Account
 ### Standalone Core Usage (Programmatic)
 
 ```typescript
-import { EvalStudio, HttpConnector, ExactMatchEvaluator } from "evalstudio";
+import { EvalStudio, HttpConnector, ExactMatchEvaluator } from "@evalstudio/core";
 
 const studio = new EvalStudio({
   storage: "filesystem",

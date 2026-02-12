@@ -9,7 +9,7 @@ import {
   listProjects,
   updateProject,
   type ProjectLLMSettings,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 export const projectCommand = new Command("project")
   .description("Manage projects")

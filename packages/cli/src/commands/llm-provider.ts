@@ -10,7 +10,7 @@ import {
   listLLMProviders,
   updateLLMProvider,
   type ProviderType,
-} from "evalstudio";
+} from "@evalstudio/core";
 
 function resolveProject(identifier: string) {
   return getProject(identifier) ?? getProjectByName(identifier);

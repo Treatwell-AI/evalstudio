@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@fastify/static": "^9.0.0",
-    "evalstudio": "workspace:*",
+    "@evalstudio/core": "workspace:*",
     "fastify": "^5.2.1"
   },
   "devDependencies": {

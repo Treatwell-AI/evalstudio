@@ -19,7 +19,7 @@ import {
   type Project,
   type CreateProjectInput,
   type UpdateProjectInput,
-} from "evalstudio";
+} from "@evalstudio/core";
 ```
 
 ## Types

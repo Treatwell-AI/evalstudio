@@ -198,10 +198,10 @@ evalstudio (core)
 
 ```json
 {
-  "name": "evalstudio",
+  "name": "@evalstudio/cli",
   "files": ["dist", "web-dist"],
   "dependencies": {
-    "evalstudio": "workspace:*",
+    "@evalstudio/core": "workspace:*",
     "@evalstudio/api": "workspace:*",
     "commander": "^13.1.0"
   }

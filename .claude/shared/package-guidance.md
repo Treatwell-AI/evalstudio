@@ -6,7 +6,7 @@
 
 ---
 
-## Core Package (`evalstudio`)
+## Core Package (`@evalstudio/core`)
 
 **Types & Interfaces:**
 - Define types in `packages/core/src/types/`

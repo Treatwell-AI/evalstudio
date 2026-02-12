@@ -35,7 +35,7 @@ Bump the version across all packages in the monorepo.
    pnpm -r exec npm version <version> --no-git-tag-version
    ```
    This updates:
-   - `packages/core/package.json` (evalstudio)
+   - `packages/core/package.json` (@evalstudio/core)
    - `packages/cli/package.json` (@evalstudio/cli)
    - `packages/api/package.json` (@evalstudio/api)
    - `packages/web/package.json` (@evalstudio/web)
@@ -59,7 +59,7 @@ Bump the version across all packages in the monorepo.
    Version bumped: 0.0.1 → 0.1.0
 
    Updated packages:
-     ✓ evalstudio
+     ✓ @evalstudio/core
      ✓ @evalstudio/cli
      ✓ @evalstudio/api
      ✓ @evalstudio/web
