@@ -11,6 +11,15 @@
       "import": "./dist/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": ["eval", "evaluation", "testing", "api", "fastify"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Treatwell-AI/evalstudio.git",
+    "directory": "packages/api"
+  },
   "files": [
     "dist"
   ],

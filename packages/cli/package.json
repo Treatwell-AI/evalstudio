@@ -8,6 +8,9 @@
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "web-dist"
@@ -21,6 +24,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "clean": "rm -rf dist web-dist"
+  },
+  "keywords": ["eval", "evaluation", "testing", "chatbot", "ai", "llm", "cli"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Treatwell-AI/evalstudio.git",
+    "directory": "packages/cli"
   },
   "dependencies": {
     "evalstudio": "workspace:*",
