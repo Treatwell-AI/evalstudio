@@ -1,6 +1,6 @@
 {
   "name": "@evalstudio/api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "REST API server for EvalStudio",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "keywords": ["eval", "evaluation", "testing", "api", "fastify"],
+  "keywords": [
+    "eval",
+    "evaluation",
+    "testing",
+    "api",
+    "fastify"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Treatwell-AI/evalstudio.git",

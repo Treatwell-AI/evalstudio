@@ -1,6 +1,6 @@
 {
   "name": "@evalstudio/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Command-line interface for EvalStudio",
   "type": "module",
   "bin": {
@@ -25,7 +25,15 @@
     "lint": "eslint src",
     "clean": "rm -rf dist web-dist"
   },
-  "keywords": ["eval", "evaluation", "testing", "chatbot", "ai", "llm", "cli"],
+  "keywords": [
+    "eval",
+    "evaluation",
+    "testing",
+    "chatbot",
+    "ai",
+    "llm",
+    "cli"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Treatwell-AI/evalstudio.git",

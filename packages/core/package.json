@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Core evaluation engine for testing chatbots, AI agents, and REST APIs",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,14 @@
       "import": "./dist/index.js"
     }
   },
-  "keywords": ["eval", "evaluation", "testing", "chatbot", "ai", "llm"],
+  "keywords": [
+    "eval",
+    "evaluation",
+    "testing",
+    "chatbot",
+    "ai",
+    "llm"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/Treatwell-AI/evalstudio.git",
