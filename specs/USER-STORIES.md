@@ -106,6 +106,7 @@
 
 [x] As a developer, I want the core package to have minimal dependencies so that install times are fast and the package is lightweight
 [x] As a user, I want to start the API server and web UI with a single `evalstudio serve` command so that I don't need to run separate processes
+[x] As a user, I want documentation automatically deployed to GitHub Pages so that I can always access up-to-date docs online
 
 ### Integrations
 

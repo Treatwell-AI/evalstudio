@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **GitHub Pages deployment** - GitHub Actions workflow to deploy Docusaurus docs automatically
+  - Deploys on push to `main` when `packages/docs/**` changes
+  - Manual trigger via `workflow_dispatch`
+  - Docs available at `https://Treatwell-AI.github.io/evalstudio/`
+
+### Changed
+
+- Updated Docusaurus config for GitHub Pages (`baseUrl: /evalstudio/`, org: `Treatwell-AI`)
+- Fixed GitHub repository link in docs navbar
+
+---
+
+## [0.2.0]
+
+### Changed
+
+- **BREAKING**: Renamed core package from `evalstudio` to `@evalstudio/core`
+  - All imports updated from `from "evalstudio"` to `from "@evalstudio/core"`
+  - Added `publishConfig.access: "public"` for scoped npm publishing
+  - All packages now consistently use `@evalstudio/*` scope
+
+---
+
+## [0.1.0]
+
+### Added
+
 - **`evalstudio serve` command** - Single-process server for API + Web UI
   - CLI: New `serve` command with `--port`, `--no-web`, `--no-processor`, `--open` flags
   - CLI: Web UI dist embedded in CLI package via `postbuild` script
