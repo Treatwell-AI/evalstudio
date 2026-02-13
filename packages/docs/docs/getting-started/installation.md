@@ -32,16 +32,17 @@ pnpm build
 
 ## Configuration
 
-### Storage Directory
+### Project Directory
 
-EvalStudio resolves the storage directory in this order:
+EvalStudio uses a single-project model: one directory = one project. A project is defined by the presence of an `evalstudio.config.json` file, with data stored in a `data/` subdirectory.
 
-1. `setStorageDir()` — programmatic override (for tests or embedding)
-2. `EVALSTUDIO_STORAGE_DIR` — environment variable
-3. **Local project** — walks up from `cwd` looking for `evalstudio.config.json`, uses `.evalstudio/` next to it
-4. `~/.evalstudio/` — global default
+EvalStudio resolves the project directory in this order:
 
-To create a local project directory:
+1. `setProjectDir()` -- programmatic override (for tests or embedding)
+2. `EVALSTUDIO_PROJECT_DIR` -- environment variable
+3. **Local project** -- walks up from `cwd` looking for `evalstudio.config.json`, uses `data/` next to it
+
+To create a new project directory:
 
 ```bash
 evalstudio init my-evals
@@ -51,7 +52,7 @@ cd my-evals
 To override with an environment variable:
 
 ```bash
-export EVALSTUDIO_STORAGE_DIR=/path/to/storage
+export EVALSTUDIO_PROJECT_DIR=/path/to/project
 evalstudio status
 ```
 

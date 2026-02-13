@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProjectLayout } from "./components/ProjectLayout";
 import { StatusBar } from "./components/StatusBar";
-import { HomePage } from "./pages/HomePage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EvalsPage } from "./pages/EvalsPage";
 import { EvalDetailPage } from "./pages/EvalDetailPage";
@@ -17,8 +16,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/project/:projectId" element={<ProjectLayout />}>
+        <Route element={<ProjectLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="evals" element={<EvalsPage />} />
           <Route path="evals/:evalId" element={<EvalDetailPage />} />

@@ -4,15 +4,9 @@ import {
   deletePersona,
   getPersona,
   getPersonaByName,
-  getProject,
-  getProjectByName,
   listPersonas,
   updatePersona,
 } from "@evalstudio/core";
-
-function resolveProject(identifier: string) {
-  return getProject(identifier) ?? getProjectByName(identifier);
-}
 
 export const personaCommand = new Command("persona")
   .description("Manage personas for testing scenarios")
@@ -20,7 +14,6 @@ export const personaCommand = new Command("persona")
     new Command("create")
       .description("Create a new persona")
       .argument("<name>", "Persona name")
-      .requiredOption("-p, --project <project>", "Project ID or name")
       .option("-d, --description <description>", "Persona description")
       .option("-s, --system-prompt <prompt>", "System prompt for this persona")
       .option("--json", "Output as JSON")
@@ -28,21 +21,13 @@ export const personaCommand = new Command("persona")
         (
           name: string,
           options: {
-            project: string;
             description?: string;
             systemPrompt?: string;
             json?: boolean;
           }
         ) => {
           try {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-
             const persona = createPersona({
-              projectId: project.id,
               name,
               description: options.description,
               systemPrompt: options.systemPrompt,
@@ -54,7 +39,6 @@ export const personaCommand = new Command("persona")
               console.log(`Persona created successfully`);
               console.log(`  ID:          ${persona.id}`);
               console.log(`  Name:        ${persona.name}`);
-              console.log(`  Project:     ${project.name}`);
               if (persona.description) {
                 console.log(`  Description: ${persona.description}`);
               }
@@ -76,21 +60,9 @@ export const personaCommand = new Command("persona")
   .addCommand(
     new Command("list")
       .description("List personas")
-      .option("-p, --project <project>", "Filter by project ID or name")
       .option("--json", "Output as JSON")
-      .action((options: { project?: string; json?: boolean }) => {
-        let projectId: string | undefined;
-
-        if (options.project) {
-          const project = resolveProject(options.project);
-          if (!project) {
-            console.error(`Error: Project "${options.project}" not found`);
-            process.exit(1);
-          }
-          projectId = project.id;
-        }
-
-        const personas = listPersonas(projectId);
+      .action((options: { json?: boolean }) => {
+        const personas = listPersonas();
 
         if (options.json) {
           console.log(JSON.stringify(personas, null, 2));
@@ -103,11 +75,7 @@ export const personaCommand = new Command("persona")
           console.log("Personas:");
           console.log("---------");
           for (const persona of personas) {
-            const project = getProject(persona.projectId);
             console.log(`  ${persona.name} (${persona.id})`);
-            if (project) {
-              console.log(`    Project: ${project.name}`);
-            }
             if (persona.description) {
               console.log(`    ${persona.description}`);
             }
@@ -118,29 +86,19 @@ export const personaCommand = new Command("persona")
   .addCommand(
     new Command("show")
       .description("Show persona details")
-      .argument("<identifier>", "Persona ID")
-      .option("-p, --project <project>", "Project ID or name (for lookup by name)")
+      .argument("<identifier>", "Persona ID or name")
       .option("--json", "Output as JSON")
       .action(
         (
           identifier: string,
-          options: { project?: string; json?: boolean }
+          options: { json?: boolean }
         ) => {
-          let persona = getPersona(identifier);
-
-          if (!persona && options.project) {
-            const project = resolveProject(options.project);
-            if (project) {
-              persona = getPersonaByName(project.id, identifier);
-            }
-          }
+          const persona = getPersona(identifier) ?? getPersonaByName(identifier);
 
           if (!persona) {
             console.error(`Error: Persona "${identifier}" not found`);
             process.exit(1);
           }
-
-          const project = getProject(persona.projectId);
 
           if (options.json) {
             console.log(JSON.stringify(persona, null, 2));
@@ -149,7 +107,6 @@ export const personaCommand = new Command("persona")
             console.log(`---------`);
             console.log(`  ID:          ${persona.id}`);
             console.log(`  Name:        ${persona.name}`);
-            console.log(`  Project:     ${project?.name ?? persona.projectId}`);
             if (persona.description) {
               console.log(`  Description: ${persona.description}`);
             }
@@ -199,15 +156,12 @@ export const personaCommand = new Command("persona")
               process.exit(1);
             }
 
-            const project = getProject(updated.projectId);
-
             if (options.json) {
               console.log(JSON.stringify(updated, null, 2));
             } else {
               console.log(`Persona updated successfully`);
               console.log(`  ID:          ${updated.id}`);
               console.log(`  Name:        ${updated.name}`);
-              console.log(`  Project:     ${project?.name ?? updated.projectId}`);
               if (updated.description) {
                 console.log(`  Description: ${updated.description}`);
               }

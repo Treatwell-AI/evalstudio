@@ -1,15 +1,10 @@
 import { useRef, useState } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ScenarioList } from "../components/ScenarioList";
 import { useCreateScenario } from "../hooks/useScenarios";
-import { CreateScenarioInput, Project } from "../lib/api";
-
-interface ProjectContext {
-  project: Project;
-}
+import { CreateScenarioInput } from "../lib/api";
 
 export function ScenariosPage() {
-  const { project } = useOutletContext<ProjectContext>();
   const navigate = useNavigate();
   const createScenario = useCreateScenario();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,12 +30,11 @@ export function ScenariosPage() {
 
     try {
       const scenario = await createScenario.mutateAsync({
-        projectId: project.id,
         name: name.trim(),
       });
       setShowCreateModal(false);
       setName("");
-      navigate(`/project/${project.id}/scenarios/${scenario.id}`);
+      navigate(`/scenarios/${scenario.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
@@ -81,7 +75,6 @@ export function ScenariosPage() {
         }
 
         const input: CreateScenarioInput = {
-          projectId: project.id,
           name: parsed.name,
           instructions: typeof parsed.instructions === "string" ? parsed.instructions : undefined,
           messages: Array.isArray(parsed.messages) ? parsed.messages : undefined,
@@ -249,7 +242,6 @@ export function ScenariosPage() {
       )}
 
       <ScenarioList
-        projectId={project.id}
         selectMode={selectMode}
         onExitSelectMode={() => setSelectMode(false)}
       />

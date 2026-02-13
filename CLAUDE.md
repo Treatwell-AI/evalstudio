@@ -90,10 +90,10 @@ evalstudio status
 
 ### Domain Model (Core Entities)
 
-The domain follows this hierarchy:
+A project is defined by an `evalstudio.config.json` file in a directory (one folder = one project). The domain follows this hierarchy:
 
 ```
-Project (workspace)
+Project (defined by evalstudio.config.json in a directory)
   ├── LLMProvider (OpenAI/Anthropic config for evaluation/generation)
   ├── Connector (HTTP/LangGraph endpoint configuration)
   ├── Persona (test user description, e.g., "frustrated customer")
@@ -105,6 +105,7 @@ Project (workspace)
 
 **Key Concepts**:
 
+- **Project**: Not a stored entity -- defined by the presence of `evalstudio.config.json` in a directory. Project settings (name, LLM config, observability) live in this config file.
 - **Eval**: Combines one or more scenarios with criteria. Each scenario can specify which personas to use.
 - **Execution**: Groups all runs created together (e.g., running an eval with 3 scenarios × 2 personas = 6 runs share the same executionId)
 - **Run**: Represents a single scenario/persona combination test. Contains the conversation messages, connector response, and evaluation result.
@@ -134,10 +135,10 @@ interface ConnectorResponse {
 
 ### Storage
 
-- **Location**: JSON files in `~/.evalstudio/` (configured via `getStorageDir()`)
-- **Format**: One JSON file per entity type (projects.json, personas.json, scenarios.json, evals.json, runs.json, executions.json)
+- **Location**: JSON files in `data/` inside the project directory (configured via `getProjectDir()`)
+- **Format**: One JSON file per entity type (personas.json, scenarios.json, evals.json, runs.json, executions.json)
 - **Design**: Git-friendly, human-readable, works seamlessly across CLI/API/Web
-- **Access**: All CRUD operations go through `packages/core/src/*.ts` modules (e.g., `project.ts`, `persona.ts`, `eval.ts`, `run.ts`)
+- **Access**: All CRUD operations go through `packages/core/src/*.ts` modules (e.g., `persona.ts`, `eval.ts`, `run.ts`)
 
 ### Evaluation Flow
 
@@ -188,7 +189,7 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 - Framework: Fastify 5
 - WebSocket: For real-time run status updates (future)
 - Port: 3000 (default, configurable via `EVALSTUDIO_PORT` env var)
-- Routes: All endpoints under `/api` prefix (e.g., `/api/projects`, `/api/runs`)
+- Routes: All endpoints under `/api` prefix (e.g., `/api/project`, `/api/runs`)
 
 ### Web (`@evalstudio/web`)
 
@@ -210,7 +211,7 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 
 ### Core Package (`packages/core/src/`)
 
-- `project.ts` - Project CRUD
+- `project.ts` - Project config management (reads/writes `evalstudio.config.json`)
 - `persona.ts` - Persona CRUD
 - `scenario.ts` - Scenario CRUD
 - `eval.ts` - Eval CRUD
@@ -223,7 +224,7 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 - `evaluator.ts` - Evaluation logic (LLM-as-judge, criteria)
 - `persona-generator.ts` - Generate persona messages with LLM
 - `prompt.ts` - System prompt building for test agents
-- `storage.ts` - Storage directory management
+- `storage.ts` - Project directory management
 - `types.ts` - Shared types (Message, ToolCall, etc.)
 
 ### CLI Package (`packages/cli/src/`)
@@ -320,13 +321,13 @@ This project includes custom Claude Code skills (invoked with `/skillname`):
 ### File Paths
 
 - Always use `.js` extensions in imports (ESM requirement), even though source files are `.ts`
-- Example: `import { getProject } from "./project.js";`
+- Example: `import { getPersona } from "./persona.js";`
 
-### Storage Directory
+### Project Directory
 
-- Default: `~/.evalstudio/`
-- Override: `setStorageDir(path)` or `EVALSTUDIO_STORAGE_DIR` env var
-- Reset: `resetStorageDir()` (useful in tests)
+- Default: walks up from `cwd` looking for `evalstudio.config.json`, uses `data/` next to it
+- Override: `setProjectDir(path)` or `EVALSTUDIO_PROJECT_DIR` env var
+- Reset: `resetProjectDir()` (useful in tests)
 
 ### Module Resolution
 
@@ -342,9 +343,8 @@ This project includes custom Claude Code skills (invoked with `/skillname`):
 
 ### Data Consistency
 
-- When deleting a project, cascade delete all related entities (personas, scenarios, evals, runs, executions)
 - Runs reference evalId, scenarioId, personaId, connectorId - validate these exist before creating
-- executionId is auto-increment per project, groups runs created in batch
+- executionId is auto-increment, groups runs created in batch
 
 ## Recent Changes
 
@@ -352,9 +352,14 @@ This project includes custom Claude Code skills (invoked with `/skillname`):
   - Replaced with direct `fetch()` calls to OpenAI and Anthropic APIs via shared `llm-client.ts`
   - Removed `zod` — core package now has zero production dependencies
 - Added observability configuration for Langfuse and LangSmith tracing
-  - Project-level observability settings
+  - Project-level observability settings in `evalstudio.config.json`
   - Automatic callback injection for LLM calls (evaluation and persona generation)
   - CLI commands, API endpoints, and Web UI settings page
+- Switched to single-project mode: one directory = one project
+  - Project defined by `evalstudio.config.json` in a directory
+  - Data stored in `data/` subdirectory (replaces `~/.evalstudio/`)
+  - Removed `projectId` from all entities
+  - `EVALSTUDIO_PROJECT_DIR` env var replaces `EVALSTUDIO_STORAGE_DIR`
 - Removed unused fields from connectors and evals (ioMode, responseFormat, agentVersion)
 - All connectors now use message-based format only
 - executionId is now automatically assigned to group related runs

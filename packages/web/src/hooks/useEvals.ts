@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreateEvalInput, UpdateEvalInput } from "../lib/api";
 
-export function useEvals(projectId?: string) {
+export function useEvals() {
   return useQuery({
-    queryKey: ["evals", projectId],
-    queryFn: () => api.evals.list(projectId),
+    queryKey: ["evals"],
+    queryFn: () => api.evals.list(),
   });
 }
 
@@ -21,11 +21,8 @@ export function useCreateEval() {
 
   return useMutation({
     mutationFn: (input: CreateEvalInput) => api.evals.create(input),
-    onSuccess: (evalItem) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["evals"] });
-      queryClient.invalidateQueries({
-        queryKey: ["evals", evalItem.projectId],
-      });
     },
   });
 }

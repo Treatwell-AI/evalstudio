@@ -13,14 +13,13 @@ export function ScenarioCodeSnippets({ scenario }: ScenarioCodeSnippetsProps) {
   const [copiedApi, setCopiedApi] = useState(false);
 
   const cliSnippet = `# List all scenarios
-evalstudio scenario list --project ${scenario.projectId}
+evalstudio scenario list
 
 # Show this scenario
 evalstudio scenario show ${scenario.id}
 
 # Create a new scenario
 evalstudio scenario create \\
-  --project ${scenario.projectId} \\
   --name "New Scenario" \\
   --instructions "Customer wants to..." \\
   --max-messages 10 \\
@@ -36,8 +35,8 @@ evalstudio scenario update ${scenario.id} \\
 # Delete this scenario
 evalstudio scenario delete ${scenario.id}`;
 
-  const apiSnippet = `# List all scenarios for the project
-curl "http://localhost:3000/api/scenarios?projectId=${scenario.projectId}"
+  const apiSnippet = `# List all scenarios
+curl "http://localhost:3000/api/scenarios"
 
 # Get this scenario
 curl "http://localhost:3000/api/scenarios/${scenario.id}"
@@ -46,7 +45,6 @@ curl "http://localhost:3000/api/scenarios/${scenario.id}"
 curl -X POST http://localhost:3000/api/scenarios \\
   -H "Content-Type: application/json" \\
   -d '{
-    "projectId": "${scenario.projectId}",
     "name": "New Scenario",
     "instructions": "Customer wants to...",
     "maxMessages": 10,

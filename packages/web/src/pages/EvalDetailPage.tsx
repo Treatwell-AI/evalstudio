@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useOutletContext, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEval, useUpdateEval, useDeleteEval } from "../hooks/useEvals";
 import { useScenarios } from "../hooks/useScenarios";
 import { useConnectors } from "../hooks/useConnectors";
@@ -8,18 +8,13 @@ import { RunList } from "../components/RunList";
 import { CreateRunDialog } from "../components/CreateRunDialog";
 import { EvalCodeSnippets } from "../components/EvalCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
-import { Project, EvalWithRelations } from "../lib/api";
+import { EvalWithRelations } from "../lib/api";
 
 type EvalTab = "runs" | "code";
 type ViewMode = "time" | "execution";
 
-interface ProjectContext {
-  project: Project;
-}
-
 export function EvalDetailPage() {
   const navigate = useNavigate();
-  const { project } = useOutletContext<ProjectContext>();
   const { evalId } = useParams<{ evalId: string }>();
   const { data: evalItem, isLoading, error } = useEval(evalId ?? null, true);
   const updateEval = useUpdateEval();
@@ -30,8 +25,8 @@ export function EvalDetailPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("time");
 
   // Load related data for dropdowns
-  const { data: scenarios = [] } = useScenarios(project.id);
-  const { data: connectors = [] } = useConnectors(project.id);
+  const { data: scenarios = [] } = useScenarios();
+  const { data: connectors = [] } = useConnectors();
 
   // Load runs for performance chart
   const { data: runs = [] } = useRunsByEval(evalId ?? "");
@@ -64,7 +59,7 @@ export function EvalDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Eval not found"}
         </div>
-        <Link to={`/project/${project.id}/evals`} className="btn btn-secondary">
+        <Link to="/evals" className="btn btn-secondary">
           Back to Evals
         </Link>
       </div>
@@ -89,7 +84,7 @@ export function EvalDetailPage() {
     const displayName = getDisplayName();
     if (confirm(`Delete eval "${displayName}"? This will also delete all associated runs.`)) {
       await deleteEval.mutateAsync(evalWithRelations.id);
-      navigate(`/project/${project.id}/evals`);
+      navigate("/evals");
     }
   };
 
@@ -148,7 +143,7 @@ export function EvalDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to={`/project/${project.id}/evals`}
+            to="/evals"
             className="back-link"
           >
             ← Back to Evals
@@ -335,7 +330,7 @@ export function EvalDetailPage() {
         </div>
 
         {activeTab === "runs" && (
-          <RunList evalId={evalWithRelations.id} projectId={project.id} />
+          <RunList evalId={evalWithRelations.id} />
         )}
 
         {activeTab === "code" && (
@@ -346,7 +341,6 @@ export function EvalDetailPage() {
       {showCreateRunDialog && (
         <CreateRunDialog
           evalId={evalWithRelations.id}
-          projectId={project.id}
           onClose={() => setShowCreateRunDialog(false)}
         />
       )}

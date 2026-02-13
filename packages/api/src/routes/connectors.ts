@@ -15,7 +15,6 @@ import {
 } from "@evalstudio/core";
 
 interface CreateConnectorBody {
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -37,17 +36,10 @@ interface ConnectorParams {
   id: string;
 }
 
-interface ConnectorQuerystring {
-  projectId?: string;
-}
-
 export async function connectorsRoute(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: ConnectorQuerystring }>(
-    "/connectors",
-    async (request) => {
-      return listConnectors(request.query.projectId);
-    }
-  );
+  fastify.get("/connectors", async () => {
+    return listConnectors();
+  });
 
   fastify.get("/connectors/types", async () => {
     return getConnectorTypes();
@@ -70,12 +62,7 @@ export async function connectorsRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateConnectorBody }>(
     "/connectors",
     async (request, reply) => {
-      const { projectId, name, type, baseUrl, authType, authValue, config } = request.body;
-
-      if (!projectId) {
-        reply.code(400);
-        return { error: "Project ID is required" };
-      }
+      const { name, type, baseUrl, authType, authValue, config } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -94,7 +81,6 @@ export async function connectorsRoute(fastify: FastifyInstance) {
 
       try {
         const connector = createConnector({
-          projectId,
           name,
           type,
           baseUrl,
@@ -106,11 +92,7 @@ export async function connectorsRoute(fastify: FastifyInstance) {
         return connector;
       } catch (error) {
         if (error instanceof Error) {
-          if (error.message.includes("not found")) {
-            reply.code(404);
-          } else {
-            reply.code(409);
-          }
+          reply.code(409);
           return { error: error.message };
         }
         throw error;

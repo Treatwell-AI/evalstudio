@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: Removed `Project` entity and `projectId` from all entities
+  - A project is now defined by the presence of `evalstudio.config.json` in a directory (one folder = one project)
+  - All entities (persona, scenario, eval, connector, llm-provider, run, execution) no longer carry `projectId`
+  - Storage moved from `~/.evalstudio/` global directory to `data/` inside the project directory
+  - `EVALSTUDIO_PROJECT_DIR` environment variable to point to a project directory
+  - API routes: `/api/projects` replaced with `/api/project` (singular, config-based)
+  - CLI: Removed `-p, --project` flag from all commands; commands operate on the current project
+  - Web UI: Removed project selector/list; app loads directly into the dashboard
+  - RunProcessor gracefully handles missing project (skips tick instead of crashing)
+  - Centralized "no project found" error with `ERR_NO_PROJECT` code and helpful message across CLI, API, and web
+
 ### Added
 
 - **GitHub Pages deployment** - GitHub Actions workflow to deploy Docusaurus docs automatically

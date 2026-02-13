@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useOutletContext, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { usePersona, useUpdatePersona, useDeletePersona } from "../hooks/usePersonas";
 import { useRunsByPersona } from "../hooks/useRuns";
-import { Project } from "../lib/api";
 import { RunList } from "../components/RunList";
 import { PersonaCodeSnippets } from "../components/PersonaCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
@@ -10,13 +9,8 @@ import { PerformanceChart } from "../components/PerformanceChart";
 type PersonaTab = "runs" | "code";
 type ViewMode = "time" | "execution";
 
-interface ProjectContext {
-  project: Project;
-}
-
 export function PersonaDetailPage() {
   const navigate = useNavigate();
-  const { project } = useOutletContext<ProjectContext>();
   const { personaId } = useParams<{ personaId: string }>();
   const { data: persona, isLoading, error } = usePersona(personaId ?? null);
   const updatePersona = useUpdatePersona();
@@ -63,7 +57,7 @@ export function PersonaDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Persona not found"}
         </div>
-        <Link to={`/project/${project.id}/personas`} className="btn btn-secondary">
+        <Link to="/personas" className="btn btn-secondary">
           Back to Personas
         </Link>
       </div>
@@ -74,7 +68,7 @@ export function PersonaDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete persona "${persona.name}"?`)) {
       await deletePersona.mutateAsync(persona.id);
-      navigate(`/project/${project.id}/personas`);
+      navigate("/personas");
     }
   };
 
@@ -114,7 +108,7 @@ export function PersonaDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to={`/project/${project.id}/personas`}
+            to="/personas"
             className="back-link"
           >
             ← Back to Personas
@@ -273,7 +267,7 @@ export function PersonaDetailPage() {
         </div>
 
         {activeTab === "runs" && (
-          <RunList personaId={persona.id} projectId={project.id} />
+          <RunList personaId={persona.id} />
         )}
 
         {activeTab === "code" && (

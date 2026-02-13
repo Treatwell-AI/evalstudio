@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { RunProcessor } from "@evalstudio/core";
+import { ERR_NO_PROJECT, RunProcessor } from "@evalstudio/core";
 import { connectorsRoute } from "./routes/connectors.js";
 import { evalsRoute } from "./routes/evals.js";
 import { llmProvidersRoute } from "./routes/llm-providers.js";
@@ -30,6 +30,15 @@ let runProcessor: RunProcessor | null = null;
 export async function createServer(options: ServerOptions = {}) {
   const fastify = Fastify({
     logger: options.logger ?? false,
+  });
+
+  // Handle "no project found" errors with a helpful message
+  fastify.setErrorHandler((error: Error & { statusCode?: number; code?: string }, _request, reply) => {
+    if (error.code === ERR_NO_PROJECT) {
+      reply.code(503).send({ error: error.message });
+      return;
+    }
+    reply.code(error.statusCode ?? 500).send({ error: error.message });
   });
 
   // Register all API routes under /api prefix

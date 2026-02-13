@@ -6,11 +6,11 @@ import { evalCommand } from "./commands/eval.js";
 import { initCommand } from "./commands/init.js";
 import { llmProviderCommand } from "./commands/llm-provider.js";
 import { personaCommand } from "./commands/persona.js";
-import { projectCommand } from "./commands/project.js";
 import { runCommand } from "./commands/run.js";
 import { scenarioCommand } from "./commands/scenario.js";
 import { serveCommand } from "./commands/serve.js";
 import { statusCommand } from "./commands/status.js";
+import { ERR_NO_PROJECT } from "@evalstudio/core";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version: string };
@@ -27,10 +27,16 @@ program.addCommand(connectorCommand);
 program.addCommand(evalCommand);
 program.addCommand(llmProviderCommand);
 program.addCommand(personaCommand);
-program.addCommand(projectCommand);
 program.addCommand(runCommand);
 program.addCommand(scenarioCommand);
 program.addCommand(serveCommand);
 program.addCommand(statusCommand);
 
-program.parse();
+program.parseAsync().catch((err: Error) => {
+  if ((err as NodeJS.ErrnoException).code === ERR_NO_PROJECT) {
+    console.error(`\n${err.message}\n`);
+    process.exit(1);
+  }
+  console.error(err.message || err);
+  process.exit(1);
+});

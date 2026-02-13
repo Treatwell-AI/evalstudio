@@ -5,7 +5,6 @@ import {
 } from "./connector.js";
 import { getLLMProvider } from "./llm-provider.js";
 import { getPersona, type Persona } from "./persona.js";
-import { getProject } from "./project.js";
 import { getScenario, type Scenario } from "./scenario.js";
 import {
   getRun,
@@ -15,6 +14,7 @@ import {
   type RunStatus,
   type RunResult,
 } from "./run.js";
+import { ERR_NO_PROJECT, readProjectConfig } from "./storage.js";
 import type { Message } from "./types.js";
 import { buildTestAgentSystemPrompt } from "./prompt.js";
 import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";
@@ -37,8 +37,6 @@ export interface RunProcessorOptions {
   pollIntervalMs?: number;
   /** Maximum concurrent run executions (default: 3) */
   maxConcurrent?: number;
-  /** Filter runs by project ID (optional) */
-  projectId?: string;
   /** Callback for status changes */
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   /** Callback when a run starts */
@@ -52,7 +50,6 @@ export interface RunProcessorOptions {
 interface InternalOptions {
   pollIntervalMs: number;
   maxConcurrent: number;
-  projectId?: string;
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   onRunStart?: (run: Run) => void;
   onRunComplete?: (run: Run, result: ConnectorInvokeResult) => void;
@@ -95,7 +92,6 @@ export class RunProcessor {
     this.options = {
       pollIntervalMs: options.pollIntervalMs ?? 5000,
       maxConcurrent: options.maxConcurrent ?? 3,
-      projectId: options.projectId,
       onStatusChange: options.onStatusChange,
       onRunStart: options.onRunStart,
       onRunComplete: options.onRunComplete,
@@ -173,12 +169,17 @@ export class RunProcessor {
     const availableSlots = this.options.maxConcurrent - this.activeRuns.size;
     if (availableSlots <= 0) return 0;
 
-    // Get queued runs (filtered by project if specified)
-    const queuedRuns = listRuns({
-      status: "queued",
-      projectId: this.options.projectId,
-      limit: availableSlots,
-    });
+    // Get queued runs (skip gracefully if no project configured yet)
+    let queuedRuns: ReturnType<typeof listRuns>;
+    try {
+      queuedRuns = listRuns({
+        status: "queued",
+        limit: availableSlots,
+      });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === ERR_NO_PROJECT) return 0;
+      throw err;
+    }
 
     let started = 0;
     const promises: Promise<void>[] = [];
@@ -274,14 +275,9 @@ export class RunProcessor {
         connectorId = currentRun.connectorId;
       }
 
-      // Get project for LLM settings
-      const project = getProject(currentRun.projectId);
-      if (!project) {
-        throw new Error(`Project not found: ${currentRun.projectId}`);
-      }
-
-      // Resolve LLM configuration from project settings
-      const projectSettings = project.llmSettings;
+      // Get project config for LLM settings
+      const config = readProjectConfig();
+      const projectSettings = config.llmSettings;
       const evaluationProviderId = projectSettings?.evaluation?.providerId;
       const evaluationModel = projectSettings?.evaluation?.model;
 
@@ -625,13 +621,17 @@ export class RunProcessor {
 
   /**
    * Recovers runs that were interrupted by server crash.
-   * Only recovers runs for this processor's project filter.
    */
   private recoverStuckRuns(): void {
-    const stuckRuns = listRuns({
-      status: "running",
-      projectId: this.options.projectId,
-    });
+    let stuckRuns: ReturnType<typeof listRuns>;
+    try {
+      stuckRuns = listRuns({
+        status: "running",
+      });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === ERR_NO_PROJECT) return;
+      throw err;
+    }
 
     for (const run of stuckRuns) {
       updateRun(run.id, { status: "queued" });

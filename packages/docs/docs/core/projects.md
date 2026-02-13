@@ -4,20 +4,53 @@ sidebar_position: 2
 
 # Projects
 
-Manage projects to organize different evaluation contexts (e.g., different products or teams).
+A project in EvalStudio is defined by a directory containing an `evalstudio.config.json` file. One directory = one project. There is no separate project entity to create or manage -- the config file **is** the project.
+
+## Project Structure
+
+When you run `evalstudio init`, a project directory is created with this structure:
+
+```
+my-evals/
+  evalstudio.config.json   # Project configuration (commit to git)
+  data/                    # Entity data storage
+    personas.json
+    scenarios.json
+    evals.json
+    runs.json
+    executions.json
+    connectors.json
+    llm-providers.json
+```
+
+## Configuration File
+
+The `evalstudio.config.json` file defines the project settings:
+
+```json
+{
+  "name": "my-product-evals",
+  "description": "Evaluations for my product",
+  "llmSettings": {
+    "evaluation": {
+      "providerId": "provider-uuid",
+      "model": "gpt-4o"
+    },
+    "persona": {
+      "providerId": "provider-uuid",
+      "model": "gpt-4o-mini"
+    }
+  }
+}
+```
 
 ## Import
 
 ```typescript
 import {
-  createProject,
   getProject,
-  getProjectByName,
-  listProjects,
   updateProject,
-  deleteProject,
   type Project,
-  type CreateProjectInput,
   type UpdateProjectInput,
 } from "@evalstudio/core";
 ```
@@ -28,12 +61,9 @@ import {
 
 ```typescript
 interface Project {
-  id: string;                        // Unique identifier (UUID)
-  name: string;                      // Project name (unique)
+  name: string;                      // Project name
   description?: string;              // Optional description
-  llmSettings?: ProjectLLMSettings;  // LLM configuration for the project
-  createdAt: string;                 // ISO 8601 timestamp
-  updatedAt: string;                 // ISO 8601 timestamp
+  llmSettings?: ProjectLLMSettings;  // LLM configuration
 }
 ```
 
@@ -56,16 +86,6 @@ interface ProjectLLMSettings {
 }
 ```
 
-### CreateProjectInput
-
-```typescript
-interface CreateProjectInput {
-  name: string;
-  description?: string;
-  llmSettings?: ProjectLLMSettings;
-}
-```
-
 ### UpdateProjectInput
 
 ```typescript
@@ -78,90 +98,47 @@ interface UpdateProjectInput {
 
 ## Functions
 
-### createProject()
-
-Creates a new project.
-
-```typescript
-function createProject(input: CreateProjectInput): Project;
-```
-
-**Throws**: Error if a project with the same name already exists.
-
-```typescript
-const project = createProject({
-  name: "my-product",
-  description: "Evaluations for my product",
-});
-```
-
 ### getProject()
 
-Gets a project by its ID.
+Reads the current project configuration from `evalstudio.config.json`.
 
 ```typescript
-function getProject(id: string): Project | undefined;
+function getProject(): Project;
 ```
 
 ```typescript
-const project = getProject("123e4567-e89b-12d3-a456-426614174000");
-```
-
-### getProjectByName()
-
-Gets a project by its name.
-
-```typescript
-function getProjectByName(name: string): Project | undefined;
-```
-
-```typescript
-const project = getProjectByName("my-product");
-```
-
-### listProjects()
-
-Lists all projects.
-
-```typescript
-function listProjects(): Project[];
-```
-
-```typescript
-const projects = listProjects();
-projects.forEach((p) => console.log(p.name));
+const project = getProject();
+console.log(project.name);  // "my-product-evals"
 ```
 
 ### updateProject()
 
-Updates an existing project.
+Updates the project configuration in `evalstudio.config.json`.
 
 ```typescript
-function updateProject(id: string, input: UpdateProjectInput): Project | undefined;
+function updateProject(input: UpdateProjectInput): Project;
 ```
 
-**Throws**: Error if updating to a name that already exists.
-
 ```typescript
-const updated = updateProject(project.id, {
+const updated = updateProject({
   description: "Updated description",
+  llmSettings: {
+    evaluation: {
+      providerId: "provider-uuid",
+      model: "gpt-4o",
+    },
+  },
 });
 ```
 
-### deleteProject()
+## Project Directory Resolution
 
-Deletes a project by its ID.
+EvalStudio resolves the project directory in this order:
 
-```typescript
-function deleteProject(id: string): boolean;
-```
-
-Returns `true` if the project was deleted, `false` if not found.
-
-```typescript
-const deleted = deleteProject(project.id);
-```
+1. `setProjectDir()` -- programmatic override (for tests or embedding)
+2. `EVALSTUDIO_PROJECT_DIR` -- environment variable
+3. **Local project** -- walks up from `cwd` looking for `evalstudio.config.json`
 
 ## Storage
 
-Projects are stored in `~/.evalstudio/projects.json`.
+All entity data (personas, scenarios, evals, runs, etc.) is stored as JSON files in the `data/` subdirectory of the project.

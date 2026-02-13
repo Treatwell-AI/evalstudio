@@ -12,7 +12,6 @@ import {
 } from "@evalstudio/core";
 
 interface CreateLLMProviderBody {
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -30,17 +29,10 @@ interface LLMProviderParams {
   id: string;
 }
 
-interface LLMProviderQuerystring {
-  projectId?: string;
-}
-
 export async function llmProvidersRoute(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: LLMProviderQuerystring }>(
-    "/llm-providers",
-    async (request) => {
-      return listLLMProviders(request.query.projectId);
-    }
-  );
+  fastify.get("/llm-providers", async () => {
+    return listLLMProviders();
+  });
 
   fastify.get("/llm-providers/models", async () => {
     return getDefaultModels();
@@ -84,12 +76,7 @@ export async function llmProvidersRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateLLMProviderBody }>(
     "/llm-providers",
     async (request, reply) => {
-      const { projectId, name, provider, apiKey, config } = request.body;
-
-      if (!projectId) {
-        reply.code(400);
-        return { error: "Project ID is required" };
-      }
+      const { name, provider, apiKey, config } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -108,7 +95,6 @@ export async function llmProvidersRoute(fastify: FastifyInstance) {
 
       try {
         const llmProvider = createLLMProvider({
-          projectId,
           name,
           provider,
           apiKey,
@@ -118,11 +104,7 @@ export async function llmProvidersRoute(fastify: FastifyInstance) {
         return llmProvider;
       } catch (error) {
         if (error instanceof Error) {
-          if (error.message.includes("not found")) {
-            reply.code(404);
-          } else {
-            reply.code(409);
-          }
+          reply.code(409);
           return { error: error.message };
         }
         throw error;

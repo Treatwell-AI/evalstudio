@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Personas
 
-Manage personas to simulate different user interactions during testing. Personas belong to a project and define a description and system prompt for test scenarios.
+Manage personas to simulate different user interactions during testing. Personas define a description and system prompt for test scenarios.
 
 ## Import
 
@@ -16,7 +16,6 @@ import {
   listPersonas,
   updatePersona,
   deletePersona,
-  deletePersonasByProject,
   type Persona,
   type CreatePersonaInput,
   type UpdatePersonaInput,
@@ -30,8 +29,7 @@ import {
 ```typescript
 interface Persona {
   id: string;            // Unique identifier (UUID)
-  projectId: string;     // Parent project ID
-  name: string;          // Persona name (unique within project)
+  name: string;          // Persona name (unique)
   description?: string;  // Short description of the persona
   systemPrompt?: string; // Full description / system prompt for this persona
   createdAt: string;     // ISO 8601 timestamp
@@ -43,7 +41,6 @@ interface Persona {
 
 ```typescript
 interface CreatePersonaInput {
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -64,17 +61,16 @@ interface UpdatePersonaInput {
 
 ### createPersona()
 
-Creates a new persona within a project.
+Creates a new persona.
 
 ```typescript
 function createPersona(input: CreatePersonaInput): Persona;
 ```
 
-**Throws**: Error if the project doesn't exist or if a persona with the same name already exists in the project.
+**Throws**: Error if a persona with the same name already exists.
 
 ```typescript
 const persona = createPersona({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "impatient-user",
   description: "A user who wants quick answers",
   systemPrompt: "You are an impatient user who values brevity and expects quick, concise responses.",
@@ -95,33 +91,26 @@ const persona = getPersona("987fcdeb-51a2-3bc4-d567-890123456789");
 
 ### getPersonaByName()
 
-Gets a persona by its name within a specific project.
+Gets a persona by its name.
 
 ```typescript
-function getPersonaByName(projectId: string, name: string): Persona | undefined;
+function getPersonaByName(name: string): Persona | undefined;
 ```
 
 ```typescript
-const persona = getPersonaByName(
-  "123e4567-e89b-12d3-a456-426614174000",
-  "impatient-user"
-);
+const persona = getPersonaByName("impatient-user");
 ```
 
 ### listPersonas()
 
-Lists personas, optionally filtered by project.
+Lists all personas in the project.
 
 ```typescript
-function listPersonas(projectId?: string): Persona[];
+function listPersonas(): Persona[];
 ```
 
 ```typescript
-// List all personas
 const allPersonas = listPersonas();
-
-// List personas for a specific project
-const projectPersonas = listPersonas("123e4567-e89b-12d3-a456-426614174000");
 ```
 
 ### updatePersona()
@@ -132,7 +121,7 @@ Updates an existing persona.
 function updatePersona(id: string, input: UpdatePersonaInput): Persona | undefined;
 ```
 
-**Throws**: Error if updating to a name that already exists in the project.
+**Throws**: Error if updating to a name that already exists.
 
 ```typescript
 const updated = updatePersona(persona.id, {
@@ -154,21 +143,6 @@ Returns `true` if the persona was deleted, `false` if not found.
 const deleted = deletePersona(persona.id);
 ```
 
-### deletePersonasByProject()
-
-Deletes all personas belonging to a project.
-
-```typescript
-function deletePersonasByProject(projectId: string): number;
-```
-
-Returns the number of personas deleted.
-
-```typescript
-const count = deletePersonasByProject("123e4567-e89b-12d3-a456-426614174000");
-console.log(`Deleted ${count} personas`);
-```
-
 ## Storage
 
-Personas are stored in `~/.evalstudio/personas.json`.
+Personas are stored in `data/personas.json` within the project directory.

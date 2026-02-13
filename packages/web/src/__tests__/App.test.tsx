@@ -18,18 +18,8 @@ function renderWithProviders(ui: React.ReactElement) {
 }
 
 describe("App", () => {
-  it("renders the header", () => {
+  it("renders the loading state", () => {
     renderWithProviders(<App />);
-    expect(screen.getByText("EvalStudio")).toBeInTheDocument();
-  });
-
-  it("renders Projects section", () => {
-    renderWithProviders(<App />);
-    expect(screen.getByText("Projects")).toBeInTheDocument();
-  });
-
-  it("renders New Project button", () => {
-    renderWithProviders(<App />);
-    expect(screen.getByText("+ New Project")).toBeInTheDocument();
+    expect(screen.getByText("Loading project...")).toBeInTheDocument();
   });
 });

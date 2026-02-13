@@ -13,7 +13,6 @@ import {
 } from "@evalstudio/core";
 
 interface CreateScenarioBody {
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -39,21 +38,14 @@ interface ScenarioParams {
   id: string;
 }
 
-interface ScenarioQuerystring {
-  projectId?: string;
-}
-
 interface ScenarioPromptQuerystring {
   personaId?: string;
 }
 
 export async function scenariosRoute(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: ScenarioQuerystring }>(
-    "/scenarios",
-    async (request) => {
-      return listScenarios(request.query.projectId);
-    }
-  );
+  fastify.get("/scenarios", async () => {
+    return listScenarios();
+  });
 
   fastify.get<{ Params: ScenarioParams }>(
     "/scenarios/:id",
@@ -105,12 +97,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateScenarioBody }>(
     "/scenarios",
     async (request, reply) => {
-      const { projectId, name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
-
-      if (!projectId) {
-        reply.code(400);
-        return { error: "Project ID is required" };
-      }
+      const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -119,7 +106,6 @@ export async function scenariosRoute(fastify: FastifyInstance) {
 
       try {
         const scenario = createScenario({
-          projectId,
           name,
           instructions,
           messages,
@@ -133,11 +119,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
         return scenario;
       } catch (error) {
         if (error instanceof Error) {
-          if (error.message.includes("not found")) {
-            reply.code(404);
-          } else {
-            reply.code(409);
-          }
+          reply.code(409);
           return { error: error.message };
         }
         throw error;

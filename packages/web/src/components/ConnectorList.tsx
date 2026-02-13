@@ -3,7 +3,6 @@ import { useConnectors, useTestConnector } from "../hooks/useConnectors";
 import { Connector, ConnectorTestResult } from "../lib/api";
 
 interface ConnectorListProps {
-  projectId: string;
   onEdit: (id: string) => void;
 }
 
@@ -25,8 +24,8 @@ function getTypeLabel(type: string): string {
   }
 }
 
-export function ConnectorList({ projectId, onEdit }: ConnectorListProps) {
-  const { data: connectors, isLoading, error } = useConnectors(projectId);
+export function ConnectorList({ onEdit }: ConnectorListProps) {
+  const { data: connectors, isLoading, error } = useConnectors();
   const testConnector = useTestConnector();
   const [testResults, setTestResults] = useState<Record<string, ConnectorTestResult | "testing">>({});
 

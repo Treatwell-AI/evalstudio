@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,11 +6,10 @@ import { createConnector } from "../connector.js";
 import { createEval } from "../eval.js";
 import { createLLMProvider } from "../llm-provider.js";
 import { createPersona } from "../persona.js";
-import { createProject, updateProject } from "../project.js";
 import { createRun, getRun, listRuns, updateRun } from "../run.js";
 import { RunProcessor } from "../run-processor.js";
 import { createScenario } from "../scenario.js";
-import { resetStorageDir, setStorageDir } from "../storage.js";
+import { resetStorageDir, setConfigDir, setStorageDir } from "../storage.js";
 
 // Mock the evaluator to return success on first evaluation
 vi.mock("../evaluator.js", () => ({
@@ -25,7 +24,6 @@ vi.mock("../evaluator.js", () => ({
 let testDir: string;
 
 describe("RunProcessor", () => {
-  let projectId: string;
   let scenarioId: string;
   let evalId: string;
   let connectorId: string;
@@ -36,53 +34,49 @@ describe("RunProcessor", () => {
   beforeAll(() => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-processor-test-"));
     setStorageDir(testDir);
+    setConfigDir(testDir);
 
-    // Create test fixtures
-    const project = createProject({ name: `processor-test-${Date.now()}` });
-    projectId = project.id;
-
-    createPersona({
-      projectId,
-      name: "Test Persona",
-      description: "A test persona",
-      systemPrompt: "You are a helpful test user.",
-    });
-
-    const scenario = createScenario({
-      projectId,
-      name: "Test Scenario",
-      instructions: "Test the greeting feature",
-      successCriteria: "The agent responds with a greeting",
-    });
-    scenarioId = scenario.id;
-
-    // Create connector BEFORE eval (connector is now required for evals)
-    const connector = createConnector({
-      projectId,
-      name: "Test Connector",
-      type: "http",
-      baseUrl: "https://api.example.com",
-    });
-    connectorId = connector.id;
-
-    // Create LLM provider (required for evaluation)
+    // Create LLM provider first (needed for config)
     const llmProvider = createLLMProvider({
-      projectId,
       name: "Test LLM Provider",
       provider: "openai",
       apiKey: "test-api-key",
     });
     llmProviderId = llmProvider.id;
 
-    // Configure project LLM settings (required for run processing)
-    updateProject(projectId, {
-      llmSettings: {
-        evaluation: { providerId: llmProviderId },
-      },
+    // Write project config with LLM settings
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({
+        version: 2,
+        name: "processor-test",
+        llmSettings: {
+          evaluation: { providerId: llmProviderId },
+        },
+      }, null, 2)
+    );
+
+    createPersona({
+      name: "Test Persona",
+      description: "A test persona",
+      systemPrompt: "You are a helpful test user.",
     });
 
+    const scenario = createScenario({
+      name: "Test Scenario",
+      instructions: "Test the greeting feature",
+      successCriteria: "The agent responds with a greeting",
+    });
+    scenarioId = scenario.id;
+
+    const connector = createConnector({
+      name: "Test Connector",
+      type: "http",
+      baseUrl: "https://api.example.com",
+    });
+    connectorId = connector.id;
+
     const evalItem = createEval({
-      projectId,
       name: "Test Eval",
       connectorId,
       scenarioIds: [scenarioId],
@@ -123,7 +117,6 @@ describe("RunProcessor", () => {
       const processor = new RunProcessor({
         pollIntervalMs: 1000,
         maxConcurrent: 5,
-        projectId: "test-project",
       });
       expect(processor.isRunning()).toBe(false);
     });
@@ -207,39 +200,6 @@ describe("RunProcessor", () => {
 
       // Should only start 2 due to maxConcurrent (processOnce processes one batch)
       expect(started).toBe(2);
-    });
-
-    it("filters by projectId when specified", async () => {
-      // Create run for a different project
-      const otherProject = createProject({ name: `other-project-${Date.now()}` });
-      const otherConnector = createConnector({
-        projectId: otherProject.id,
-        name: "Other Connector",
-        type: "http",
-        baseUrl: "https://other.api.com",
-      });
-      const otherScenario = createScenario({
-        projectId: otherProject.id,
-        name: "Other Scenario",
-      });
-      const otherEval = createEval({
-        projectId: otherProject.id,
-        name: "Other Eval",
-        connectorId: otherConnector.id,
-        scenarioIds: [otherScenario.id],
-        input: [],
-      });
-
-      createRun({ evalId: otherEval.id });
-      createRun({ evalId }); // Our project's run
-
-      const processor = new RunProcessor({ projectId });
-      const started = await processor.processOnce();
-
-      // Should only process the run from our project
-      expect(started).toBe(1);
-
-      await processor.stop();
     });
   });
 
@@ -353,9 +313,6 @@ describe("RunProcessor", () => {
       expect(updatedRun?.error).toContain("500");
     });
 
-    // Note: "marks run as failed when connector is missing" test was removed
-    // because connector is now required at eval creation time.
-
     it("processes run successfully when eval exists", async () => {
       const run = createRun({ evalId });
 
@@ -413,8 +370,6 @@ describe("RunProcessor", () => {
 
   describe("seed flow routing", () => {
     it("invokes connector when last seed message is from user", async () => {
-      // Default test setup has eval with input: [{ role: "user", content: "Hello" }]
-      // This is the standard case - connector should be invoked
       const run = createRun({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -436,13 +391,11 @@ describe("RunProcessor", () => {
       expect(updatedRun?.status).toBe("completed");
       expect(updatedRun?.messages.some((m) => m.role === "assistant")).toBe(true);
     });
-
   });
 });
 
 describe("listRuns with options", () => {
   let testDir: string;
-  let projectId: string;
   let evalId: string;
   let connectorId: string;
   let scenarioId: string;
@@ -451,18 +404,12 @@ describe("listRuns with options", () => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-listruns-test-"));
     setStorageDir(testDir);
 
-    const project = createProject({ name: `list-runs-test-${Date.now()}` });
-    projectId = project.id;
-
     const scenario = createScenario({
-      projectId,
       name: "List Test Scenario",
     });
     scenarioId = scenario.id;
 
-    // Create connector BEFORE eval (connector is now required for evals)
     const connector = createConnector({
-      projectId,
       name: "List Test Connector",
       type: "http",
       baseUrl: "https://api.example.com",
@@ -470,7 +417,6 @@ describe("listRuns with options", () => {
     connectorId = connector.id;
 
     const evalItem = createEval({
-      projectId,
       name: "List Test Eval",
       connectorId,
       scenarioIds: [scenarioId],
@@ -517,35 +463,6 @@ describe("listRuns with options", () => {
     expect(limited).toHaveLength(2);
   });
 
-  it("filters by projectId", () => {
-    const otherProject = createProject({ name: `other-${Date.now()}` });
-    const otherConnector = createConnector({
-      projectId: otherProject.id,
-      name: "Other",
-      type: "http",
-      baseUrl: "https://other.api.com",
-    });
-    const otherScenario = createScenario({
-      projectId: otherProject.id,
-      name: "Other Scenario",
-    });
-    const otherEval = createEval({
-      projectId: otherProject.id,
-      name: "Other Project Eval",
-      connectorId: otherConnector.id,
-      scenarioIds: [otherScenario.id],
-      input: [],
-    });
-
-    createRun({ evalId });
-    createRun({ evalId: otherEval.id });
-
-    const projectRuns = listRuns({ projectId });
-
-    expect(projectRuns).toHaveLength(1);
-    expect(projectRuns[0].projectId).toBe(projectId);
-  });
-
   it("combines multiple filters", () => {
     createRun({ evalId });
     const run2 = createRun({ evalId });
@@ -556,17 +473,5 @@ describe("listRuns with options", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].status).toBe("queued");
-  });
-
-  it("maintains backward compatibility with legacy API", () => {
-    createRun({ evalId });
-
-    const byEvalId = listRuns(evalId);
-    const byProjectId = listRuns(undefined, projectId);
-    const all = listRuns();
-
-    expect(byEvalId.length).toBeGreaterThan(0);
-    expect(byProjectId.length).toBeGreaterThan(0);
-    expect(all.length).toBeGreaterThan(0);
   });
 });

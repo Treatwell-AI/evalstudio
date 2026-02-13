@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # LLM Providers
 
-Manage LLM provider configurations for persona simulation and evaluation. LLM providers belong to a project and define the provider credentials used during eval execution.
+Manage LLM provider configurations for persona simulation and evaluation. LLM providers define the provider credentials used during eval execution.
 
 ## Import
 
@@ -16,7 +16,6 @@ import {
   listLLMProviders,
   updateLLMProvider,
   deleteLLMProvider,
-  deleteLLMProvidersByProject,
   getDefaultModels,
   fetchProviderModels,
   type LLMProvider,
@@ -48,8 +47,7 @@ interface LLMProviderConfig {
 ```typescript
 interface LLMProvider {
   id: string;              // Unique identifier (UUID)
-  projectId: string;       // Parent project ID
-  name: string;            // Provider name (unique within project)
+  name: string;            // Provider name (unique)
   provider: ProviderType;  // Provider type (openai or anthropic)
   apiKey: string;          // API key for the provider
   config?: LLMProviderConfig; // Optional configuration
@@ -62,7 +60,6 @@ interface LLMProvider {
 
 ```typescript
 interface CreateLLMProviderInput {
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -85,17 +82,16 @@ interface UpdateLLMProviderInput {
 
 ### createLLMProvider()
 
-Creates a new LLM provider within a project.
+Creates a new LLM provider.
 
 ```typescript
 function createLLMProvider(input: CreateLLMProviderInput): LLMProvider;
 ```
 
-**Throws**: Error if the project doesn't exist or if an LLM provider with the same name already exists in the project.
+**Throws**: Error if an LLM provider with the same name already exists.
 
 ```typescript
 const provider = createLLMProvider({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "Production OpenAI",
   provider: "openai",
   apiKey: "sk-your-api-key",
@@ -116,33 +112,26 @@ const provider = getLLMProvider("987fcdeb-51a2-3bc4-d567-890123456789");
 
 ### getLLMProviderByName()
 
-Gets an LLM provider by its name within a specific project.
+Gets an LLM provider by its name.
 
 ```typescript
-function getLLMProviderByName(projectId: string, name: string): LLMProvider | undefined;
+function getLLMProviderByName(name: string): LLMProvider | undefined;
 ```
 
 ```typescript
-const provider = getLLMProviderByName(
-  "123e4567-e89b-12d3-a456-426614174000",
-  "Production OpenAI"
-);
+const provider = getLLMProviderByName("Production OpenAI");
 ```
 
 ### listLLMProviders()
 
-Lists LLM providers, optionally filtered by project.
+Lists all LLM providers in the project.
 
 ```typescript
-function listLLMProviders(projectId?: string): LLMProvider[];
+function listLLMProviders(): LLMProvider[];
 ```
 
 ```typescript
-// List all providers
 const allProviders = listLLMProviders();
-
-// List providers for a specific project
-const projectProviders = listLLMProviders("123e4567-e89b-12d3-a456-426614174000");
 ```
 
 ### updateLLMProvider()
@@ -153,7 +142,7 @@ Updates an existing LLM provider.
 function updateLLMProvider(id: string, input: UpdateLLMProviderInput): LLMProvider | undefined;
 ```
 
-**Throws**: Error if updating to a name that already exists in the project.
+**Throws**: Error if updating to a name that already exists.
 
 ```typescript
 const updated = updateLLMProvider(provider.id, {
@@ -173,21 +162,6 @@ Returns `true` if the provider was deleted, `false` if not found.
 
 ```typescript
 const deleted = deleteLLMProvider(provider.id);
-```
-
-### deleteLLMProvidersByProject()
-
-Deletes all LLM providers belonging to a project.
-
-```typescript
-function deleteLLMProvidersByProject(projectId: string): number;
-```
-
-Returns the number of providers deleted.
-
-```typescript
-const count = deleteLLMProvidersByProject("123e4567-e89b-12d3-a456-426614174000");
-console.log(`Deleted ${count} providers`);
 ```
 
 ### getDefaultModels()
@@ -222,4 +196,4 @@ console.log(models);  // ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", ..
 
 ## Storage
 
-LLM providers are stored in `~/.evalstudio/llm-providers.json`.
+LLM providers are stored in `data/llm-providers.json` within the project directory.

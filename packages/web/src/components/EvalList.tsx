@@ -2,15 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { useEvals } from "../hooks/useEvals";
 import { useConnectors } from "../hooks/useConnectors";
 import { Eval } from "../lib/api";
-
-interface EvalListProps {
-  projectId: string;
-}
-
-export function EvalList({ projectId }: EvalListProps) {
+export function EvalList() {
   const navigate = useNavigate();
-  const { data: evals, isLoading, error } = useEvals(projectId);
-  const { data: connectors } = useConnectors(projectId);
+  const { data: evals, isLoading, error } = useEvals();
+  const { data: connectors } = useConnectors();
 
   const getConnector = (connectorId: string) => {
     if (!connectors) return null;
@@ -42,7 +37,7 @@ export function EvalList({ projectId }: EvalListProps) {
   }
 
   const handleCardClick = (evalId: string) => {
-    navigate(`/project/${projectId}/evals/${evalId}`);
+    navigate(`/evals/${evalId}`);
   };
 
   return (

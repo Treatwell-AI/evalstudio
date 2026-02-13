@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreatePlaygroundRunInput, CreateRunInput, Run, UpdateRunInput } from "../lib/api";
 
-export function useRuns(evalId?: string, projectId?: string) {
+export function useRuns(evalId?: string) {
   return useQuery({
-    queryKey: ["runs", { evalId, projectId }],
-    queryFn: () => api.runs.list(evalId, projectId),
+    queryKey: ["runs", { evalId }],
+    queryFn: () => api.runs.list(evalId),
   });
 }
 
@@ -21,7 +21,7 @@ export function useRunsByEval(evalId: string, options?: { refetchInterval?: numb
 export function useRunsByScenario(scenarioId: string, options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: ["runs", "byScenario", scenarioId],
-    queryFn: () => api.runs.list(undefined, undefined, scenarioId),
+    queryFn: () => api.runs.list(undefined, scenarioId),
     enabled: !!scenarioId,
     refetchInterval: options?.refetchInterval,
   });
@@ -30,17 +30,8 @@ export function useRunsByScenario(scenarioId: string, options?: { refetchInterva
 export function useRunsByPersona(personaId: string, options?: { refetchInterval?: number | false }) {
   return useQuery({
     queryKey: ["runs", "byPersona", personaId],
-    queryFn: () => api.runs.list(undefined, undefined, undefined, personaId),
+    queryFn: () => api.runs.list(undefined, undefined, personaId),
     enabled: !!personaId,
-    refetchInterval: options?.refetchInterval,
-  });
-}
-
-export function useRunsByProject(projectId: string, options?: { refetchInterval?: number | false }) {
-  return useQuery({
-    queryKey: ["runs", "byProject", projectId],
-    queryFn: () => api.runs.list(undefined, projectId),
-    enabled: !!projectId,
     refetchInterval: options?.refetchInterval,
   });
 }
@@ -60,7 +51,6 @@ export function useCreateRun() {
     mutationFn: (input: CreateRunInput) => api.runs.create(input),
     onSuccess: (runs) => {
       queryClient.invalidateQueries({ queryKey: ["runs"] });
-      // Invalidate for all eval IDs in the created runs
       const evalIds = new Set(runs.map((r) => r.evalId).filter(Boolean));
       for (const evalId of evalIds) {
         queryClient.invalidateQueries({
@@ -134,12 +124,8 @@ export function useRetryRun() {
   });
 }
 
-const POLLING_INTERVAL = 1000; // 1 second
+const POLLING_INTERVAL = 1000;
 
-/**
- * Hook that fetches a run and automatically polls for updates while it's in progress.
- * Returns the run data along with loading state.
- */
 export function usePollingRun(runId: string | null): {
   run: Run | undefined;
   isLoading: boolean;

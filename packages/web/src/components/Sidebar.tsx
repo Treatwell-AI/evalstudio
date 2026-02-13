@@ -1,25 +1,19 @@
 import { NavLink } from "react-router-dom";
 
 interface SidebarProps {
-  projectId: string;
   projectName: string;
 }
 
-export function Sidebar({ projectId, projectName }: SidebarProps) {
-  const baseUrl = `/project/${projectId}`;
-
+export function Sidebar({ projectName }: SidebarProps) {
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <NavLink to="/" className="sidebar-back">
-          &larr; Projects
-        </NavLink>
         <h2 className="sidebar-project-name">{projectName}</h2>
       </div>
 
       <nav className="sidebar-nav">
         <NavLink
-          to={baseUrl}
+          to="/"
           end
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
@@ -30,7 +24,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to={`${baseUrl}/evals`}
+          to="/evals"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -42,7 +36,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         <div className="sidebar-divider" />
 
         <NavLink
-          to={`${baseUrl}/scenarios`}
+          to="/scenarios"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -52,7 +46,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to={`${baseUrl}/personas`}
+          to="/personas"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -66,7 +60,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         <div className="sidebar-section-title">Settings</div>
 
         <NavLink
-          to={`${baseUrl}/settings/connectors`}
+          to="/settings/connectors"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }
@@ -75,7 +69,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to={`${baseUrl}/settings/llm-providers`}
+          to="/settings/llm-providers"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }
@@ -84,7 +78,7 @@ export function Sidebar({ projectId, projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to={`${baseUrl}/settings/users`}
+          to="/settings/users"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }

@@ -1,21 +1,23 @@
+import { basename } from "node:path";
 import { Command } from "commander";
 import { initLocalProject } from "@evalstudio/core";
 
 export const initCommand = new Command("init")
-  .description("Initialize a new EvalStudio project directory")
-  .argument("<name>", "Name of the directory to create")
+  .description("Initialize a new EvalStudio project in the current directory")
+  .argument("[name]", "Project name (defaults to directory name)")
   .option("--json", "Output as JSON")
-  .action((name: string, options: { json?: boolean }) => {
+  .action((name: string | undefined, options: { json?: boolean }) => {
     try {
-      const result = initLocalProject(process.cwd(), name);
+      const projectName = name ?? basename(process.cwd());
+      const result = initLocalProject(process.cwd(), projectName);
 
       if (options.json) {
         console.log(JSON.stringify(result, null, 2));
       } else {
         console.log(`Initialized EvalStudio project in ${result.projectDir}`);
         console.log();
-        console.log(`  cd ${name}`);
-        console.log(`  evalstudio project create --name "My Project"`);
+        console.log(`  evalstudio status`);
+        console.log(`  evalstudio serve`);
       }
     } catch (error) {
       if (error instanceof Error) {

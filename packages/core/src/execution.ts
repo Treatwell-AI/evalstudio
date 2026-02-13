@@ -9,8 +9,6 @@ import { getStorageDir } from "./storage.js";
 export interface Execution {
   /** Auto-increment integer ID (1, 2, 3, ...) */
   id: number;
-  /** The project this execution belongs to */
-  projectId: string;
   /** The eval that triggered this execution */
   evalId: string;
   /** When this execution was created */
@@ -18,7 +16,6 @@ export interface Execution {
 }
 
 export interface CreateExecutionInput {
-  projectId: string;
   evalId: string;
 }
 
@@ -41,15 +38,13 @@ function saveExecutions(executions: Execution[]): void {
 }
 
 /**
- * Get the next auto-increment ID for executions within a project.
- * Finds the maximum existing ID for the project and returns max + 1.
+ * Get the next auto-increment ID for executions.
  */
-function getNextId(executions: Execution[], projectId: string): number {
-  const projectExecutions = executions.filter((e) => e.projectId === projectId);
-  if (projectExecutions.length === 0) {
+function getNextId(executions: Execution[]): number {
+  if (executions.length === 0) {
     return 1;
   }
-  const maxId = Math.max(...projectExecutions.map((e) => e.id));
+  const maxId = Math.max(...executions.map((e) => e.id));
   return maxId + 1;
 }
 
@@ -61,8 +56,7 @@ export function createExecution(input: CreateExecutionInput): Execution {
   const now = new Date().toISOString();
 
   const execution: Execution = {
-    id: getNextId(executions, input.projectId),
-    projectId: input.projectId,
+    id: getNextId(executions),
     evalId: input.evalId,
     createdAt: now,
   };
@@ -88,13 +82,6 @@ export function listExecutions(evalId?: string): Execution[] {
   return executions.sort((a, b) => b.id - a.id);
 }
 
-export function listExecutionsByProject(projectId: string): Execution[] {
-  const executions = loadExecutions();
-  return executions
-    .filter((e) => e.projectId === projectId)
-    .sort((a, b) => b.id - a.id);
-}
-
 export function deleteExecution(id: number): boolean {
   const executions = loadExecutions();
   const index = executions.findIndex((e) => e.id === id);
@@ -112,18 +99,6 @@ export function deleteExecution(id: number): boolean {
 export function deleteExecutionsByEval(evalId: string): number {
   const executions = loadExecutions();
   const filtered = executions.filter((e) => e.evalId !== evalId);
-  const deletedCount = executions.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveExecutions(filtered);
-  }
-
-  return deletedCount;
-}
-
-export function deleteExecutionsByProject(projectId: string): number {
-  const executions = loadExecutions();
-  const filtered = executions.filter((e) => e.projectId !== projectId);
   const deletedCount = executions.length - filtered.length;
 
   if (deletedCount > 0) {

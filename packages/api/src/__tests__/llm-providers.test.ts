@@ -1,19 +1,23 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createProject, resetStorageDir, setStorageDir } from "@evalstudio/core";
+import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
 let testDir: string;
-let projectId: string;
 
 describe("llm-providers routes", () => {
   beforeAll(() => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    setStorageDir(testDir);
-    const project = createProject({ name: `test-project-${Date.now()}` });
-    projectId = project.id;
+    const storageDir = join(testDir, "data");
+    mkdirSync(storageDir, { recursive: true });
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({ version: 2, name: "test-project" })
+    );
+    setStorageDir(storageDir);
+    setConfigDir(testDir);
   });
 
   afterAll(() => {
@@ -24,14 +28,14 @@ describe("llm-providers routes", () => {
   });
 
   beforeEach(() => {
-    const storagePath = join(testDir, "llm-providers.json");
+    const storagePath = join(testDir, "data", "llm-providers.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
   });
 
   afterEach(() => {
-    const storagePath = join(testDir, "llm-providers.json");
+    const storagePath = join(testDir, "data", "llm-providers.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
@@ -59,7 +63,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "provider-1",
           provider: "openai",
           apiKey: "sk-test-1",
@@ -70,7 +73,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "provider-2",
           provider: "anthropic",
           apiKey: "sk-ant-test",
@@ -85,45 +87,6 @@ describe("llm-providers routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body).toHaveLength(2);
-
-      await server.close();
-    });
-
-    it("filters by projectId", async () => {
-      const server = await createServer();
-      const project2 = createProject({ name: `test-project-2-${Date.now()}` });
-
-      await server.inject({
-        method: "POST",
-        url: "/api/llm-providers",
-        payload: {
-          projectId,
-          name: "provider-1",
-          provider: "openai",
-          apiKey: "sk-test-1",
-        },
-      });
-
-      await server.inject({
-        method: "POST",
-        url: "/api/llm-providers",
-        payload: {
-          projectId: project2.id,
-          name: "provider-2",
-          provider: "anthropic",
-          apiKey: "sk-ant-test",
-        },
-      });
-
-      const response = await server.inject({
-        method: "GET",
-        url: `/api/llm-providers?projectId=${projectId}`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body).toHaveLength(1);
-      expect(body[0].name).toBe("provider-1");
 
       await server.close();
     });
@@ -157,7 +120,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "test-provider",
           provider: "openai",
           apiKey: "sk-test-key",
@@ -174,25 +136,6 @@ describe("llm-providers routes", () => {
       await server.close();
     });
 
-    it("returns 400 for missing projectId", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/llm-providers",
-        payload: {
-          name: "test-provider",
-          provider: "openai",
-          apiKey: "sk-test-key",
-        },
-      });
-
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body)).toEqual({ error: "Project ID is required" });
-
-      await server.close();
-    });
-
     it("returns 400 for missing name", async () => {
       const server = await createServer();
 
@@ -200,7 +143,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           provider: "openai",
           apiKey: "sk-test-key",
         },
@@ -219,7 +161,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "test-provider",
           apiKey: "sk-test-key",
         },
@@ -238,7 +179,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "test-provider",
           provider: "openai",
         },
@@ -250,33 +190,13 @@ describe("llm-providers routes", () => {
       await server.close();
     });
 
-    it("returns 404 for non-existent project", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/llm-providers",
-        payload: {
-          projectId: "non-existent",
-          name: "test-provider",
-          provider: "openai",
-          apiKey: "sk-test-key",
-        },
-      });
-
-      expect(response.statusCode).toBe(404);
-
-      await server.close();
-    });
-
-    it("returns 409 for duplicate name in same project", async () => {
+    it("returns 409 for duplicate name", async () => {
       const server = await createServer();
 
       await server.inject({
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "duplicate-name",
           provider: "openai",
           apiKey: "sk-test-key",
@@ -287,7 +207,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "duplicate-name",
           provider: "anthropic",
           apiKey: "sk-ant-test",
@@ -308,7 +227,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "test-provider",
           provider: "openai",
           apiKey: "sk-test-key",
@@ -349,7 +267,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "old-name",
           provider: "openai",
           apiKey: "sk-test-key",
@@ -391,7 +308,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "existing-name",
           provider: "openai",
           apiKey: "sk-test-1",
@@ -402,7 +318,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "to-be-updated",
           provider: "anthropic",
           apiKey: "sk-ant-test",
@@ -430,7 +345,6 @@ describe("llm-providers routes", () => {
         method: "POST",
         url: "/api/llm-providers",
         payload: {
-          projectId,
           name: "test-provider",
           provider: "openai",
           apiKey: "sk-test-key",

@@ -37,7 +37,6 @@ export interface Run {
   id: string;
   /** Eval ID (optional for playground runs) */
   evalId?: string;
-  projectId: string;
   personaId?: string;
   scenarioId: string;
   /** Connector ID (for playground runs without eval) */
@@ -140,7 +139,6 @@ export function createRuns(input: CreateRunInput): Run[] {
 
   // Create an execution to group all runs created in this batch
   const execution = createExecution({
-    projectId: evalItem.projectId,
     evalId: input.evalId,
   });
 
@@ -156,7 +154,6 @@ export function createRuns(input: CreateRunInput): Run[] {
       const run: Run = {
         id: randomUUID(),
         evalId: input.evalId,
-        projectId: evalItem.projectId,
         personaId,
         scenarioId: scenario.id,
         executionId: execution.id,
@@ -213,7 +210,6 @@ export function createPlaygroundRun(input: CreatePlaygroundRunInput): Run {
   const run: Run = {
     id: randomUUID(),
     // No evalId for playground runs
-    projectId: scenario.projectId,
     scenarioId,
     connectorId,
     personaId,
@@ -236,32 +232,26 @@ export function getRun(id: string): Run | undefined {
 
 export interface ListRunsOptions {
   evalId?: string;
-  projectId?: string;
   scenarioId?: string;
   status?: RunStatus;
   limit?: number;
 }
 
 export function listRuns(options?: ListRunsOptions): Run[];
-export function listRuns(evalId?: string, projectId?: string): Run[];
+export function listRuns(evalId?: string): Run[];
 export function listRuns(
   evalIdOrOptions?: string | ListRunsOptions,
-  projectId?: string
 ): Run[] {
   const runs = loadRuns();
 
   // Handle new object-based API
   if (typeof evalIdOrOptions === "object" && evalIdOrOptions !== null) {
-    const { evalId, projectId, scenarioId, status, limit } = evalIdOrOptions;
+    const { evalId, scenarioId, status, limit } = evalIdOrOptions;
 
     let filtered = runs;
 
     if (evalId) {
       filtered = filtered.filter((r) => r.evalId === evalId);
-    }
-
-    if (projectId) {
-      filtered = filtered.filter((r) => r.projectId === projectId);
     }
 
     if (scenarioId) {
@@ -290,10 +280,6 @@ export function listRuns(
 
   if (evalId) {
     return runs.filter((r) => r.evalId === evalId);
-  }
-
-  if (projectId) {
-    return runs.filter((r) => r.projectId === projectId);
   }
 
   return runs;
@@ -377,18 +363,6 @@ export function deleteRun(id: string): boolean {
 export function deleteRunsByEval(evalId: string): number {
   const runs = loadRuns();
   const filtered = runs.filter((r) => r.evalId !== evalId);
-  const deletedCount = runs.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveRuns(filtered);
-  }
-
-  return deletedCount;
-}
-
-export function deleteRunsByProject(projectId: string): number {
-  const runs = loadRuns();
-  const filtered = runs.filter((r) => r.projectId !== projectId);
   const deletedCount = runs.length - filtered.length;
 
   if (deletedCount > 0) {

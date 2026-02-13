@@ -18,26 +18,14 @@ export interface ProjectLLMSettings {
   persona?: LLMUseCaseSettings;
 }
 
-export interface Project {
-  id: string;
+export interface ProjectConfig {
+  version: number;
   name: string;
-  description?: string;
-  /** Default LLM settings for the project */
-  llmSettings?: ProjectLLMSettings;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateProjectInput {
-  name: string;
-  description?: string;
   llmSettings?: ProjectLLMSettings;
 }
 
-export interface UpdateProjectInput {
+export interface UpdateProjectConfigInput {
   name?: string;
-  description?: string;
-  /** Set to null to clear LLM settings */
   llmSettings?: ProjectLLMSettings | null;
 }
 
@@ -51,7 +39,6 @@ export interface Status {
 
 export interface Persona {
   id: string;
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -60,7 +47,6 @@ export interface Persona {
 }
 
 export interface CreatePersonaInput {
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -76,7 +62,6 @@ export type FailureCriteriaMode = "every_turn" | "on_max_messages";
 
 export interface Scenario {
   id: string;
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -91,7 +76,6 @@ export interface Scenario {
 }
 
 export interface CreateScenarioInput {
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -189,7 +173,6 @@ export interface ScenarioSummary {
 
 export interface Eval {
   id: string;
-  projectId: string;
   /** Display name for the eval */
   name: string;
   /** Input messages for the eval */
@@ -214,7 +197,6 @@ export interface EvalWithRelations extends Eval {
 }
 
 export interface CreateEvalInput {
-  projectId: string;
   /** Display name for the eval */
   name: string;
   /** Initial input messages */
@@ -244,7 +226,6 @@ export interface LLMProviderConfig {
 
 export interface LLMProvider {
   id: string;
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -254,7 +235,6 @@ export interface LLMProvider {
 }
 
 export interface CreateLLMProviderInput {
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -304,7 +284,6 @@ export type ConnectorConfig = LangGraphConnectorConfig | HttpConnectorConfig;
 
 export interface Connector {
   id: string;
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -316,7 +295,6 @@ export interface Connector {
 }
 
 export interface CreateConnectorInput {
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -387,7 +365,6 @@ export interface Run {
   id: string;
   /** Eval ID (optional for playground runs) */
   evalId?: string;
-  projectId: string;
   personaId?: string;
   scenarioId: string;
   /** Connector ID (for playground runs without eval) */
@@ -446,49 +423,25 @@ export const api = {
     },
   },
 
-  projects: {
-    list: async (): Promise<Project[]> => {
-      const response = await fetch(`${API_BASE}/projects`);
+  project: {
+    get: async (): Promise<ProjectConfig> => {
+      const response = await fetch(`${API_BASE}/project`);
       return handleResponse(response);
     },
 
-    get: async (id: string): Promise<Project> => {
-      const response = await fetch(`${API_BASE}/projects/${id}`);
-      return handleResponse(response);
-    },
-
-    create: async (input: CreateProjectInput): Promise<Project> => {
-      const response = await fetch(`${API_BASE}/projects`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    update: async (id: string, input: UpdateProjectInput): Promise<Project> => {
-      const response = await fetch(`${API_BASE}/projects/${id}`, {
+    update: async (input: UpdateProjectConfigInput): Promise<ProjectConfig> => {
+      const response = await fetch(`${API_BASE}/project`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
       });
       return handleResponse(response);
     },
-
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/projects/${id}`, {
-        method: "DELETE",
-      });
-      return handleResponse(response);
-    },
   },
 
   personas: {
-    list: async (projectId?: string): Promise<Persona[]> => {
-      const url = projectId
-        ? `${API_BASE}/personas?projectId=${projectId}`
-        : `${API_BASE}/personas`;
-      const response = await fetch(url);
+    list: async (): Promise<Persona[]> => {
+      const response = await fetch(`${API_BASE}/personas`);
       return handleResponse(response);
     },
 
@@ -524,11 +477,8 @@ export const api = {
   },
 
   scenarios: {
-    list: async (projectId?: string): Promise<Scenario[]> => {
-      const url = projectId
-        ? `${API_BASE}/scenarios?projectId=${projectId}`
-        : `${API_BASE}/scenarios`;
-      const response = await fetch(url);
+    list: async (): Promise<Scenario[]> => {
+      const response = await fetch(`${API_BASE}/scenarios`);
       return handleResponse(response);
     },
 
@@ -572,11 +522,8 @@ export const api = {
   },
 
   evals: {
-    list: async (projectId?: string): Promise<Eval[]> => {
-      const url = projectId
-        ? `${API_BASE}/evals?projectId=${projectId}`
-        : `${API_BASE}/evals`;
-      const response = await fetch(url);
+    list: async (): Promise<Eval[]> => {
+      const response = await fetch(`${API_BASE}/evals`);
       return handleResponse(response);
     },
 
@@ -615,11 +562,8 @@ export const api = {
   },
 
   llmProviders: {
-    list: async (projectId?: string): Promise<LLMProvider[]> => {
-      const url = projectId
-        ? `${API_BASE}/llm-providers?projectId=${projectId}`
-        : `${API_BASE}/llm-providers`;
-      const response = await fetch(url);
+    list: async (): Promise<LLMProvider[]> => {
+      const response = await fetch(`${API_BASE}/llm-providers`);
       return handleResponse(response);
     },
 
@@ -666,11 +610,8 @@ export const api = {
   },
 
   connectors: {
-    list: async (projectId?: string): Promise<Connector[]> => {
-      const url = projectId
-        ? `${API_BASE}/connectors?projectId=${projectId}`
-        : `${API_BASE}/connectors`;
-      const response = await fetch(url);
+    list: async (): Promise<Connector[]> => {
+      const response = await fetch(`${API_BASE}/connectors`);
       return handleResponse(response);
     },
 
@@ -727,10 +668,9 @@ export const api = {
   },
 
   runs: {
-    list: async (evalId?: string, projectId?: string, scenarioId?: string, personaId?: string): Promise<Run[]> => {
+    list: async (evalId?: string, scenarioId?: string, personaId?: string): Promise<Run[]> => {
       const params = new URLSearchParams();
       if (evalId) params.set("evalId", evalId);
-      if (projectId) params.set("projectId", projectId);
       if (scenarioId) params.set("scenarioId", scenarioId);
       if (personaId) params.set("personaId", personaId);
       const query = params.toString();

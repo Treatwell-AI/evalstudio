@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreateScenarioInput, UpdateScenarioInput } from "../lib/api";
 
-export function useScenarios(projectId?: string) {
+export function useScenarios() {
   return useQuery({
-    queryKey: ["scenarios", projectId],
-    queryFn: () => api.scenarios.list(projectId),
+    queryKey: ["scenarios"],
+    queryFn: () => api.scenarios.list(),
   });
 }
 
@@ -21,11 +21,8 @@ export function useCreateScenario() {
 
   return useMutation({
     mutationFn: (input: CreateScenarioInput) => api.scenarios.create(input),
-    onSuccess: (scenario) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scenarios"] });
-      queryClient.invalidateQueries({
-        queryKey: ["scenarios", scenario.projectId],
-      });
     },
   });
 }

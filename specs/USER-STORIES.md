@@ -2,7 +2,7 @@
 
 ## Glossary
 
-- **Project** - A workspace that contains all entities (evals, scenarios, personas, settings). Users have role-based access per project.
+- **Project** - A directory containing `evalstudio.config.json` and a `data/` folder with all entities (evals, scenarios, personas, settings). One folder = one project.
 - **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (e.g., HTTP, LangGraph)
 - **Eval** - A test collection combining one or more scenarios, input data, and connectors. Each scenario can have its own personas and criteria.
 - **Eval Group** - A category/tag for organizing evals (many-to-many relationship)
@@ -79,10 +79,10 @@
 
 ### Projects
 
-[x] As a user, I want to create multiple projects so that I can separate different evaluation contexts (e.g., different products or teams)
-[x] As a user, I want all entities (evals, scenarios, personas, settings) scoped to a project so that data is isolated between projects
-[x] As a user, I want to switch between projects easily so that I can work on different contexts
-[x] As a user, I want to initialize a local project directory so that I can keep evaluation data alongside my codebase instead of in a global location
+[x] As a user, I want to initialize a local project directory so that I can keep evaluation data alongside my codebase
+[x] As a user, I want one folder to equal one project so that project isolation is simple and follows standard dev tool conventions
+[x] As a user, I want to point to a project directory via `EVALSTUDIO_PROJECT_DIR` so that I can run commands from any working directory
+[x] As a user, I want a clear error message when no project is found so that I know how to fix it (init, cd, or set env var)
 
 ### Collaboration & Permissions
 

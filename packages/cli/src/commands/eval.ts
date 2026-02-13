@@ -4,8 +4,6 @@ import {
   deleteEval,
   getConnector,
   getConnectorByName,
-  getProject,
-  getProjectByName,
   getScenario,
   getScenarioByName,
   getEval,
@@ -16,16 +14,12 @@ import {
   type EvalWithRelations,
 } from "@evalstudio/core";
 
-function resolveProject(identifier: string) {
-  return getProject(identifier) ?? getProjectByName(identifier);
+function resolveScenario(identifier: string) {
+  return getScenario(identifier) ?? getScenarioByName(identifier);
 }
 
-function resolveScenario(projectId: string, identifier: string) {
-  return getScenario(identifier) ?? getScenarioByName(projectId, identifier);
-}
-
-function resolveConnector(projectId: string, identifier: string) {
-  return getConnector(identifier) ?? getConnectorByName(projectId, identifier);
+function resolveConnector(identifier: string) {
+  return getConnector(identifier) ?? getConnectorByName(identifier);
 }
 
 function getEvalDisplayName(evalItem: Eval | EvalWithRelations): string {
@@ -38,7 +32,6 @@ export const evalCommand = new Command("eval")
     new Command("create")
       .description("Create a new eval")
       .requiredOption("-n, --name <name>", "Eval name")
-      .requiredOption("-p, --project <project>", "Project ID or name")
       .requiredOption("-c, --connector <connector>", "Connector ID or name (required)")
       .requiredOption("--scenario <scenario>", "Scenario ID or name (required)")
       .option("--json", "Output as JSON")
@@ -46,33 +39,25 @@ export const evalCommand = new Command("eval")
         (
           options: {
             name: string;
-            project: string;
             connector: string;
             scenario: string;
             json?: boolean;
           }
         ) => {
           try {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-
-            const connector = resolveConnector(project.id, options.connector);
+            const connector = resolveConnector(options.connector);
             if (!connector) {
               console.error(`Error: Connector "${options.connector}" not found`);
               process.exit(1);
             }
 
-            const scenario = resolveScenario(project.id, options.scenario);
+            const scenario = resolveScenario(options.scenario);
             if (!scenario) {
               console.error(`Error: Scenario "${options.scenario}" not found`);
               process.exit(1);
             }
 
             const evalItem = createEval({
-              projectId: project.id,
               name: options.name,
               scenarioIds: [scenario.id],
               connectorId: connector.id,
@@ -84,7 +69,6 @@ export const evalCommand = new Command("eval")
               console.log(`Eval created successfully`);
               console.log(`  ID:          ${evalItem.id}`);
               console.log(`  Name:        ${evalItem.name}`);
-              console.log(`  Project:     ${project.name}`);
               console.log(`  Connector:   ${connector.name}`);
               console.log(`  Scenario:    ${scenario.name}`);
               if (scenario.successCriteria) {
@@ -111,21 +95,9 @@ export const evalCommand = new Command("eval")
   .addCommand(
     new Command("list")
       .description("List evals")
-      .option("-p, --project <project>", "Filter by project ID or name")
       .option("--json", "Output as JSON")
-      .action((options: { project?: string; json?: boolean }) => {
-        let projectId: string | undefined;
-
-        if (options.project) {
-          const project = resolveProject(options.project);
-          if (!project) {
-            console.error(`Error: Project "${options.project}" not found`);
-            process.exit(1);
-          }
-          projectId = project.id;
-        }
-
-        const evals = listEvals(projectId);
+      .action((options: { json?: boolean }) => {
+        const evals = listEvals();
 
         if (options.json) {
           console.log(JSON.stringify(evals, null, 2));
@@ -138,13 +110,8 @@ export const evalCommand = new Command("eval")
           console.log("Evals:");
           console.log("------");
           for (const evalItem of evals) {
-            const project = getProject(evalItem.projectId);
-            const firstScenario = evalItem.scenarioIds?.[0] ? getScenario(evalItem.scenarioIds[0]) : undefined;
             const displayName = getEvalDisplayName(evalItem);
             console.log(`  ${displayName} (${evalItem.id})`);
-            if (project) {
-              console.log(`    Project: ${project.name}`);
-            }
             if (evalItem.scenarioIds.length > 1) {
               console.log(`    Scenarios: ${evalItem.scenarioIds.length}`);
             }
@@ -172,7 +139,6 @@ export const evalCommand = new Command("eval")
             process.exit(1);
           }
 
-          const project = getProject(evalItem.projectId);
           const displayName = getEvalDisplayName(evalItem);
 
           if (options.json) {
@@ -184,7 +150,6 @@ export const evalCommand = new Command("eval")
             console.log(`------`);
             console.log(`  ID:          ${evalItem.id}`);
             console.log(`  Name:        ${evalItem.name}`);
-            console.log(`  Project:     ${project?.name ?? evalItem.projectId}`);
             if (firstScenario?.successCriteria) {
               console.log(`  Success:     ${firstScenario.successCriteria}`);
             }
@@ -208,8 +173,11 @@ export const evalCommand = new Command("eval")
               }
             } else {
               console.log(`  Scenarios:   ${evalItem.scenarioIds?.length ?? 0}`);
-              if (firstScenario) {
-                console.log(`    - ${firstScenario.name}`);
+              if (evalItem.scenarioIds?.[0]) {
+                const firstScenario = getScenario(evalItem.scenarioIds[0]);
+                if (firstScenario) {
+                  console.log(`    - ${firstScenario.name}`);
+                }
               }
             }
 
@@ -247,7 +215,7 @@ export const evalCommand = new Command("eval")
           try {
             let scenarioIds: string[] | undefined;
             if (options.scenario) {
-              const scenario = resolveScenario(existing.projectId, options.scenario);
+              const scenario = resolveScenario(options.scenario);
               if (!scenario) {
                 console.error(`Error: Scenario "${options.scenario}" not found`);
                 process.exit(1);
@@ -257,7 +225,7 @@ export const evalCommand = new Command("eval")
 
             let connectorId: string | undefined;
             if (options.connector) {
-              const connector = resolveConnector(existing.projectId, options.connector);
+              const connector = resolveConnector(options.connector);
               if (!connector) {
                 console.error(`Error: Connector "${options.connector}" not found`);
                 process.exit(1);
@@ -276,7 +244,6 @@ export const evalCommand = new Command("eval")
               process.exit(1);
             }
 
-            const project = getProject(updated.projectId);
             const firstScenarioId = updated.scenarioIds?.[0];
             const firstScenario = firstScenarioId ? getScenario(firstScenarioId) : undefined;
             const displayName = getEvalDisplayName(updated);
@@ -287,7 +254,6 @@ export const evalCommand = new Command("eval")
               console.log(`Eval updated successfully`);
               console.log(`  ID:          ${updated.id}`);
               console.log(`  Name:        ${updated.name}`);
-              console.log(`  Project:     ${project?.name ?? updated.projectId}`);
               if (firstScenario?.successCriteria) {
                 console.log(`  Success:     ${firstScenario.successCriteria}`);
               }

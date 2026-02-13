@@ -1,19 +1,23 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createProject, resetStorageDir, setStorageDir } from "@evalstudio/core";
+import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
 let testDir: string;
-let projectId: string;
 
 describe("connectors routes", () => {
   beforeAll(() => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    setStorageDir(testDir);
-    const project = createProject({ name: `test-project-${Date.now()}` });
-    projectId = project.id;
+    const storageDir = join(testDir, "data");
+    mkdirSync(storageDir, { recursive: true });
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({ version: 2, name: "test-project" })
+    );
+    setStorageDir(storageDir);
+    setConfigDir(testDir);
   });
 
   afterAll(() => {
@@ -24,14 +28,14 @@ describe("connectors routes", () => {
   });
 
   beforeEach(() => {
-    const storagePath = join(testDir, "connectors.json");
+    const storagePath = join(testDir, "data", "connectors.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
   });
 
   afterEach(() => {
-    const storagePath = join(testDir, "connectors.json");
+    const storagePath = join(testDir, "data", "connectors.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
@@ -59,7 +63,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "connector-1",
           type: "http",
           baseUrl: "https://api1.example.com",
@@ -70,7 +73,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "connector-2",
           type: "langgraph",
           baseUrl: "http://localhost:8123",
@@ -85,45 +87,6 @@ describe("connectors routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body).toHaveLength(2);
-
-      await server.close();
-    });
-
-    it("filters by projectId", async () => {
-      const server = await createServer();
-      const project2 = createProject({ name: `test-project-2-${Date.now()}` });
-
-      await server.inject({
-        method: "POST",
-        url: "/api/connectors",
-        payload: {
-          projectId,
-          name: "connector-1",
-          type: "http",
-          baseUrl: "https://api1.example.com",
-        },
-      });
-
-      await server.inject({
-        method: "POST",
-        url: "/api/connectors",
-        payload: {
-          projectId: project2.id,
-          name: "connector-2",
-          type: "langgraph",
-          baseUrl: "http://localhost:8123",
-        },
-      });
-
-      const response = await server.inject({
-        method: "GET",
-        url: `/api/connectors?projectId=${projectId}`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body).toHaveLength(1);
-      expect(body[0].name).toBe("connector-1");
 
       await server.close();
     });
@@ -155,7 +118,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           type: "http",
           baseUrl: "https://api.example.com",
@@ -179,7 +141,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "langgraph-connector",
           type: "langgraph",
           baseUrl: "http://localhost:8123",
@@ -199,25 +160,6 @@ describe("connectors routes", () => {
       await server.close();
     });
 
-    it("returns 400 for missing projectId", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/connectors",
-        payload: {
-          name: "test-connector",
-          type: "http",
-          baseUrl: "https://api.example.com",
-        },
-      });
-
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body)).toEqual({ error: "Project ID is required" });
-
-      await server.close();
-    });
-
     it("returns 400 for missing name", async () => {
       const server = await createServer();
 
@@ -225,7 +167,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           type: "http",
           baseUrl: "https://api.example.com",
         },
@@ -244,7 +185,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           baseUrl: "https://api.example.com",
         },
@@ -263,7 +203,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           type: "http",
         },
@@ -275,33 +214,13 @@ describe("connectors routes", () => {
       await server.close();
     });
 
-    it("returns 404 for non-existent project", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/connectors",
-        payload: {
-          projectId: "non-existent",
-          name: "test-connector",
-          type: "http",
-          baseUrl: "https://api.example.com",
-        },
-      });
-
-      expect(response.statusCode).toBe(404);
-
-      await server.close();
-    });
-
-    it("returns 409 for duplicate name in same project", async () => {
+    it("returns 409 for duplicate name", async () => {
       const server = await createServer();
 
       await server.inject({
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "duplicate-name",
           type: "http",
           baseUrl: "https://api1.example.com",
@@ -312,7 +231,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "duplicate-name",
           type: "langgraph",
           baseUrl: "http://localhost:8123",
@@ -333,7 +251,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           type: "http",
           baseUrl: "https://api.example.com",
@@ -374,7 +291,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "old-name",
           type: "http",
           baseUrl: "https://old.api.com",
@@ -417,7 +333,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "existing-name",
           type: "http",
           baseUrl: "https://api1.example.com",
@@ -428,7 +343,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "to-be-updated",
           type: "langgraph",
           baseUrl: "http://localhost:8123",
@@ -456,7 +370,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           type: "http",
           baseUrl: "https://api.example.com",
@@ -514,7 +427,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "test-connector",
           type: "http",
           baseUrl: "https://api.example.com",
@@ -565,7 +477,6 @@ describe("connectors routes", () => {
         method: "POST",
         url: "/api/connectors",
         payload: {
-          projectId,
           name: "fail-connector",
           type: "http",
           baseUrl: "https://api.example.com",

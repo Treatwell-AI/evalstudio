@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreateConnectorInput, UpdateConnectorInput, Message } from "../lib/api";
 
-export function useConnectors(projectId?: string) {
+export function useConnectors() {
   return useQuery({
-    queryKey: ["connectors", projectId],
-    queryFn: () => api.connectors.list(projectId),
+    queryKey: ["connectors"],
+    queryFn: () => api.connectors.list(),
   });
 }
 
@@ -20,7 +20,7 @@ export function useConnectorTypes() {
   return useQuery({
     queryKey: ["connectors", "types"],
     queryFn: () => api.connectors.getTypes(),
-    staleTime: Infinity, // Types don't change frequently
+    staleTime: Infinity,
   });
 }
 
@@ -29,11 +29,8 @@ export function useCreateConnector() {
 
   return useMutation({
     mutationFn: (input: CreateConnectorInput) => api.connectors.create(input),
-    onSuccess: (connector) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["connectors"] });
-      queryClient.invalidateQueries({
-        queryKey: ["connectors", connector.projectId],
-      });
     },
   });
 }

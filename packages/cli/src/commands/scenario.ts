@@ -5,11 +5,8 @@ import {
   deleteScenario,
   getScenario,
   getScenarioByName,
-  getProject,
-  getProjectByName,
   getPersona,
   getPersonaByName,
-  listPersonas,
   listScenarios,
   updateScenario,
   type Message,
@@ -34,14 +31,10 @@ function loadMessagesFromFile(filePath: string): Message[] {
   }
 }
 
-function resolveProject(identifier: string) {
-  return getProject(identifier) ?? getProjectByName(identifier);
-}
-
-function resolvePersonaIds(identifiers: string[], projectId: string): string[] {
+function resolvePersonaIds(identifiers: string[]): string[] {
   const ids: string[] = [];
   for (const identifier of identifiers) {
-    const persona = getPersona(identifier) ?? getPersonaByName(projectId, identifier);
+    const persona = getPersona(identifier) ?? getPersonaByName(identifier);
     if (!persona) {
       throw new Error(`Persona "${identifier}" not found`);
     }
@@ -65,7 +58,6 @@ export const scenarioCommand = new Command("scenario")
     new Command("create")
       .description("Create a new scenario")
       .argument("<name>", "Scenario name")
-      .requiredOption("-p, --project <project>", "Project ID or name")
       .option("-i, --instructions <instructions>", "Instructions for the scenario")
       .option("-m, --messages-file <file>", "Path to JSON file with initial messages")
       .option("--max-messages <number>", "Maximum messages in conversation", parseInt)
@@ -77,7 +69,6 @@ export const scenarioCommand = new Command("scenario")
         (
           name: string,
           options: {
-            project: string;
             instructions?: string;
             messagesFile?: string;
             maxMessages?: number;
@@ -88,22 +79,15 @@ export const scenarioCommand = new Command("scenario")
           }
         ) => {
           try {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-
             const messages = options.messagesFile
               ? loadMessagesFromFile(options.messagesFile)
               : undefined;
 
             const personaIds = options.personas
-              ? resolvePersonaIds(options.personas.split(",").map(s => s.trim()), project.id)
+              ? resolvePersonaIds(options.personas.split(",").map(s => s.trim()))
               : undefined;
 
             const scenario = createScenario({
-              projectId: project.id,
               name,
               instructions: options.instructions,
               messages,
@@ -119,7 +103,6 @@ export const scenarioCommand = new Command("scenario")
               console.log(`Scenario created successfully`);
               console.log(`  ID:              ${scenario.id}`);
               console.log(`  Name:            ${scenario.name}`);
-              console.log(`  Project:         ${project.name}`);
               if (scenario.instructions) {
                 console.log(`  Instructions:    ${scenario.instructions}`);
               }
@@ -154,21 +137,9 @@ export const scenarioCommand = new Command("scenario")
   .addCommand(
     new Command("list")
       .description("List scenarios")
-      .option("-p, --project <project>", "Filter by project ID or name")
       .option("--json", "Output as JSON")
-      .action((options: { project?: string; json?: boolean }) => {
-        let projectId: string | undefined;
-
-        if (options.project) {
-          const project = resolveProject(options.project);
-          if (!project) {
-            console.error(`Error: Project "${options.project}" not found`);
-            process.exit(1);
-          }
-          projectId = project.id;
-        }
-
-        const scenarios = listScenarios(projectId);
+      .action((options: { json?: boolean }) => {
+        const scenarios = listScenarios();
 
         if (options.json) {
           console.log(JSON.stringify(scenarios, null, 2));
@@ -181,11 +152,7 @@ export const scenarioCommand = new Command("scenario")
           console.log("Scenarios:");
           console.log("----------");
           for (const scenario of scenarios) {
-            const project = getProject(scenario.projectId);
             console.log(`  ${scenario.name} (${scenario.id})`);
-            if (project) {
-              console.log(`    Project: ${project.name}`);
-            }
             if (scenario.instructions) {
               const preview = scenario.instructions.length > 60
                 ? scenario.instructions.slice(0, 60) + "..."
@@ -206,29 +173,19 @@ export const scenarioCommand = new Command("scenario")
   .addCommand(
     new Command("show")
       .description("Show scenario details")
-      .argument("<identifier>", "Scenario ID")
-      .option("-p, --project <project>", "Project ID or name (for lookup by name)")
+      .argument("<identifier>", "Scenario ID or name")
       .option("--json", "Output as JSON")
       .action(
         (
           identifier: string,
-          options: { project?: string; json?: boolean }
+          options: { json?: boolean }
         ) => {
-          let scenario = getScenario(identifier);
-
-          if (!scenario && options.project) {
-            const project = resolveProject(options.project);
-            if (project) {
-              scenario = getScenarioByName(project.id, identifier);
-            }
-          }
+          const scenario = getScenario(identifier) ?? getScenarioByName(identifier);
 
           if (!scenario) {
             console.error(`Error: Scenario "${identifier}" not found`);
             process.exit(1);
           }
-
-          const project = getProject(scenario.projectId);
 
           if (options.json) {
             console.log(JSON.stringify(scenario, null, 2));
@@ -237,7 +194,6 @@ export const scenarioCommand = new Command("scenario")
             console.log(`----------`);
             console.log(`  ID:              ${scenario.id}`);
             console.log(`  Name:            ${scenario.name}`);
-            console.log(`  Project:         ${project?.name ?? scenario.projectId}`);
             if (scenario.instructions) {
               console.log(`  Instructions:    ${scenario.instructions}`);
             }
@@ -312,7 +268,7 @@ export const scenarioCommand = new Command("scenario")
               if (options.personas === "") {
                 personaIds = [];
               } else {
-                personaIds = resolvePersonaIds(options.personas.split(",").map(s => s.trim()), existing.projectId);
+                personaIds = resolvePersonaIds(options.personas.split(",").map(s => s.trim()));
               }
             }
 
@@ -331,15 +287,12 @@ export const scenarioCommand = new Command("scenario")
               process.exit(1);
             }
 
-            const project = getProject(updated.projectId);
-
             if (options.json) {
               console.log(JSON.stringify(updated, null, 2));
             } else {
               console.log(`Scenario updated successfully`);
               console.log(`  ID:              ${updated.id}`);
               console.log(`  Name:            ${updated.name}`);
-              console.log(`  Project:         ${project?.name ?? updated.projectId}`);
               if (updated.instructions) {
                 console.log(`  Instructions:    ${updated.instructions}`);
               }

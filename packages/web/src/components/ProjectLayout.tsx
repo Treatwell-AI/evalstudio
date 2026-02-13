@@ -1,10 +1,9 @@
-import { Outlet, useParams } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { useProject } from "../hooks/useProjects";
+import { useProjectConfig } from "../hooks/useProjects";
 
 export function ProjectLayout() {
-  const { projectId } = useParams<{ projectId: string }>();
-  const { data: project, isLoading, error } = useProject(projectId ?? null);
+  const { data: config, isLoading, error } = useProjectConfig();
 
   if (isLoading) {
     return (
@@ -14,15 +13,12 @@ export function ProjectLayout() {
     );
   }
 
-  if (error || !project) {
+  if (error || !config) {
     return (
       <div className="project-layout">
         <div className="project-layout-error">
           <h2>Project not found</h2>
-          <p>The project you're looking for doesn't exist or you don't have access to it.</p>
-          <a href="/" className="btn btn-primary">
-            Back to Projects
-          </a>
+          <pre>{error?.message || "Unable to load project configuration."}</pre>
         </div>
       </div>
     );
@@ -30,9 +26,9 @@ export function ProjectLayout() {
 
   return (
     <div className="project-layout">
-      <Sidebar projectId={project.id} projectName={project.name} />
+      <Sidebar projectName={config.name} />
       <main className="project-content">
-        <Outlet context={{ project }} />
+        <Outlet />
       </main>
     </div>
   );

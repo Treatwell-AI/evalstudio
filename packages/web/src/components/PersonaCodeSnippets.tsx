@@ -13,14 +13,13 @@ export function PersonaCodeSnippets({ persona }: PersonaCodeSnippetsProps) {
   const [copiedApi, setCopiedApi] = useState(false);
 
   const cliSnippet = `# List all personas
-evalstudio persona list --project ${persona.projectId}
+evalstudio persona list
 
 # Show this persona
 evalstudio persona show ${persona.id}
 
 # Create a new persona
 evalstudio persona create \\
-  --project ${persona.projectId} \\
   --name "New Persona" \\
   --description "Brief description" \\
   --system-prompt "Full character instructions..."
@@ -34,8 +33,8 @@ evalstudio persona update ${persona.id} \\
 # Delete this persona
 evalstudio persona delete ${persona.id}`;
 
-  const apiSnippet = `# List all personas for the project
-curl "http://localhost:3000/api/personas?projectId=${persona.projectId}"
+  const apiSnippet = `# List all personas
+curl "http://localhost:3000/api/personas"
 
 # Get this persona
 curl "http://localhost:3000/api/personas/${persona.id}"
@@ -44,7 +43,6 @@ curl "http://localhost:3000/api/personas/${persona.id}"
 curl -X POST http://localhost:3000/api/personas \\
   -H "Content-Type: application/json" \\
   -d '{
-    "projectId": "${persona.projectId}",
     "name": "New Persona",
     "description": "Brief description",
     "systemPrompt": "Full character instructions..."

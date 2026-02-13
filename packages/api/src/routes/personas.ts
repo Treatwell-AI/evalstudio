@@ -8,7 +8,6 @@ import {
 } from "@evalstudio/core";
 
 interface CreatePersonaBody {
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -24,17 +23,10 @@ interface PersonaParams {
   id: string;
 }
 
-interface PersonaQuerystring {
-  projectId?: string;
-}
-
 export async function personasRoute(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: PersonaQuerystring }>(
-    "/personas",
-    async (request) => {
-      return listPersonas(request.query.projectId);
-    }
-  );
+  fastify.get("/personas", async () => {
+    return listPersonas();
+  });
 
   fastify.get<{ Params: PersonaParams }>(
     "/personas/:id",
@@ -53,12 +45,7 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreatePersonaBody }>(
     "/personas",
     async (request, reply) => {
-      const { projectId, name, description, systemPrompt } = request.body;
-
-      if (!projectId) {
-        reply.code(400);
-        return { error: "Project ID is required" };
-      }
+      const { name, description, systemPrompt } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -67,7 +54,6 @@ export async function personasRoute(fastify: FastifyInstance) {
 
       try {
         const persona = createPersona({
-          projectId,
           name,
           description,
           systemPrompt,
@@ -76,11 +62,7 @@ export async function personasRoute(fastify: FastifyInstance) {
         return persona;
       } catch (error) {
         if (error instanceof Error) {
-          if (error.message.includes("not found")) {
-            reply.code(404);
-          } else {
-            reply.code(409);
-          }
+          reply.code(409);
           return { error: error.message };
         }
         throw error;

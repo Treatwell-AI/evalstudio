@@ -1,23 +1,26 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  createProject,
-  deleteProject,
-  getProject,
-  getProjectByName,
-  listProjects,
-  updateProject,
+  getProjectConfig,
+  updateProjectConfig,
 } from "../project.js";
-import { resetStorageDir, setStorageDir } from "../storage.js";
+import { createLLMProvider } from "../llm-provider.js";
+import { resetStorageDir, setConfigDir, setStorageDir } from "../storage.js";
 
 let testDir: string;
 
-describe("project", () => {
+describe("project config", () => {
   beforeAll(() => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
     setStorageDir(testDir);
+    setConfigDir(testDir);
+    // Write initial config
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({ version: 2, name: "test-project" }, null, 2)
+    );
   });
 
   afterAll(() => {
@@ -28,149 +31,80 @@ describe("project", () => {
   });
 
   beforeEach(() => {
-    const storagePath = join(testDir, "projects.json");
-    if (existsSync(storagePath)) {
-      rmSync(storagePath);
-    }
+    // Reset config before each test
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({ version: 2, name: "test-project" }, null, 2)
+    );
   });
 
-  afterEach(() => {
-    const storagePath = join(testDir, "projects.json");
-    if (existsSync(storagePath)) {
-      rmSync(storagePath);
-    }
-  });
+  describe("getProjectConfig", () => {
+    it("returns project config", () => {
+      const config = getProjectConfig();
 
-  describe("createProject", () => {
-    it("creates a project with required fields", () => {
-      const project = createProject({ name: "test-project" });
-
-      expect(project.id).toBeDefined();
-      expect(project.name).toBe("test-project");
-      expect(project.description).toBeUndefined();
-      expect(project.createdAt).toBeDefined();
-      expect(project.updatedAt).toBeDefined();
+      expect(config.version).toBe(2);
+      expect(config.name).toBe("test-project");
     });
 
-    it("creates a project with description", () => {
-      const project = createProject({
-        name: "test-project",
-        description: "A test project",
+    it("returns config with llmSettings when set", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          llmSettings: {
+            evaluation: { providerId: "provider-1", model: "gpt-4o" },
+          },
+        }, null, 2)
+      );
+
+      const config = getProjectConfig();
+
+      expect(config.llmSettings?.evaluation?.providerId).toBe("provider-1");
+      expect(config.llmSettings?.evaluation?.model).toBe("gpt-4o");
+    });
+  });
+
+  describe("updateProjectConfig", () => {
+    it("updates project name", () => {
+      const updated = updateProjectConfig({ name: "new-name" });
+
+      expect(updated.name).toBe("new-name");
+      expect(updated.version).toBe(2);
+    });
+
+    it("updates llmSettings", () => {
+      const provider = createLLMProvider({
+        name: "test-provider",
+        provider: "openai",
+        apiKey: "test-key",
       });
 
-      expect(project.name).toBe("test-project");
-      expect(project.description).toBe("A test project");
-    });
-
-    it("throws error for duplicate name", () => {
-      createProject({ name: "test-project" });
-
-      expect(() => createProject({ name: "test-project" })).toThrow(
-        'Project with name "test-project" already exists'
-      );
-    });
-  });
-
-  describe("getProject", () => {
-    it("returns project by id", () => {
-      const created = createProject({ name: "test-project" });
-      const found = getProject(created.id);
-
-      expect(found).toEqual(created);
-    });
-
-    it("returns undefined for non-existent id", () => {
-      const found = getProject("non-existent");
-
-      expect(found).toBeUndefined();
-    });
-  });
-
-  describe("getProjectByName", () => {
-    it("returns project by name", () => {
-      const created = createProject({ name: "test-project" });
-      const found = getProjectByName("test-project");
-
-      expect(found).toEqual(created);
-    });
-
-    it("returns undefined for non-existent name", () => {
-      const found = getProjectByName("non-existent");
-
-      expect(found).toBeUndefined();
-    });
-  });
-
-  describe("listProjects", () => {
-    it("returns empty array when no projects", () => {
-      const projects = listProjects();
-
-      expect(projects).toEqual([]);
-    });
-
-    it("returns all projects", () => {
-      const project1 = createProject({ name: "project-1" });
-      const project2 = createProject({ name: "project-2" });
-
-      const projects = listProjects();
-
-      expect(projects).toHaveLength(2);
-      expect(projects).toContainEqual(project1);
-      expect(projects).toContainEqual(project2);
-    });
-  });
-
-  describe("updateProject", () => {
-    it("updates project name", async () => {
-      const created = createProject({ name: "old-name" });
-      // Small delay to ensure timestamp changes
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = updateProject(created.id, { name: "new-name" });
-
-      expect(updated?.name).toBe("new-name");
-      expect(new Date(updated!.updatedAt).getTime()).toBeGreaterThanOrEqual(
-        new Date(created.updatedAt).getTime()
-      );
-    });
-
-    it("updates project description", () => {
-      const created = createProject({ name: "test-project" });
-      const updated = updateProject(created.id, {
-        description: "New description",
+      const updated = updateProjectConfig({
+        llmSettings: {
+          evaluation: { providerId: provider.id },
+        },
       });
 
-      expect(updated?.description).toBe("New description");
+      expect(updated.llmSettings?.evaluation?.providerId).toBe(provider.id);
     });
 
-    it("returns undefined for non-existent id", () => {
-      const updated = updateProject("non-existent", { name: "new-name" });
-
-      expect(updated).toBeUndefined();
-    });
-
-    it("throws error for duplicate name", () => {
-      createProject({ name: "project-1" });
-      const project2 = createProject({ name: "project-2" });
-
-      expect(() => updateProject(project2.id, { name: "project-1" })).toThrow(
-        'Project with name "project-1" already exists'
+    it("preserves existing fields when updating partially", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "original-name",
+          llmSettings: {
+            evaluation: { providerId: "provider-1" },
+          },
+        }, null, 2)
       );
-    });
-  });
 
-  describe("deleteProject", () => {
-    it("deletes existing project", () => {
-      const created = createProject({ name: "test-project" });
-      const deleted = deleteProject(created.id);
+      const updated = updateProjectConfig({ name: "updated-name" });
 
-      expect(deleted).toBe(true);
-      expect(getProject(created.id)).toBeUndefined();
-    });
-
-    it("returns false for non-existent id", () => {
-      const deleted = deleteProject("non-existent");
-
-      expect(deleted).toBe(false);
+      expect(updated.name).toBe("updated-name");
+      expect(updated.llmSettings?.evaluation?.providerId).toBe("provider-1");
     });
   });
 });

@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Connectors
 
-Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors belong to a project and define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
+Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
 
 ## Import
 
@@ -16,7 +16,6 @@ import {
   listConnectors,
   updateConnector,
   deleteConnector,
-  deleteConnectorsByProject,
   getConnectorTypes,
   testConnector,
   invokeConnector,
@@ -64,8 +63,7 @@ Supported authentication types:
 ```typescript
 interface Connector {
   id: string;              // Unique identifier (UUID)
-  projectId: string;       // Parent project ID
-  name: string;            // Connector name (unique within project)
+  name: string;            // Connector name (unique)
   type: ConnectorType;     // Connector type (http or langgraph)
   baseUrl: string;         // Base URL for the API endpoint
   authType?: AuthType;     // Authentication type
@@ -80,7 +78,6 @@ interface Connector {
 
 ```typescript
 interface CreateConnectorInput {
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -202,18 +199,17 @@ type ConnectorConfig = LangGraphConnectorConfig | HttpConnectorConfig;
 
 ### createConnector()
 
-Creates a new connector for a project.
+Creates a new connector.
 
 ```typescript
 function createConnector(input: CreateConnectorInput): Connector;
 ```
 
-**Throws**: Error if the project doesn't exist or if a connector with the same name already exists in the project.
+**Throws**: Error if a connector with the same name already exists.
 
 ```typescript
 // HTTP connector
 const httpConnector = createConnector({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "Production API",
   type: "http",
   baseUrl: "https://api.example.com",
@@ -223,7 +219,6 @@ const httpConnector = createConnector({
 
 // LangGraph connector
 const langGraphConnector = createConnector({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "LangGraph Dev",
   type: "langgraph",
   baseUrl: "http://localhost:8123",
@@ -250,33 +245,26 @@ if (connector) {
 
 ### getConnectorByName()
 
-Gets a connector by project ID and name.
+Gets a connector by name.
 
 ```typescript
-function getConnectorByName(projectId: string, name: string): Connector | undefined;
+function getConnectorByName(name: string): Connector | undefined;
 ```
 
 ```typescript
-const connector = getConnectorByName(
-  "123e4567-e89b-12d3-a456-426614174000",
-  "LangGraph Dev"
-);
+const connector = getConnectorByName("LangGraph Dev");
 ```
 
 ### listConnectors()
 
-Lists all connectors, optionally filtered by project.
+Lists all connectors in the project.
 
 ```typescript
-function listConnectors(projectId?: string): Connector[];
+function listConnectors(): Connector[];
 ```
 
 ```typescript
-// All connectors
 const allConnectors = listConnectors();
-
-// Connectors for a specific project
-const projectConnectors = listConnectors("123e4567-e89b-12d3-a456-426614174000");
 ```
 
 ### updateConnector()
@@ -287,7 +275,7 @@ Updates an existing connector.
 function updateConnector(id: string, input: UpdateConnectorInput): Connector | undefined;
 ```
 
-**Throws**: Error if updating to a name that already exists in the project.
+**Throws**: Error if updating to a name that already exists.
 
 ```typescript
 const updated = updateConnector(connector.id, {
@@ -308,19 +296,6 @@ function deleteConnector(id: string): boolean;
 ```typescript
 const deleted = deleteConnector(connector.id);
 console.log(deleted ? "Deleted" : "Not found");
-```
-
-### deleteConnectorsByProject()
-
-Deletes all connectors belonging to a project.
-
-```typescript
-function deleteConnectorsByProject(projectId: string): number;
-```
-
-```typescript
-const count = deleteConnectorsByProject("123e4567-e89b-12d3-a456-426614174000");
-console.log(`Deleted ${count} connectors`);
 ```
 
 ### getConnectorTypes()
@@ -422,4 +397,4 @@ const config: HttpConnectorConfig = {
 
 ## Storage
 
-Connectors are stored in `~/.evalstudio/connectors.json`.
+Connectors are stored in `data/connectors.json` within the project directory.

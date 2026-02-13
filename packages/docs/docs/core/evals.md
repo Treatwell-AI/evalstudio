@@ -17,7 +17,6 @@ import {
   listEvals,
   updateEval,
   deleteEval,
-  deleteEvalsByProject,
   type Eval,
   type EvalWithRelations,
   type CreateEvalInput,
@@ -33,7 +32,6 @@ import {
 ```typescript
 interface Eval {
   id: string;                              // Unique identifier (UUID)
-  projectId: string;                       // Parent project ID
   name: string;                            // Display name for the eval
   input: Message[];                        // Initial input messages (seed conversation)
   scenarioIds: string[];                   // Associated scenario IDs (required - at least one)
@@ -43,7 +41,7 @@ interface Eval {
 }
 ```
 
-Note: LLM provider for evaluation is configured at the project level via `project.llmSettings`.
+Note: LLM provider for evaluation is configured at the project level via `evalstudio.config.json` `llmSettings`.
 
 ### EvalWithRelations
 
@@ -83,7 +81,6 @@ interface Message {
 
 ```typescript
 interface CreateEvalInput {
-  projectId: string;
   name: string;                            // Required: display name for the eval
   connectorId: string;                     // Required: connector for running this eval
   scenarioIds: string[];                   // Required: at least one scenario ID
@@ -106,20 +103,19 @@ interface UpdateEvalInput {
 
 ### createEval()
 
-Creates a new eval within a project.
+Creates a new eval.
 
 ```typescript
 function createEval(input: CreateEvalInput): Eval;
 ```
 
-**Throws**: Error if the project doesn't exist, if the connector doesn't exist or doesn't belong to the project, if any scenario doesn't exist or doesn't belong to the project, or if scenarioIds is empty.
+**Throws**: Error if the connector doesn't exist, if any scenario doesn't exist, or if scenarioIds is empty.
 
-Note: LLM provider for evaluation is configured at the project level via `project.llmSettings`.
+Note: LLM provider for evaluation is configured at the project level via `evalstudio.config.json` `llmSettings`.
 
 ```typescript
 // Create an eval with a single scenario
 const evalItem = createEval({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "Booking Test",
   connectorId: "connector-uuid",           // Required: connector for the agent
   scenarioIds: ["scenario-uuid"],          // Required: at least one scenario
@@ -127,7 +123,6 @@ const evalItem = createEval({
 
 // Create an eval with multiple scenarios (test collection)
 const multiScenarioEval = createEval({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "Full Agent Test Suite",
   connectorId: "connector-uuid",
   scenarioIds: ["scenario-1", "scenario-2", "scenario-3"], // Multiple scenarios
@@ -135,7 +130,6 @@ const multiScenarioEval = createEval({
 
 // Create an eval with seed messages
 const seededEval = createEval({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "Seeded Conversation Test",
   connectorId: "connector-uuid",
   scenarioIds: ["scenario-uuid"],
@@ -160,20 +154,14 @@ const evalItem = getEval("987fcdeb-51a2-3bc4-d567-890123456789");
 
 ### getEvalByScenario()
 
-Gets an eval by project and scenario.
+Gets an eval by scenario.
 
 ```typescript
-function getEvalByScenario(
-  projectId: string,
-  scenarioId: string
-): Eval | undefined;
+function getEvalByScenario(scenarioId: string): Eval | undefined;
 ```
 
 ```typescript
-const evalItem = getEvalByScenario(
-  "123e4567-e89b-12d3-a456-426614174000",
-  "scenario-uuid"
-);
+const evalItem = getEvalByScenario("scenario-uuid");
 ```
 
 ### getEvalWithRelations()
@@ -192,18 +180,14 @@ const evalItem = getEvalWithRelations("987fcdeb-51a2-3bc4-d567-890123456789");
 
 ### listEvals()
 
-Lists evals, optionally filtered by project.
+Lists all evals in the project.
 
 ```typescript
-function listEvals(projectId?: string): Eval[];
+function listEvals(): Eval[];
 ```
 
 ```typescript
-// List all evals
 const allEvals = listEvals();
-
-// List evals for a specific project
-const projectEvals = listEvals("123e4567-e89b-12d3-a456-426614174000");
 ```
 
 ### updateEval()
@@ -214,7 +198,7 @@ Updates an existing eval.
 function updateEval(id: string, input: UpdateEvalInput): Eval | undefined;
 ```
 
-**Throws**: Error if any scenario doesn't exist or belong to the project, or if scenarioIds is empty.
+**Throws**: Error if any scenario doesn't exist, or if scenarioIds is empty.
 
 ```typescript
 // Update to a single scenario
@@ -242,21 +226,6 @@ Returns `true` if the eval was deleted, `false` if not found.
 const deleted = deleteEval(evalItem.id);
 ```
 
-### deleteEvalsByProject()
-
-Deletes all evals belonging to a project.
-
-```typescript
-function deleteEvalsByProject(projectId: string): number;
-```
-
-Returns the number of evals deleted.
-
-```typescript
-const count = deleteEvalsByProject("123e4567-e89b-12d3-a456-426614174000");
-console.log(`Deleted ${count} evals`);
-```
-
 ## Scenarios and Run Creation
 
 Evals can contain multiple scenarios, allowing you to create comprehensive test collections. When running an eval:
@@ -271,4 +240,4 @@ Personas are associated with scenarios, not with evals directly. This allows dif
 
 ## Storage
 
-Evals are stored in `~/.evalstudio/evals.json`.
+Evals are stored in `data/evals.json` within the project directory.

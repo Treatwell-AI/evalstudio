@@ -5,28 +5,20 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   createLLMProvider,
   deleteLLMProvider,
-  deleteLLMProvidersByProject,
   getDefaultModels,
   getLLMProvider,
   getLLMProviderByName,
   listLLMProviders,
   updateLLMProvider,
 } from "../llm-provider.js";
-import { createProject } from "../project.js";
 import { resetStorageDir, setStorageDir } from "../storage.js";
 
 let testDir: string;
 
 describe("llm-provider", () => {
-  let projectId: string;
-  const testProjectName = `llm-provider-test-project-${Date.now()}`;
-
   beforeAll(() => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
     setStorageDir(testDir);
-    // Create a project for testing
-    const project = createProject({ name: testProjectName });
-    projectId = project.id;
   });
 
   afterAll(() => {
@@ -47,14 +39,12 @@ describe("llm-provider", () => {
   describe("createLLMProvider", () => {
     it("creates a provider with required fields", () => {
       const provider = createLLMProvider({
-        projectId,
         name: "Test OpenAI",
         provider: "openai",
         apiKey: "sk-test-key",
       });
 
       expect(provider.id).toBeDefined();
-      expect(provider.projectId).toBe(projectId);
       expect(provider.name).toBe("Test OpenAI");
       expect(provider.provider).toBe("openai");
       expect(provider.apiKey).toBe("sk-test-key");
@@ -65,7 +55,6 @@ describe("llm-provider", () => {
 
     it("creates a provider with all fields including config", () => {
       const provider = createLLMProvider({
-        projectId,
         name: "Production Anthropic",
         provider: "anthropic",
         apiKey: "sk-ant-test",
@@ -75,20 +64,8 @@ describe("llm-provider", () => {
       expect(provider.provider).toBe("anthropic");
     });
 
-    it("throws error for non-existent project", () => {
-      expect(() =>
-        createLLMProvider({
-          projectId: "non-existent",
-          name: "Test",
-          provider: "openai",
-          apiKey: "key",
-          })
-      ).toThrow('Project with id "non-existent" not found');
-    });
-
-    it("throws error for duplicate name in same project", () => {
+    it("throws error for duplicate name", () => {
       createLLMProvider({
-        projectId,
         name: "Duplicate Name",
         provider: "openai",
         apiKey: "key1",
@@ -96,40 +73,17 @@ describe("llm-provider", () => {
 
       expect(() =>
         createLLMProvider({
-          projectId,
           name: "Duplicate Name",
           provider: "anthropic",
           apiKey: "key2",
-          })
-      ).toThrow('LLM Provider with name "Duplicate Name" already exists in this project');
-    });
-
-    it("allows same name in different projects", () => {
-      const project2 = createProject({ name: `test-project-2-${Date.now()}` });
-
-      const provider1 = createLLMProvider({
-        projectId,
-        name: "Same Name",
-        provider: "openai",
-        apiKey: "key1",
-      });
-
-      const provider2 = createLLMProvider({
-        projectId: project2.id,
-        name: "Same Name",
-        provider: "anthropic",
-        apiKey: "key2",
-      });
-
-      expect(provider1.id).not.toBe(provider2.id);
-      expect(provider1.name).toBe(provider2.name);
+        })
+      ).toThrow('LLM Provider with name "Duplicate Name" already exists');
     });
   });
 
   describe("getLLMProvider", () => {
     it("returns provider by id", () => {
       const created = createLLMProvider({
-        projectId,
         name: "Get Test",
         provider: "openai",
         apiKey: "key",
@@ -148,81 +102,43 @@ describe("llm-provider", () => {
   });
 
   describe("getLLMProviderByName", () => {
-    it("returns provider by project and name", () => {
+    it("returns provider by name", () => {
       createLLMProvider({
-        projectId,
         name: "Named Provider",
         provider: "anthropic",
         apiKey: "key",
       });
 
-      const found = getLLMProviderByName(projectId, "Named Provider");
+      const found = getLLMProviderByName("Named Provider");
       expect(found).toBeDefined();
       expect(found?.name).toBe("Named Provider");
     });
 
     it("returns undefined for non-existent name", () => {
-      const found = getLLMProviderByName(projectId, "Non Existent");
-      expect(found).toBeUndefined();
-    });
-
-    it("returns undefined for wrong project", () => {
-      createLLMProvider({
-        projectId,
-        name: "Project Specific",
-        provider: "openai",
-        apiKey: "key",
-      });
-
-      const found = getLLMProviderByName("other-project-id", "Project Specific");
+      const found = getLLMProviderByName("Non Existent");
       expect(found).toBeUndefined();
     });
   });
 
   describe("listLLMProviders", () => {
-    it("returns all providers when no projectId specified", () => {
-      const project2 = createProject({ name: `list-test-project-${Date.now()}` });
-
+    it("returns all providers", () => {
       createLLMProvider({
-        projectId,
         name: "Provider 1",
         provider: "openai",
         apiKey: "key1",
       });
       createLLMProvider({
-        projectId: project2.id,
         name: "Provider 2",
         provider: "anthropic",
         apiKey: "key2",
       });
 
       const all = listLLMProviders();
-      expect(all.length).toBeGreaterThanOrEqual(2);
+      expect(all).toHaveLength(2);
     });
 
-    it("returns only providers for specified project", () => {
-      const project2 = createProject({ name: `filter-test-project-${Date.now()}` });
-
-      createLLMProvider({
-        projectId,
-        name: "Main Project Provider",
-        provider: "openai",
-        apiKey: "key1",
-      });
-      createLLMProvider({
-        projectId: project2.id,
-        name: "Other Project Provider",
-        provider: "anthropic",
-        apiKey: "key2",
-      });
-
-      const filtered = listLLMProviders(projectId);
-      expect(filtered.every((p) => p.projectId === projectId)).toBe(true);
-    });
-
-    it("returns empty array for project with no providers", () => {
-      const emptyProject = createProject({ name: `empty-project-${Date.now()}` });
-      const providers = listLLMProviders(emptyProject.id);
+    it("returns empty array when no providers", () => {
+      const providers = listLLMProviders();
       expect(providers).toEqual([]);
     });
   });
@@ -230,7 +146,6 @@ describe("llm-provider", () => {
   describe("updateLLMProvider", () => {
     it("updates provider name", () => {
       const created = createLLMProvider({
-        projectId,
         name: "Original Name",
         provider: "openai",
         apiKey: "key",
@@ -246,7 +161,6 @@ describe("llm-provider", () => {
 
     it("updates provider type", () => {
       const created = createLLMProvider({
-        projectId,
         name: "Switch Provider",
         provider: "openai",
         apiKey: "key",
@@ -260,7 +174,6 @@ describe("llm-provider", () => {
 
     it("updates API key", () => {
       const created = createLLMProvider({
-        projectId,
         name: "Key Update",
         provider: "openai",
         apiKey: "old-key",
@@ -272,7 +185,6 @@ describe("llm-provider", () => {
 
     it("updates config", () => {
       const created = createLLMProvider({
-        projectId,
         name: "Config Update",
         provider: "openai",
         apiKey: "key",
@@ -292,14 +204,12 @@ describe("llm-provider", () => {
 
     it("throws error for duplicate name on update", () => {
       createLLMProvider({
-        projectId,
         name: "Existing Name",
         provider: "openai",
         apiKey: "key1",
       });
 
       const created = createLLMProvider({
-        projectId,
         name: "To Be Updated",
         provider: "anthropic",
         apiKey: "key2",
@@ -307,14 +217,13 @@ describe("llm-provider", () => {
 
       expect(() =>
         updateLLMProvider(created.id, { name: "Existing Name" })
-      ).toThrow('LLM Provider with name "Existing Name" already exists in this project');
+      ).toThrow('LLM Provider with name "Existing Name" already exists');
     });
   });
 
   describe("deleteLLMProvider", () => {
     it("deletes provider and returns true", () => {
       const created = createLLMProvider({
-        projectId,
         name: "To Delete",
         provider: "openai",
         apiKey: "key",
@@ -330,36 +239,6 @@ describe("llm-provider", () => {
     it("returns false for non-existent provider", () => {
       const result = deleteLLMProvider("non-existent-id");
       expect(result).toBe(false);
-    });
-  });
-
-  describe("deleteLLMProvidersByProject", () => {
-    it("deletes all providers for a project", () => {
-      const project = createProject({ name: `delete-all-test-${Date.now()}` });
-
-      createLLMProvider({
-        projectId: project.id,
-        name: "Provider 1",
-        provider: "openai",
-        apiKey: "key1",
-      });
-      createLLMProvider({
-        projectId: project.id,
-        name: "Provider 2",
-        provider: "anthropic",
-        apiKey: "key2",
-      });
-
-      const count = deleteLLMProvidersByProject(project.id);
-      expect(count).toBe(2);
-
-      const remaining = listLLMProviders(project.id);
-      expect(remaining).toEqual([]);
-    });
-
-    it("returns 0 for project with no providers", () => {
-      const count = deleteLLMProvidersByProject("project-with-no-providers");
-      expect(count).toBe(0);
     });
   });
 

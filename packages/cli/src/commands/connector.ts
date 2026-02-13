@@ -5,17 +5,11 @@ import {
   getConnector,
   getConnectorByName,
   getConnectorTypes,
-  getProject,
-  getProjectByName,
   listConnectors,
   updateConnector,
   type AuthType,
   type ConnectorType,
 } from "@evalstudio/core";
-
-function resolveProject(identifier: string) {
-  return getProject(identifier) ?? getProjectByName(identifier);
-}
 
 const validConnectorTypes: ConnectorType[] = ["http", "langgraph"];
 const validAuthTypes: AuthType[] = ["none", "api-key", "bearer", "basic"];
@@ -26,7 +20,6 @@ export const connectorCommand = new Command("connector")
     new Command("create")
       .description("Create a new connector configuration")
       .argument("<name>", "Connector name")
-      .requiredOption("-p, --project <project>", "Project ID or name")
       .requiredOption(
         "--type <type>",
         "Connector type (http or langgraph)"
@@ -40,7 +33,6 @@ export const connectorCommand = new Command("connector")
         (
           name: string,
           options: {
-            project: string;
             type: string;
             baseUrl: string;
             authType?: string;
@@ -50,12 +42,6 @@ export const connectorCommand = new Command("connector")
           }
         ) => {
           try {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-
             if (!validConnectorTypes.includes(options.type as ConnectorType)) {
               console.error(
                 `Error: Invalid type "${options.type}". Must be one of: ${validConnectorTypes.join(", ")}`
@@ -81,7 +67,6 @@ export const connectorCommand = new Command("connector")
             }
 
             const connector = createConnector({
-              projectId: project.id,
               name,
               type: options.type as ConnectorType,
               baseUrl: options.baseUrl,
@@ -96,7 +81,6 @@ export const connectorCommand = new Command("connector")
               console.log(`Connector created successfully`);
               console.log(`  ID:       ${connector.id}`);
               console.log(`  Name:     ${connector.name}`);
-              console.log(`  Project:  ${project.name}`);
               console.log(`  Type:     ${connector.type}`);
               console.log(`  Base URL: ${connector.baseUrl}`);
               if (connector.authType) {
@@ -123,21 +107,9 @@ export const connectorCommand = new Command("connector")
   .addCommand(
     new Command("list")
       .description("List connector configurations")
-      .option("-p, --project <project>", "Filter by project ID or name")
       .option("--json", "Output as JSON")
-      .action((options: { project?: string; json?: boolean }) => {
-        let projectId: string | undefined;
-
-        if (options.project) {
-          const project = resolveProject(options.project);
-          if (!project) {
-            console.error(`Error: Project "${options.project}" not found`);
-            process.exit(1);
-          }
-          projectId = project.id;
-        }
-
-        const connectors = listConnectors(projectId);
+      .action((options: { json?: boolean }) => {
+        const connectors = listConnectors();
 
         if (options.json) {
           console.log(JSON.stringify(connectors, null, 2));
@@ -150,11 +122,7 @@ export const connectorCommand = new Command("connector")
           console.log("Connectors:");
           console.log("-----------");
           for (const connector of connectors) {
-            const project = getProject(connector.projectId);
             console.log(`  ${connector.name} (${connector.id})`);
-            if (project) {
-              console.log(`    Project:  ${project.name}`);
-            }
             console.log(`    Type:     ${connector.type}`);
             console.log(`    Base URL: ${connector.baseUrl}`);
           }
@@ -164,32 +132,19 @@ export const connectorCommand = new Command("connector")
   .addCommand(
     new Command("show")
       .description("Show connector details")
-      .argument("<identifier>", "Connector ID")
-      .option(
-        "-p, --project <project>",
-        "Project ID or name (for lookup by name)"
-      )
+      .argument("<identifier>", "Connector ID or name")
       .option("--json", "Output as JSON")
       .action(
         (
           identifier: string,
-          options: { project?: string; json?: boolean }
+          options: { json?: boolean }
         ) => {
-          let connector = getConnector(identifier);
-
-          if (!connector && options.project) {
-            const project = resolveProject(options.project);
-            if (project) {
-              connector = getConnectorByName(project.id, identifier);
-            }
-          }
+          const connector = getConnector(identifier) ?? getConnectorByName(identifier);
 
           if (!connector) {
             console.error(`Error: Connector "${identifier}" not found`);
             process.exit(1);
           }
-
-          const project = getProject(connector.projectId);
 
           if (options.json) {
             console.log(JSON.stringify(connector, null, 2));
@@ -198,7 +153,6 @@ export const connectorCommand = new Command("connector")
             console.log(`-----------`);
             console.log(`  ID:       ${connector.id}`);
             console.log(`  Name:     ${connector.name}`);
-            console.log(`  Project:  ${project?.name ?? connector.projectId}`);
             console.log(`  Type:     ${connector.type}`);
             console.log(`  Base URL: ${connector.baseUrl}`);
             if (connector.authType) {
@@ -292,15 +246,12 @@ export const connectorCommand = new Command("connector")
               process.exit(1);
             }
 
-            const project = getProject(updated.projectId);
-
             if (options.json) {
               console.log(JSON.stringify(updated, null, 2));
             } else {
               console.log(`Connector updated successfully`);
               console.log(`  ID:       ${updated.id}`);
               console.log(`  Name:     ${updated.name}`);
-              console.log(`  Project:  ${project?.name ?? updated.projectId}`);
               console.log(`  Type:     ${updated.type}`);
               console.log(`  Base URL: ${updated.baseUrl}`);
               if (updated.authType) {

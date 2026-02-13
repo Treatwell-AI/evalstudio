@@ -3,7 +3,6 @@ import { useLLMProviders, useDeleteLLMProvider } from "../hooks/useLLMProviders"
 import { LLMProvider } from "../lib/api";
 
 interface LLMProviderListProps {
-  projectId: string;
   onEdit: (id: string) => void;
 }
 
@@ -14,8 +13,8 @@ function maskApiKey(apiKey: string): string {
   return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
 }
 
-export function LLMProviderList({ projectId, onEdit }: LLMProviderListProps) {
-  const { data: providers, isLoading, error } = useLLMProviders(projectId);
+export function LLMProviderList({ onEdit }: LLMProviderListProps) {
+  const { data: providers, isLoading, error } = useLLMProviders();
   const deleteProvider = useDeleteLLMProvider();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 

@@ -5,17 +5,16 @@ import { useScenarios } from "../hooks/useScenarios";
 
 interface CreateRunDialogProps {
   evalId: string;
-  projectId: string;
   onClose: () => void;
 }
 
-export function CreateRunDialog({ evalId, projectId, onClose }: CreateRunDialogProps) {
+export function CreateRunDialog({ evalId, onClose }: CreateRunDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const createRun = useCreateRun();
 
   // Fetch eval and scenarios to determine how many runs will be created
   const { data: evalData, isLoading: evalLoading } = useEval(evalId);
-  const { data: allScenarios, isLoading: scenariosLoading } = useScenarios(projectId);
+  const { data: allScenarios, isLoading: scenariosLoading } = useScenarios();
 
   const isLoadingData = evalLoading || scenariosLoading;
 

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreatePersonaInput, UpdatePersonaInput } from "../lib/api";
 
-export function usePersonas(projectId?: string) {
+export function usePersonas() {
   return useQuery({
-    queryKey: ["personas", projectId],
-    queryFn: () => api.personas.list(projectId),
+    queryKey: ["personas"],
+    queryFn: () => api.personas.list(),
   });
 }
 
@@ -21,11 +21,8 @@ export function useCreatePersona() {
 
   return useMutation({
     mutationFn: (input: CreatePersonaInput) => api.personas.create(input),
-    onSuccess: (persona) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["personas"] });
-      queryClient.invalidateQueries({
-        queryKey: ["personas", persona.projectId],
-      });
     },
   });
 }

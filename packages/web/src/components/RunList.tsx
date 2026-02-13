@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePersonas } from "../hooks/usePersonas";
-import { useRunsByEval, useRunsByScenario, useRunsByPersona, useRunsByProject, useDeleteRun, useRetryRun } from "../hooks/useRuns";
+import { useRuns, useRunsByEval, useRunsByScenario, useRunsByPersona, useDeleteRun, useRetryRun } from "../hooks/useRuns";
 import { useScenarios } from "../hooks/useScenarios";
 import { useEvals } from "../hooks/useEvals";
 import type { Run } from "../lib/api";
 import { RunMessagesModal } from "./RunMessagesModal";
 
 interface RunListBaseProps {
-  projectId: string;
   limit?: number;
 }
 
@@ -43,7 +42,7 @@ type RunListProps = RunListByEvalProps | RunListByScenarioProps | RunListByPerso
 
 const POLLING_INTERVAL = 2000; // 2 seconds
 
-export function RunList({ evalId, scenarioId, personaId, projectId, limit, mode }: RunListProps) {
+export function RunList({ evalId, scenarioId, personaId, limit, mode }: RunListProps) {
   const [hasRunningItems, setHasRunningItems] = useState(false);
   const [currentTime, setCurrentTime] = useState(Date.now());
 
@@ -75,14 +74,11 @@ export function RunList({ evalId, scenarioId, personaId, projectId, limit, mode 
     personaId ?? "",
     { refetchInterval: isByPersona ? refetchInterval : false }
   );
-  const { data: runsByProject, isLoading: loadingByProject, error: errorByProject } = useRunsByProject(
-    projectId,
-    { refetchInterval: isByProject ? refetchInterval : false }
-  );
+  const { data: runsByProject, isLoading: loadingByProject, error: errorByProject } = useRuns();
 
-  const { data: personas = [] } = usePersonas(projectId);
-  const { data: scenarios = [] } = useScenarios(projectId);
-  const { data: evals = [] } = useEvals(projectId);
+  const { data: personas = [] } = usePersonas();
+  const { data: scenarios = [] } = useScenarios();
+  const { data: evals = [] } = useEvals();
 
   const deleteRun = useDeleteRun();
   const retryRun = useRetryRun();

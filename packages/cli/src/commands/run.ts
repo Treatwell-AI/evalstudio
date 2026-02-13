@@ -5,18 +5,12 @@ import {
   getConnector,
   getEval,
   getPersona,
-  getProject,
-  getProjectByName,
   getRun,
   getScenario,
   listRuns,
   RunProcessor,
   type Run,
 } from "@evalstudio/core";
-
-function resolveProject(identifier: string) {
-  return getProject(identifier) ?? getProjectByName(identifier);
-}
 
 function formatRunStatus(run: Run): string {
   const statusColors: Record<string, string> = {
@@ -86,32 +80,18 @@ export const runCommand = new Command("run")
     new Command("list")
       .description("List runs")
       .option("-e, --eval <eval>", "Filter by eval ID")
-      .option("-p, --project <project>", "Filter by project ID or name")
       .option("-s, --status <status>", "Filter by status (queued, running, completed, failed)")
       .option("-l, --limit <number>", "Maximum number of runs to show")
       .option("--json", "Output as JSON")
       .action(
         (options: {
           eval?: string;
-          project?: string;
           status?: string;
           limit?: string;
           json?: boolean;
         }) => {
-          let projectId: string | undefined;
-
-          if (options.project) {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-            projectId = project.id;
-          }
-
           const runs = listRuns({
             evalId: options.eval,
-            projectId,
             status: options.status as Run["status"] | undefined,
             limit: options.limit ? parseInt(options.limit, 10) : undefined,
           });
@@ -175,7 +155,6 @@ export const runCommand = new Command("run")
           console.log("-----");
           console.log(`  Status:    ${formatRunStatus(run)}`);
           console.log(`  Eval:      ${run.evalId ?? "Playground"}`);
-          console.log(`  Project:   ${run.projectId}`);
           // Show scenario and persona
           const scenario = getScenario(run.scenarioId);
           console.log(`  Scenario:  ${scenario?.name ?? run.scenarioId}`);
@@ -250,28 +229,15 @@ export const runCommand = new Command("run")
   .addCommand(
     new Command("process")
       .description("Process queued runs")
-      .option("-p, --project <project>", "Only process runs for this project")
       .option("-w, --watch", "Watch mode - continuously process runs")
       .option("-c, --concurrency <number>", "Maximum concurrent runs (default: 3)")
       .option("--poll <ms>", "Poll interval in milliseconds (default: 2000)")
       .action(
         async (options: {
-          project?: string;
           watch?: boolean;
           concurrency?: string;
           poll?: string;
         }) => {
-          let projectId: string | undefined;
-
-          if (options.project) {
-            const project = resolveProject(options.project);
-            if (!project) {
-              console.error(`Error: Project "${options.project}" not found`);
-              process.exit(1);
-            }
-            projectId = project.id;
-          }
-
           const maxConcurrent = options.concurrency
             ? parseInt(options.concurrency, 10)
             : 3;
@@ -282,7 +248,6 @@ export const runCommand = new Command("run")
           const processor = new RunProcessor({
             pollIntervalMs,
             maxConcurrent,
-            projectId,
             onRunStart: (run) => {
               console.log(`\x1b[36m▶\x1b[0m Starting run ${run.id}`);
             },
@@ -303,10 +268,6 @@ export const runCommand = new Command("run")
             console.log("Starting run processor in watch mode...");
             console.log(`  Concurrency: ${maxConcurrent}`);
             console.log(`  Poll interval: ${pollIntervalMs}ms`);
-            if (projectId) {
-              const project = getProject(projectId);
-              console.log(`  Project: ${project?.name ?? projectId}`);
-            }
             console.log("\nPress Ctrl+C to stop\n");
 
             processor.start();
@@ -338,7 +299,6 @@ export const runCommand = new Command("run")
               // Check if there are more queued runs
               const queued = listRuns({
                 status: "queued",
-                projectId,
                 limit: 1,
               });
               hasMore = queued.length > 0;

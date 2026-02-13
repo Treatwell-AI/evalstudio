@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProject } from "./project.js";
 import { getStorageDir } from "./storage.js";
 import type { Message } from "./types.js";
 
@@ -16,7 +15,6 @@ export type FailureCriteriaMode = "every_turn" | "on_max_messages";
 
 export interface Scenario {
   id: string;
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -35,7 +33,6 @@ export interface Scenario {
 }
 
 export interface CreateScenarioInput {
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -86,27 +83,17 @@ function saveScenarios(scenarios: Scenario[]): void {
 }
 
 export function createScenario(input: CreateScenarioInput): Scenario {
-  const project = getProject(input.projectId);
-  if (!project) {
-    throw new Error(`Project with id "${input.projectId}" not found`);
-  }
-
   const scenarios = loadScenarios();
 
-  if (
-    scenarios.some(
-      (s) => s.projectId === input.projectId && s.name === input.name
-    )
-  ) {
+  if (scenarios.some((s) => s.name === input.name)) {
     throw new Error(
-      `Scenario with name "${input.name}" already exists in this project`
+      `Scenario with name "${input.name}" already exists`
     );
   }
 
   const now = new Date().toISOString();
   const scenario: Scenario = {
     id: randomUUID(),
-    projectId: input.projectId,
     name: input.name,
     instructions: input.instructions,
     messages: input.messages,
@@ -130,20 +117,13 @@ export function getScenario(id: string): Scenario | undefined {
   return scenarios.find((s) => s.id === id);
 }
 
-export function getScenarioByName(
-  projectId: string,
-  name: string
-): Scenario | undefined {
+export function getScenarioByName(name: string): Scenario | undefined {
   const scenarios = loadScenarios();
-  return scenarios.find((s) => s.projectId === projectId && s.name === name);
+  return scenarios.find((s) => s.name === name);
 }
 
-export function listScenarios(projectId?: string): Scenario[] {
-  const scenarios = loadScenarios();
-  if (projectId) {
-    return scenarios.filter((s) => s.projectId === projectId);
-  }
-  return scenarios;
+export function listScenarios(): Scenario[] {
+  return loadScenarios();
 }
 
 export function updateScenario(
@@ -161,13 +141,10 @@ export function updateScenario(
 
   if (
     input.name &&
-    scenarios.some(
-      (s) =>
-        s.projectId === scenario.projectId && s.name === input.name && s.id !== id
-    )
+    scenarios.some((s) => s.name === input.name && s.id !== id)
   ) {
     throw new Error(
-      `Scenario with name "${input.name}" already exists in this project`
+      `Scenario with name "${input.name}" already exists`
     );
   }
 
@@ -202,16 +179,4 @@ export function deleteScenario(id: string): boolean {
   saveScenarios(scenarios);
 
   return true;
-}
-
-export function deleteScenariosByProject(projectId: string): number {
-  const scenarios = loadScenarios();
-  const filtered = scenarios.filter((s) => s.projectId !== projectId);
-  const deletedCount = scenarios.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveScenarios(filtered);
-  }
-
-  return deletedCount;
 }

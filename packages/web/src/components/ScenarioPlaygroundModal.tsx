@@ -36,7 +36,7 @@ export function ScenarioPlaygroundModal({
     scenario.id,
     selectedPersonaId
   );
-  const { data: connectors = [] } = useConnectors(scenario.projectId);
+  const { data: connectors = [] } = useConnectors();
   const createPlaygroundRun = useCreatePlaygroundRun();
 
   // Poll for active run status

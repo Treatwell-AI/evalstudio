@@ -9,11 +9,10 @@ import { ConnectorType, AuthType, LangGraphConnectorConfig } from "../lib/api";
 
 interface ConnectorFormProps {
   connectorId: string | null;
-  projectId: string;
   onClose: () => void;
 }
 
-export function ConnectorForm({ connectorId, projectId, onClose }: ConnectorFormProps) {
+export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<ConnectorType>("http");
   const [baseUrl, setBaseUrl] = useState("");
@@ -120,7 +119,6 @@ export function ConnectorForm({ connectorId, projectId, onClose }: ConnectorForm
         });
       } else {
         await createConnector.mutateAsync({
-          projectId,
           name,
           type,
           baseUrl,

@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProject } from "./project.js";
 import { getStorageDir } from "./storage.js";
 
 export interface Persona {
   id: string;
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -15,7 +13,6 @@ export interface Persona {
 }
 
 export interface CreatePersonaInput {
-  projectId: string;
   name: string;
   description?: string;
   systemPrompt?: string;
@@ -46,27 +43,17 @@ function savePersonas(personas: Persona[]): void {
 }
 
 export function createPersona(input: CreatePersonaInput): Persona {
-  const project = getProject(input.projectId);
-  if (!project) {
-    throw new Error(`Project with id "${input.projectId}" not found`);
-  }
-
   const personas = loadPersonas();
 
-  if (
-    personas.some(
-      (p) => p.projectId === input.projectId && p.name === input.name
-    )
-  ) {
+  if (personas.some((p) => p.name === input.name)) {
     throw new Error(
-      `Persona with name "${input.name}" already exists in this project`
+      `Persona with name "${input.name}" already exists`
     );
   }
 
   const now = new Date().toISOString();
   const persona: Persona = {
     id: randomUUID(),
-    projectId: input.projectId,
     name: input.name,
     description: input.description,
     systemPrompt: input.systemPrompt,
@@ -85,20 +72,13 @@ export function getPersona(id: string): Persona | undefined {
   return personas.find((p) => p.id === id);
 }
 
-export function getPersonaByName(
-  projectId: string,
-  name: string
-): Persona | undefined {
+export function getPersonaByName(name: string): Persona | undefined {
   const personas = loadPersonas();
-  return personas.find((p) => p.projectId === projectId && p.name === name);
+  return personas.find((p) => p.name === name);
 }
 
-export function listPersonas(projectId?: string): Persona[] {
-  const personas = loadPersonas();
-  if (projectId) {
-    return personas.filter((p) => p.projectId === projectId);
-  }
-  return personas;
+export function listPersonas(): Persona[] {
+  return loadPersonas();
 }
 
 export function updatePersona(
@@ -116,13 +96,10 @@ export function updatePersona(
 
   if (
     input.name &&
-    personas.some(
-      (p) =>
-        p.projectId === persona.projectId && p.name === input.name && p.id !== id
-    )
+    personas.some((p) => p.name === input.name && p.id !== id)
   ) {
     throw new Error(
-      `Persona with name "${input.name}" already exists in this project`
+      `Persona with name "${input.name}" already exists`
     );
   }
 
@@ -152,16 +129,4 @@ export function deletePersona(id: string): boolean {
   savePersonas(personas);
 
   return true;
-}
-
-export function deletePersonasByProject(projectId: string): number {
-  const personas = loadPersonas();
-  const filtered = personas.filter((p) => p.projectId !== projectId);
-  const deletedCount = personas.length - filtered.length;
-
-  if (deletedCount > 0) {
-    savePersonas(filtered);
-  }
-
-  return deletedCount;
 }

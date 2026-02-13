@@ -4,7 +4,6 @@ import { useScenarios, useDeleteScenario } from "../hooks/useScenarios";
 import { Scenario } from "../lib/api";
 
 interface ScenarioListProps {
-  projectId: string;
   selectMode?: boolean;
   onExitSelectMode?: () => void;
 }
@@ -31,9 +30,9 @@ function exportScenariosAsJsonl(scenarios: Scenario[]) {
   URL.revokeObjectURL(url);
 }
 
-export function ScenarioList({ projectId, selectMode, onExitSelectMode }: ScenarioListProps) {
+export function ScenarioList({ selectMode, onExitSelectMode }: ScenarioListProps) {
   const navigate = useNavigate();
-  const { data: scenarios, isLoading, error } = useScenarios(projectId);
+  const { data: scenarios, isLoading, error } = useScenarios();
   const deleteScenario = useDeleteScenario();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -69,7 +68,7 @@ export function ScenarioList({ projectId, selectMode, onExitSelectMode }: Scenar
     if (selectMode) {
       toggleSelection(scenario.id);
     } else {
-      navigate(`/project/${projectId}/scenarios/${scenario.id}`);
+      navigate(`/scenarios/${scenario.id}`);
     }
   };
 

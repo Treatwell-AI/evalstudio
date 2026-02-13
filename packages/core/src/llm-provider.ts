@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProject } from "./project.js";
 import { getStorageDir } from "./storage.js";
 
 export type ProviderType = "openai" | "anthropic";
@@ -12,7 +11,6 @@ export interface LLMProviderConfig {
 
 export interface LLMProvider {
   id: string;
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -22,7 +20,6 @@ export interface LLMProvider {
 }
 
 export interface CreateLLMProviderInput {
-  projectId: string;
   name: string;
   provider: ProviderType;
   apiKey: string;
@@ -55,27 +52,17 @@ function saveLLMProviders(providers: LLMProvider[]): void {
 }
 
 export function createLLMProvider(input: CreateLLMProviderInput): LLMProvider {
-  const project = getProject(input.projectId);
-  if (!project) {
-    throw new Error(`Project with id "${input.projectId}" not found`);
-  }
-
   const providers = loadLLMProviders();
 
-  if (
-    providers.some(
-      (p) => p.projectId === input.projectId && p.name === input.name
-    )
-  ) {
+  if (providers.some((p) => p.name === input.name)) {
     throw new Error(
-      `LLM Provider with name "${input.name}" already exists in this project`
+      `LLM Provider with name "${input.name}" already exists`
     );
   }
 
   const now = new Date().toISOString();
   const provider: LLMProvider = {
     id: randomUUID(),
-    projectId: input.projectId,
     name: input.name,
     provider: input.provider,
     apiKey: input.apiKey,
@@ -95,20 +82,13 @@ export function getLLMProvider(id: string): LLMProvider | undefined {
   return providers.find((p) => p.id === id);
 }
 
-export function getLLMProviderByName(
-  projectId: string,
-  name: string
-): LLMProvider | undefined {
+export function getLLMProviderByName(name: string): LLMProvider | undefined {
   const providers = loadLLMProviders();
-  return providers.find((p) => p.projectId === projectId && p.name === name);
+  return providers.find((p) => p.name === name);
 }
 
-export function listLLMProviders(projectId?: string): LLMProvider[] {
-  const providers = loadLLMProviders();
-  if (projectId) {
-    return providers.filter((p) => p.projectId === projectId);
-  }
-  return providers;
+export function listLLMProviders(): LLMProvider[] {
+  return loadLLMProviders();
 }
 
 export function updateLLMProvider(
@@ -126,13 +106,10 @@ export function updateLLMProvider(
 
   if (
     input.name &&
-    providers.some(
-      (p) =>
-        p.projectId === provider.projectId && p.name === input.name && p.id !== id
-    )
+    providers.some((p) => p.name === input.name && p.id !== id)
   ) {
     throw new Error(
-      `LLM Provider with name "${input.name}" already exists in this project`
+      `LLM Provider with name "${input.name}" already exists`
     );
   }
 
@@ -163,18 +140,6 @@ export function deleteLLMProvider(id: string): boolean {
   saveLLMProviders(providers);
 
   return true;
-}
-
-export function deleteLLMProvidersByProject(projectId: string): number {
-  const providers = loadLLMProviders();
-  const filtered = providers.filter((p) => p.projectId !== projectId);
-  const deletedCount = providers.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveLLMProviders(filtered);
-  }
-
-  return deletedCount;
 }
 
 /**

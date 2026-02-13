@@ -19,7 +19,6 @@ import {
   updateRun,
   deleteRun,
   deleteRunsByEval,
-  deleteRunsByProject,
   RunProcessor,
   evaluateCriteria,
   generatePersonaMessage,
@@ -45,7 +44,6 @@ import {
 interface Run {
   id: string;                    // Unique identifier (UUID)
   evalId?: string;               // Parent eval ID (optional for playground runs)
-  projectId: string;             // Project ID (derived from eval or scenario)
   personaId?: string;            // Persona ID used for this run
   scenarioId: string;            // Scenario ID used for this run
   connectorId?: string;          // Connector ID (for playground runs without eval)
@@ -64,7 +62,7 @@ interface Run {
 }
 ```
 
-Note: For eval-based runs, the connector is configured at the Eval level. For playground runs (without an eval), `connectorId` is stored directly on the run. LLM provider for evaluation is always configured at the project level via `project.llmSettings`. The `personaId` and `scenarioId` are always stored directly on the run at creation time.
+Note: For eval-based runs, the connector is configured at the Eval level. For playground runs (without an eval), `connectorId` is stored directly on the run. LLM provider for evaluation is always configured at the project level via `evalstudio.config.json` `llmSettings`. The `personaId` and `scenarioId` are always stored directly on the run at creation time.
 
 The `messages` array includes all messages stored during execution:
 - System prompt (generated from persona/scenario)
@@ -115,7 +113,7 @@ interface CreateRunInput {
 }
 ```
 
-Runs use the connector and LLM provider configured on the parent Eval. When runs are created, they are automatically assigned an `executionId` that groups all runs created in the same batch. This ID is auto-incremented per project.
+Runs use the connector and LLM provider configured on the parent Eval. When runs are created, they are automatically assigned an `executionId` that groups all runs created in the same batch. This ID is auto-incremented.
 
 ### CreatePlaygroundRunInput
 
@@ -127,7 +125,7 @@ interface CreatePlaygroundRunInput {
 }
 ```
 
-Used for creating runs directly from scenarios without requiring an eval. The connector is specified directly since there's no parent eval to inherit from. LLM provider for evaluation is resolved from the project's `llmSettings`.
+Used for creating runs directly from scenarios without requiring an eval. The connector is specified directly since there's no parent eval to inherit from. LLM provider for evaluation is resolved from the project's `evalstudio.config.json` `llmSettings`.
 
 ### UpdateRunInput
 
@@ -149,7 +147,6 @@ interface UpdateRunInput {
 ```typescript
 interface ListRunsOptions {
   evalId?: string;       // Filter by eval ID
-  projectId?: string;    // Filter by project ID
   status?: RunStatus;    // Filter by status
   limit?: number;        // Maximum number of runs to return
 }
@@ -161,7 +158,6 @@ interface ListRunsOptions {
 interface RunProcessorOptions {
   pollIntervalMs?: number;   // Polling interval in milliseconds (default: 5000)
   maxConcurrent?: number;    // Maximum concurrent run executions (default: 3)
-  projectId?: string;        // Filter runs by project ID (optional)
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   onRunStart?: (run: Run) => void;
   onRunComplete?: (run: Run, result: ConnectorInvokeResult) => void;
@@ -206,7 +202,6 @@ const run = createRun({
   evalId: "eval-uuid",
 });
 // run.status === "queued"
-// run.projectId is derived from the eval
 // run.personaId and run.scenarioId are stored directly
 // run.executionId is auto-assigned
 ```
@@ -232,7 +227,7 @@ const run = createPlaygroundRun({
 // run.connectorId is stored directly
 ```
 
-The run is processed by `RunProcessor` like any other run. The processor checks for `connectorId` on the run itself when `evalId` is not present. LLM provider for evaluation is resolved from the project's `llmSettings`.
+The run is processed by `RunProcessor` like any other run. The processor checks for `connectorId` on the run itself when `evalId` is not present. LLM provider for evaluation is resolved from the project's `evalstudio.config.json` `llmSettings`.
 
 ### getRun()
 
@@ -248,26 +243,21 @@ const run = getRun("run-uuid");
 
 ### listRuns()
 
-Lists runs with flexible filtering options. Supports both a new options-based API and a legacy positional parameter API for backward compatibility.
+Lists runs with flexible filtering options.
 
 ```typescript
-// Options-based API (recommended)
 function listRuns(options?: ListRunsOptions): Run[];
-
-// Legacy API (backward compatible)
-function listRuns(evalId?: string, projectId?: string): Run[];
 ```
 
 ```typescript
 // List all runs
 const allRuns = listRuns();
 
-// Using options-based API (recommended)
+// Filter by status
 const queuedRuns = listRuns({ status: "queued", limit: 10 });
-const projectRuns = listRuns({ projectId: "project-uuid", status: "completed" });
 
-// Legacy API (still works)
-const projectRunsLegacy = listRuns(undefined, "project-uuid");
+// Filter by eval
+const evalRuns = listRuns({ evalId: "eval-uuid", status: "completed" });
 ```
 
 When using the options-based API, results are sorted by `createdAt` (oldest first), making it suitable for queue processing.
@@ -356,21 +346,6 @@ const count = deleteRunsByEval("eval-uuid");
 console.log(`Deleted ${count} runs`);
 ```
 
-### deleteRunsByProject()
-
-Deletes all runs belonging to a project.
-
-```typescript
-function deleteRunsByProject(projectId: string): number;
-```
-
-Returns the number of runs deleted.
-
-```typescript
-const count = deleteRunsByProject("project-uuid");
-console.log(`Deleted ${count} runs`);
-```
-
 ## Cascade Deletion
 
 When an eval is deleted, all associated runs are automatically deleted via `deleteRunsByEval()`.
@@ -385,7 +360,6 @@ The `RunProcessor` class provides background execution of queued evaluation runs
 const processor = new RunProcessor({
   pollIntervalMs: 5000,    // Poll every 5 seconds (default)
   maxConcurrent: 3,        // Process up to 3 runs concurrently (default)
-  projectId: "project-id", // Optional: only process runs for this project
   onStatusChange: (runId, status, run) => {
     console.log(`Run ${runId} is now ${status}`);
   },
@@ -557,4 +531,4 @@ console.log(result.content);  // "I'd like to reschedule my appointment to next 
 
 ## Storage
 
-Runs are stored in `~/.evalstudio/runs.json`.
+Runs are stored in `data/runs.json` within the project directory.

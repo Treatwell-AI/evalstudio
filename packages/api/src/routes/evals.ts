@@ -10,7 +10,6 @@ import {
 } from "@evalstudio/core";
 
 interface CreateEvalBody {
-  projectId: string;
   /** Display name for the eval (required) */
   name: string;
   input?: Message[];
@@ -35,17 +34,13 @@ interface EvalParams {
 }
 
 interface EvalQuerystring {
-  projectId?: string;
   expand?: string;
 }
 
 export async function evalsRoute(fastify: FastifyInstance) {
-  fastify.get<{ Querystring: EvalQuerystring }>(
-    "/evals",
-    async (request) => {
-      return listEvals(request.query.projectId);
-    }
-  );
+  fastify.get("/evals", async () => {
+    return listEvals();
+  });
 
   fastify.get<{ Params: EvalParams; Querystring: EvalQuerystring }>(
     "/evals/:id",
@@ -69,17 +64,11 @@ export async function evalsRoute(fastify: FastifyInstance) {
     "/evals",
     async (request, reply) => {
       const {
-        projectId,
         name,
         input,
         scenarioIds,
         connectorId,
       } = request.body;
-
-      if (!projectId) {
-        reply.code(400);
-        return { error: "Project ID is required" };
-      }
 
       if (!name) {
         reply.code(400);
@@ -98,7 +87,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
 
       try {
         const evalItem = createEval({
-          projectId,
           name,
           input,
           scenarioIds,
@@ -110,8 +98,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
         if (error instanceof Error) {
           if (error.message.includes("not found")) {
             reply.code(404);
-          } else if (error.message.includes("does not belong")) {
-            reply.code(400);
           } else {
             reply.code(409);
           }
@@ -150,8 +136,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
         if (error instanceof Error) {
           if (error.message.includes("not found")) {
             reply.code(404);
-          } else if (error.message.includes("does not belong")) {
-            reply.code(400);
           } else {
             reply.code(409);
           }

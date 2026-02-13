@@ -67,14 +67,6 @@ describe("eval command", () => {
     expect(deleteCmd?.description()).toBe("Delete an eval");
   });
 
-  it("create command has required project option", async () => {
-    const { evalCommand } = await import("../commands/eval.js");
-    const createCmd = evalCommand.commands.find((c) => c.name() === "create");
-    const projectOpt = createCmd?.options.find((o) => o.long === "--project");
-    expect(projectOpt).toBeDefined();
-    expect(projectOpt?.required).toBe(true);
-  });
-
   it("create command has required scenario option", async () => {
     const { evalCommand } = await import("../commands/eval.js");
     const createCmd = evalCommand.commands.find((c) => c.name() === "create");

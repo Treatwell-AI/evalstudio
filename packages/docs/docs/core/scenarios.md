@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Scenarios
 
-Manage scenarios to define test context for conversations. Scenarios belong to a project and contain instructions that provide all the context needed for the LLM to simulate the conversation. Scenarios can also include initial messages to seed conversations, allowing you to test from a specific point in a conversation.
+Manage scenarios to define test context for conversations. Scenarios contain instructions that provide all the context needed for the LLM to simulate the conversation. Scenarios can also include initial messages to seed conversations, allowing you to test from a specific point in a conversation.
 
 ## Import
 
@@ -16,7 +16,6 @@ import {
   listScenarios,
   updateScenario,
   deleteScenario,
-  deleteScenariosByProject,
   type Scenario,
   type CreateScenarioInput,
   type UpdateScenarioInput,
@@ -31,8 +30,7 @@ import {
 ```typescript
 interface Scenario {
   id: string;            // Unique identifier (UUID)
-  projectId: string;     // Parent project ID
-  name: string;          // Scenario name (unique within project)
+  name: string;          // Scenario name (unique)
   instructions?: string; // Instructions providing all context for the scenario
   messages?: Message[];  // Initial messages to seed the conversation
   maxMessages?: number;  // Maximum conversation turns before stopping
@@ -60,7 +58,6 @@ interface Message {
 
 ```typescript
 interface CreateScenarioInput {
-  projectId: string;
   name: string;
   instructions?: string;
   messages?: Message[];
@@ -91,25 +88,23 @@ interface UpdateScenarioInput {
 
 ### createScenario()
 
-Creates a new scenario within a project.
+Creates a new scenario.
 
 ```typescript
 function createScenario(input: CreateScenarioInput): Scenario;
 ```
 
-**Throws**: Error if the project doesn't exist or if a scenario with the same name already exists in the project.
+**Throws**: Error if a scenario with the same name already exists.
 
 ```typescript
 // Simple scenario with just instructions
 const scenario = createScenario({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "booking-cancellation",
   instructions: "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
 });
 
 // Scenario with initial messages to continue from a specific point
 const midConversationScenario = createScenario({
-  projectId: "123e4567-e89b-12d3-a456-426614174000",
   name: "cancellation-mid-flow",
   instructions: "Continue the cancellation flow. Customer should receive refund confirmation.",
   messages: [
@@ -134,33 +129,26 @@ const scenario = getScenario("987fcdeb-51a2-3bc4-d567-890123456789");
 
 ### getScenarioByName()
 
-Gets a scenario by its name within a specific project.
+Gets a scenario by its name.
 
 ```typescript
-function getScenarioByName(projectId: string, name: string): Scenario | undefined;
+function getScenarioByName(name: string): Scenario | undefined;
 ```
 
 ```typescript
-const scenario = getScenarioByName(
-  "123e4567-e89b-12d3-a456-426614174000",
-  "booking-cancellation"
-);
+const scenario = getScenarioByName("booking-cancellation");
 ```
 
 ### listScenarios()
 
-Lists scenarios, optionally filtered by project.
+Lists all scenarios in the project.
 
 ```typescript
-function listScenarios(projectId?: string): Scenario[];
+function listScenarios(): Scenario[];
 ```
 
 ```typescript
-// List all scenarios
 const allScenarios = listScenarios();
-
-// List scenarios for a specific project
-const projectScenarios = listScenarios("123e4567-e89b-12d3-a456-426614174000");
 ```
 
 ### updateScenario()
@@ -171,7 +159,7 @@ Updates an existing scenario.
 function updateScenario(id: string, input: UpdateScenarioInput): Scenario | undefined;
 ```
 
-**Throws**: Error if updating to a name that already exists in the project.
+**Throws**: Error if updating to a name that already exists.
 
 ```typescript
 const updated = updateScenario(scenario.id, {
@@ -193,21 +181,6 @@ Returns `true` if the scenario was deleted, `false` if not found.
 const deleted = deleteScenario(scenario.id);
 ```
 
-### deleteScenariosByProject()
-
-Deletes all scenarios belonging to a project.
-
-```typescript
-function deleteScenariosByProject(projectId: string): number;
-```
-
-Returns the number of scenarios deleted.
-
-```typescript
-const count = deleteScenariosByProject("123e4567-e89b-12d3-a456-426614174000");
-console.log(`Deleted ${count} scenarios`);
-```
-
 ## Storage
 
-Scenarios are stored in `~/.evalstudio/scenarios.json`.
+Scenarios are stored in `data/scenarios.json` within the project directory.

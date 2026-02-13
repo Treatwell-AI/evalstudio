@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreateLLMProviderInput, UpdateLLMProviderInput } from "../lib/api";
 
-export function useLLMProviders(projectId?: string) {
+export function useLLMProviders() {
   return useQuery({
-    queryKey: ["llmProviders", projectId],
-    queryFn: () => api.llmProviders.list(projectId),
+    queryKey: ["llmProviders"],
+    queryFn: () => api.llmProviders.list(),
   });
 }
 
@@ -20,7 +20,7 @@ export function useDefaultModels() {
   return useQuery({
     queryKey: ["llmProviders", "models"],
     queryFn: () => api.llmProviders.getModels(),
-    staleTime: Infinity, // Models don't change frequently
+    staleTime: Infinity,
   });
 }
 
@@ -29,7 +29,7 @@ export function useProviderModels(providerId: string | undefined) {
     queryKey: ["llmProviders", "providerModels", providerId],
     queryFn: () => api.llmProviders.getProviderModels(providerId!),
     enabled: !!providerId,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -38,11 +38,8 @@ export function useCreateLLMProvider() {
 
   return useMutation({
     mutationFn: (input: CreateLLMProviderInput) => api.llmProviders.create(input),
-    onSuccess: (provider) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["llmProviders"] });
-      queryClient.invalidateQueries({
-        queryKey: ["llmProviders", provider.projectId],
-      });
     },
   });
 }

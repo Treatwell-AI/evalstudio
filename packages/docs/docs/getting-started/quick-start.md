@@ -14,28 +14,22 @@ cd my-evals
 ```
 
 This creates a `my-evals/` directory containing:
-- `evalstudio.config.json` — project marker (commit to git)
-- `.evalstudio/` — data directory (auto-added to `.gitignore`)
+- `evalstudio.config.json` -- project configuration (commit to git)
+- `data/` -- data directory for entities (auto-added to `.gitignore`)
 
-## 2. Create a Project
-
-```bash
-evalstudio project create --name "My Project"
-```
-
-## 3. Verify Setup
+## 2. Verify Setup
 
 ```bash
 evalstudio status
 ```
 
-You should see output showing the local storage directory.
+You should see output showing the project directory.
 
-## 4. Create Scenarios and Evals
+## 3. Create Scenarios and Evals
 
 ```bash
-evalstudio scenario create --name "Greeting" --project "My Project"
-evalstudio eval create --name "Greeting Test" --scenario "Greeting" --connector "My Connector" --project "My Project"
+evalstudio scenario create --name "Greeting"
+evalstudio eval create --name "Greeting Test" --scenario "Greeting" --connector "My Connector"
 ```
 
 ## Start the Server
@@ -52,6 +46,11 @@ This starts the server at `http://localhost:3000` with the API at `/api` and the
 evalstudio serve --open
 ```
 
-## Global Storage
+## Project Directory Override
 
-If you run commands outside of an initialized project directory, EvalStudio uses global storage at `~/.evalstudio/`. You can override this with the `EVALSTUDIO_STORAGE_DIR` environment variable.
+You can override the project directory with the `EVALSTUDIO_PROJECT_DIR` environment variable:
+
+```bash
+export EVALSTUDIO_PROJECT_DIR=/path/to/project
+evalstudio status
+```

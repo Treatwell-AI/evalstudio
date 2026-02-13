@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useOutletContext, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useScenario, useUpdateScenario, useDeleteScenario } from "../hooks/useScenarios";
 import { usePersonas } from "../hooks/usePersonas";
 import { useRunsByScenario } from "../hooks/useRuns";
-import { Project, Message } from "../lib/api";
+import { Message } from "../lib/api";
 import { ScenarioPlaygroundModal } from "../components/ScenarioPlaygroundModal";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
@@ -12,16 +12,11 @@ import { PerformanceChart } from "../components/PerformanceChart";
 type ScenarioTab = "runs" | "code";
 type ViewMode = "time" | "execution";
 
-interface ProjectContext {
-  project: Project;
-}
-
 export function ScenarioDetailPage() {
   const navigate = useNavigate();
-  const { project } = useOutletContext<ProjectContext>();
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const { data: scenario, isLoading, error } = useScenario(scenarioId ?? null);
-  const { data: personas = [] } = usePersonas(project.id);
+  const { data: personas = [] } = usePersonas();
   const updateScenario = useUpdateScenario();
   const deleteScenario = useDeleteScenario();
 
@@ -77,7 +72,7 @@ export function ScenarioDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Scenario not found"}
         </div>
-        <Link to={`/project/${project.id}/scenarios`} className="btn btn-secondary">
+        <Link to="/scenarios" className="btn btn-secondary">
           Back to Scenarios
         </Link>
       </div>
@@ -88,7 +83,7 @@ export function ScenarioDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete scenario "${scenario.name}"?`)) {
       await deleteScenario.mutateAsync(scenario.id);
-      navigate(`/project/${project.id}/scenarios`);
+      navigate("/scenarios");
     }
   };
 
@@ -159,7 +154,7 @@ export function ScenarioDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to={`/project/${project.id}/scenarios`}
+            to="/scenarios"
             className="back-link"
           >
             ← Back to Scenarios
@@ -347,7 +342,7 @@ export function ScenarioDetailPage() {
         {personas.length === 0 ? (
           <p className="form-hint">
             No personas available.{" "}
-            <Link to={`/project/${project.id}/personas`}>Create a persona</Link> first.
+            <Link to="/personas">Create a persona</Link> first.
           </p>
         ) : (
           <div className="persona-checkbox-list">
@@ -412,7 +407,7 @@ export function ScenarioDetailPage() {
         </div>
 
         {activeTab === "runs" && (
-          <RunList scenarioId={scenario.id} projectId={project.id} />
+          <RunList scenarioId={scenario.id} />
         )}
 
         {activeTab === "code" && (

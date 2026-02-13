@@ -9,19 +9,18 @@ import { useConnectors } from "../hooks/useConnectors";
 
 interface EvalFormProps {
   evalId: string | null;
-  projectId: string;
   onClose: () => void;
 }
 
-export function EvalForm({ evalId, projectId, onClose }: EvalFormProps) {
+export function EvalForm({ evalId, onClose }: EvalFormProps) {
   const [name, setName] = useState("");
   const [scenarioIds, setScenarioIds] = useState<string[]>([]);
   const [connectorId, setConnectorId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: evalItem } = useEval(evalId);
-  const { data: scenarios } = useScenarios(projectId);
-  const { data: connectors } = useConnectors(projectId);
+  const { data: scenarios } = useScenarios();
+  const { data: connectors } = useConnectors();
   const createEval = useCreateEval();
   const updateEval = useUpdateEval();
 
@@ -75,7 +74,6 @@ export function EvalForm({ evalId, projectId, onClose }: EvalFormProps) {
         });
       } else {
         await createEval.mutateAsync({
-          projectId,
           name: name.trim(),
           scenarioIds,
           connectorId,

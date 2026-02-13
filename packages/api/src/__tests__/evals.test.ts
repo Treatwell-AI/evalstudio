@@ -1,42 +1,42 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { resetStorageDir, setStorageDir } from "@evalstudio/core";
+import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
 let testDir: string;
 
 describe("evals routes", () => {
-  let projectId: string;
   let scenarioId: string;
   let scenario2Id: string;
   let connectorId: string;
 
   beforeAll(async () => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    setStorageDir(testDir);
+    const storageDir = join(testDir, "data");
+    mkdirSync(storageDir, { recursive: true });
+    writeFileSync(
+      join(testDir, "evalstudio.config.json"),
+      JSON.stringify({ version: 2, name: "test-project" })
+    );
+    setStorageDir(storageDir);
+    setConfigDir(testDir);
 
-    // Create a project, scenarios, and connector for testing
+    // Create scenarios and connector for testing
     const server = await createServer();
-    const projectResponse = await server.inject({
-      method: "POST",
-      url: "/api/projects",
-      payload: { name: `test-project-${Date.now()}` },
-    });
-    projectId = JSON.parse(projectResponse.body).id;
 
     const scenarioResponse = await server.inject({
       method: "POST",
       url: "/api/scenarios",
-      payload: { projectId, name: "Test Scenario" },
+      payload: { name: "Test Scenario" },
     });
     scenarioId = JSON.parse(scenarioResponse.body).id;
 
     const scenario2Response = await server.inject({
       method: "POST",
       url: "/api/scenarios",
-      payload: { projectId, name: "Test Scenario 2" },
+      payload: { name: "Test Scenario 2" },
     });
     scenario2Id = JSON.parse(scenario2Response.body).id;
 
@@ -45,7 +45,6 @@ describe("evals routes", () => {
       method: "POST",
       url: "/api/connectors",
       payload: {
-        projectId,
         name: "Test Connector",
         type: "http",
         baseUrl: "https://api.example.com",
@@ -64,7 +63,7 @@ describe("evals routes", () => {
   });
 
   afterEach(async () => {
-    const storagePath = join(testDir, "evals.json");
+    const storagePath = join(testDir, "data", "evals.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
@@ -91,13 +90,13 @@ describe("evals routes", () => {
       await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
       });
 
       await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
+        payload: { name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
       });
 
       const response = await server.inject({
@@ -111,61 +110,6 @@ describe("evals routes", () => {
 
       await server.close();
     });
-
-    it("filters by project id", async () => {
-      const server = await createServer();
-
-      // Create another project with its own connector and scenario
-      const project2Response = await server.inject({
-        method: "POST",
-        url: "/api/projects",
-        payload: { name: `test-project-2-${Date.now()}` },
-      });
-      const project2Id = JSON.parse(project2Response.body).id;
-
-      const connector2Response = await server.inject({
-        method: "POST",
-        url: "/api/connectors",
-        payload: {
-          projectId: project2Id,
-          name: "Test Connector 2",
-          type: "http",
-          baseUrl: "https://api2.example.com",
-        },
-      });
-      const connector2Id = JSON.parse(connector2Response.body).id;
-
-      const scenario2Response = await server.inject({
-        method: "POST",
-        url: "/api/scenarios",
-        payload: { projectId: project2Id, name: "Project 2 Scenario" },
-      });
-      const project2ScenarioId = JSON.parse(scenario2Response.body).id;
-
-      await server.inject({
-        method: "POST",
-        url: "/api/evals",
-        payload: { projectId, name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
-      });
-
-      await server.inject({
-        method: "POST",
-        url: "/api/evals",
-        payload: { projectId: project2Id, name: "Eval 2", connectorId: connector2Id, scenarioIds: [project2ScenarioId] },
-      });
-
-      const response = await server.inject({
-        method: "GET",
-        url: `/api/evals?projectId=${project2Id}`,
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body).toHaveLength(1);
-      expect(body[0].projectId).toBe(project2Id);
-
-      await server.close();
-    });
   });
 
   describe("POST /evals", () => {
@@ -175,12 +119,11 @@ describe("evals routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
 
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
-      expect(body.projectId).toBe(projectId);
       expect(body.name).toBe("Test Eval");
       expect(body.connectorId).toBe(connectorId);
       expect(body.scenarioIds).toEqual([scenarioId]);
@@ -196,7 +139,6 @@ describe("evals routes", () => {
         method: "POST",
         url: "/api/evals",
         payload: {
-          projectId,
           name: "Full Eval",
           connectorId,
           input: [{ role: "user", content: "Hello" }],
@@ -214,28 +156,13 @@ describe("evals routes", () => {
       await server.close();
     });
 
-    it("returns 400 for missing project id", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/evals",
-        payload: { name: "Test", connectorId, scenarioIds: [scenarioId] },
-      });
-
-      expect(response.statusCode).toBe(400);
-      expect(JSON.parse(response.body)).toEqual({ error: "Project ID is required" });
-
-      await server.close();
-    });
-
     it("returns 400 for missing name", async () => {
       const server = await createServer();
 
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, connectorId, scenarioIds: [scenarioId] },
+        payload: { connectorId, scenarioIds: [scenarioId] },
       });
 
       expect(response.statusCode).toBe(400);
@@ -250,7 +177,7 @@ describe("evals routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test", connectorId },
+        payload: { name: "Test", connectorId },
       });
 
       expect(response.statusCode).toBe(400);
@@ -265,25 +192,11 @@ describe("evals routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test", scenarioIds: [scenarioId] },
+        payload: { name: "Test", scenarioIds: [scenarioId] },
       });
 
       expect(response.statusCode).toBe(400);
       expect(JSON.parse(response.body)).toEqual({ error: "Connector ID is required" });
-
-      await server.close();
-    });
-
-    it("returns 404 for non-existent project", async () => {
-      const server = await createServer();
-
-      const response = await server.inject({
-        method: "POST",
-        url: "/api/evals",
-        payload: { projectId: "non-existent", name: "Test", connectorId, scenarioIds: [scenarioId] },
-      });
-
-      expect(response.statusCode).toBe(404);
 
       await server.close();
     });
@@ -294,7 +207,7 @@ describe("evals routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test", connectorId: "non-existent", scenarioIds: [scenarioId] },
+        payload: { name: "Test", connectorId: "non-existent", scenarioIds: [scenarioId] },
       });
 
       expect(response.statusCode).toBe(404);
@@ -308,7 +221,7 @@ describe("evals routes", () => {
       const response = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test", connectorId, scenarioIds: ["non-existent"] },
+        payload: { name: "Test", connectorId, scenarioIds: ["non-existent"] },
       });
 
       expect(response.statusCode).toBe(404);
@@ -322,14 +235,14 @@ describe("evals routes", () => {
       const response1 = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
       });
       expect(response1.statusCode).toBe(201);
 
       const response2 = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
+        payload: { name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
       });
       expect(response2.statusCode).toBe(201);
 
@@ -344,7 +257,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
@@ -365,7 +278,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
@@ -404,7 +317,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Original Name", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Original Name", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
@@ -427,7 +340,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
@@ -450,7 +363,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
@@ -489,7 +402,7 @@ describe("evals routes", () => {
       const createResponse = await server.inject({
         method: "POST",
         url: "/api/evals",
-        payload: { projectId, name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
+        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 

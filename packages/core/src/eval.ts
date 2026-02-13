@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getConnector } from "./connector.js";
-import { getProject } from "./project.js";
 import { deleteRunsByEval } from "./run.js";
 import { getScenario } from "./scenario.js";
 import { getStorageDir } from "./storage.js";
@@ -13,7 +12,6 @@ export type { Message };
 
 export interface Eval {
   id: string;
-  projectId: string;
   /** Display name for the eval */
   name: string;
   /** Input messages for the eval */
@@ -27,7 +25,6 @@ export interface Eval {
 }
 
 export interface CreateEvalInput {
-  projectId: string;
   /** Display name for the eval */
   name: string;
   /** Initial input messages */
@@ -89,18 +86,10 @@ function saveEvals(evals: Eval[]): void {
 }
 
 export function createEval(input: CreateEvalInput): Eval {
-  const project = getProject(input.projectId);
-  if (!project) {
-    throw new Error(`Project with id "${input.projectId}" not found`);
-  }
-
   // Validate connector (required)
   const connector = getConnector(input.connectorId);
   if (!connector) {
     throw new Error(`Connector with id "${input.connectorId}" not found`);
-  }
-  if (connector.projectId !== input.projectId) {
-    throw new Error("Connector does not belong to the specified project");
   }
 
   // Validate scenarios (required, at least one)
@@ -113,16 +102,12 @@ export function createEval(input: CreateEvalInput): Eval {
     if (!scenario) {
       throw new Error(`Scenario with id "${scenarioId}" not found`);
     }
-    if (scenario.projectId !== input.projectId) {
-      throw new Error("Scenario does not belong to the specified project");
-    }
   }
 
   const evals = loadEvals();
   const now = new Date().toISOString();
   const evalItem: Eval = {
     id: randomUUID(),
-    projectId: input.projectId,
     name: input.name,
     input: input.input ?? [],
     scenarioIds: input.scenarioIds,
@@ -142,22 +127,13 @@ export function getEval(id: string): Eval | undefined {
   return evals.find((e) => e.id === id);
 }
 
-export function getEvalByScenario(
-  projectId: string,
-  scenarioId: string
-): Eval | undefined {
+export function getEvalByScenario(scenarioId: string): Eval | undefined {
   const evals = loadEvals();
-  return evals.find(
-    (e) => e.projectId === projectId && e.scenarioIds.includes(scenarioId)
-  );
+  return evals.find((e) => e.scenarioIds.includes(scenarioId));
 }
 
-export function listEvals(projectId?: string): Eval[] {
-  const evals = loadEvals();
-  if (projectId) {
-    return evals.filter((e) => e.projectId === projectId);
-  }
-  return evals;
+export function listEvals(): Eval[] {
+  return loadEvals();
 }
 
 export function getEvalWithRelations(
@@ -221,16 +197,11 @@ export function updateEval(
     return undefined;
   }
 
-  const evalItem = evals[index];
-
   // Validate connector if being updated
   if (input.connectorId) {
     const connector = getConnector(input.connectorId);
     if (!connector) {
       throw new Error(`Connector with id "${input.connectorId}" not found`);
-    }
-    if (connector.projectId !== evalItem.projectId) {
-      throw new Error("Connector does not belong to the specified project");
     }
   }
 
@@ -244,12 +215,10 @@ export function updateEval(
       if (!scenario) {
         throw new Error(`Scenario with id "${scenarioId}" not found`);
       }
-      if (scenario.projectId !== evalItem.projectId) {
-        throw new Error("Scenario does not belong to the specified project");
-      }
     }
   }
 
+  const evalItem = evals[index];
   const updated: Eval = {
     ...evalItem,
     name: input.name ?? evalItem.name,
@@ -280,16 +249,4 @@ export function deleteEval(id: string): boolean {
   saveEvals(evals);
 
   return true;
-}
-
-export function deleteEvalsByProject(projectId: string): number {
-  const evals = loadEvals();
-  const filtered = evals.filter((e) => e.projectId !== projectId);
-  const deletedCount = evals.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveEvals(filtered);
-  }
-
-  return deletedCount;
 }

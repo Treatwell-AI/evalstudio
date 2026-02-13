@@ -1,15 +1,9 @@
 import { useState } from "react";
-import { useOutletContext, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { PersonaList } from "../components/PersonaList";
 import { useCreatePersona } from "../hooks/usePersonas";
-import { Project } from "../lib/api";
-
-interface ProjectContext {
-  project: Project;
-}
 
 export function PersonasPage() {
-  const { project } = useOutletContext<ProjectContext>();
   const navigate = useNavigate();
   const createPersona = useCreatePersona();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,12 +21,11 @@ export function PersonasPage() {
 
     try {
       const persona = await createPersona.mutateAsync({
-        projectId: project.id,
         name: name.trim(),
       });
       setShowCreateModal(false);
       setName("");
-      navigate(`/project/${project.id}/personas/${persona.id}`);
+      navigate(`/personas/${persona.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }
@@ -94,7 +87,7 @@ export function PersonasPage() {
         </div>
       )}
 
-      <PersonaList projectId={project.id} />
+      <PersonaList />
     </div>
   );
 }

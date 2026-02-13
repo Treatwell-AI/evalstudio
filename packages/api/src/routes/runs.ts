@@ -43,14 +43,13 @@ interface RunParams {
 
 interface RunQuerystring {
   evalId?: string;
-  projectId?: string;
   scenarioId?: string;
   personaId?: string;
 }
 
 export async function runsRoute(fastify: FastifyInstance) {
   fastify.get<{ Querystring: RunQuerystring }>("/runs", async (request) => {
-    const { evalId, projectId, scenarioId, personaId } = request.query;
+    const { evalId, scenarioId, personaId } = request.query;
 
     if (evalId) {
       return listRunsByEval(evalId);
@@ -64,7 +63,7 @@ export async function runsRoute(fastify: FastifyInstance) {
       return listRunsByPersona(personaId);
     }
 
-    return listRuns(undefined, projectId);
+    return listRuns();
   });
 
   fastify.get<{ Params: RunParams }>("/runs/:id", async (request, reply) => {

@@ -1,15 +1,8 @@
 import { useState } from "react";
-import { useOutletContext } from "react-router-dom";
 import { ConnectorList } from "../components/ConnectorList";
 import { ConnectorForm } from "../components/ConnectorForm";
-import { Project } from "../lib/api";
-
-interface ProjectContext {
-  project: Project;
-}
 
 export function SettingsConnectorsPage() {
-  const { project } = useOutletContext<ProjectContext>();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingConnectorId, setEditingConnectorId] = useState<string | null>(null);
 
@@ -28,7 +21,6 @@ export function SettingsConnectorsPage() {
       {(showCreateForm || editingConnectorId) && (
         <ConnectorForm
           connectorId={editingConnectorId}
-          projectId={project.id}
           onClose={() => {
             setShowCreateForm(false);
             setEditingConnectorId(null);
@@ -37,7 +29,6 @@ export function SettingsConnectorsPage() {
       )}
 
       <ConnectorList
-        projectId={project.id}
         onEdit={(id) => setEditingConnectorId(id)}
       />
     </div>

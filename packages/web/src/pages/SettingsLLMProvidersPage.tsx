@@ -1,22 +1,17 @@
 import { useState, useEffect } from "react";
-import { useOutletContext } from "react-router-dom";
 import { LLMProviderList } from "../components/LLMProviderList";
 import { LLMProviderForm } from "../components/LLMProviderForm";
 import { useLLMProviders, useProviderModels } from "../hooks/useLLMProviders";
-import { useUpdateProject } from "../hooks/useProjects";
-import { Project, ProjectLLMSettings } from "../lib/api";
-
-interface ProjectContext {
-  project: Project;
-}
+import { useProjectConfig, useUpdateProjectConfig } from "../hooks/useProjects";
+import { ProjectLLMSettings } from "../lib/api";
 
 export function SettingsLLMProvidersPage() {
-  const { project } = useOutletContext<ProjectContext>();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
 
-  const { data: providers = [] } = useLLMProviders(project.id);
-  const updateProject = useUpdateProject();
+  const { data: providers = [] } = useLLMProviders();
+  const { data: projectConfig } = useProjectConfig();
+  const updateProjectConfig = useUpdateProjectConfig();
 
   // LLM defaults form state
   const [evaluationProviderId, setEvaluationProviderId] = useState("");
@@ -33,15 +28,15 @@ export function SettingsLLMProvidersPage() {
     personaProviderId || undefined
   );
 
-  // Initialize from project settings
+  // Initialize from project config settings
   useEffect(() => {
-    if (project.llmSettings) {
-      setEvaluationProviderId(project.llmSettings.evaluation?.providerId || "");
-      setEvaluationModel(project.llmSettings.evaluation?.model || "");
-      setPersonaProviderId(project.llmSettings.persona?.providerId || "");
-      setPersonaModel(project.llmSettings.persona?.model || "");
+    if (projectConfig?.llmSettings) {
+      setEvaluationProviderId(projectConfig.llmSettings.evaluation?.providerId || "");
+      setEvaluationModel(projectConfig.llmSettings.evaluation?.model || "");
+      setPersonaProviderId(projectConfig.llmSettings.persona?.providerId || "");
+      setPersonaModel(projectConfig.llmSettings.persona?.model || "");
     }
-  }, [project]);
+  }, [projectConfig]);
 
   const handleSaveDefaults = async () => {
     setSaveSuccess(false);
@@ -63,11 +58,8 @@ export function SettingsLLMProvidersPage() {
     }
 
     try {
-      await updateProject.mutateAsync({
-        id: project.id,
-        input: {
-          llmSettings: Object.keys(llmSettings).length > 0 ? llmSettings : null,
-        },
+      await updateProjectConfig.mutateAsync({
+        llmSettings: Object.keys(llmSettings).length > 0 ? llmSettings : null,
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -91,7 +83,6 @@ export function SettingsLLMProvidersPage() {
       {(showCreateForm || editingProviderId) && (
         <LLMProviderForm
           providerId={editingProviderId}
-          projectId={project.id}
           onClose={() => {
             setShowCreateForm(false);
             setEditingProviderId(null);
@@ -100,7 +91,6 @@ export function SettingsLLMProvidersPage() {
       )}
 
       <LLMProviderList
-        projectId={project.id}
         onEdit={(id) => setEditingProviderId(id)}
       />
 
@@ -213,14 +203,14 @@ export function SettingsLLMProvidersPage() {
             <button
               className="btn btn-primary"
               onClick={handleSaveDefaults}
-              disabled={updateProject.isPending}
+              disabled={updateProjectConfig.isPending}
             >
-              {updateProject.isPending ? "Saving..." : "Save"}
+              {updateProjectConfig.isPending ? "Saving..." : "Save"}
             </button>
             {saveSuccess && <span className="save-success">Settings saved!</span>}
-            {updateProject.isError && (
+            {updateProjectConfig.isError && (
               <span className="save-error">
-                Error: {(updateProject.error as Error)?.message}
+                Error: {(updateProjectConfig.error as Error)?.message}
               </span>
             )}
           </div>

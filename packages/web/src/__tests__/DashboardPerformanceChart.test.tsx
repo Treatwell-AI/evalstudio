@@ -14,7 +14,6 @@ global.ResizeObserver = ResizeObserver;
 function createMockRun(overrides: Partial<Run> = {}): Run {
   return {
     id: `run-${Math.random().toString(36).slice(2)}`,
-    projectId: "project-1",
     scenarioId: "scenario-1",
     status: "completed",
     messages: [],

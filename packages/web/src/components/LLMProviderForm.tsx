@@ -8,11 +8,10 @@ import { ProviderType } from "../lib/api";
 
 interface LLMProviderFormProps {
   providerId: string | null;
-  projectId: string;
   onClose: () => void;
 }
 
-export function LLMProviderForm({ providerId, projectId, onClose }: LLMProviderFormProps) {
+export function LLMProviderForm({ providerId, onClose }: LLMProviderFormProps) {
   const [name, setName] = useState("");
   const [provider, setProvider] = useState<ProviderType>("openai");
   const [apiKey, setApiKey] = useState("");
@@ -59,7 +58,6 @@ export function LLMProviderForm({ providerId, projectId, onClose }: LLMProviderF
         });
       } else {
         await createProvider.mutateAsync({
-          projectId,
           name,
           provider,
           apiKey,

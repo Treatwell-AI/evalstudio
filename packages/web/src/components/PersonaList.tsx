@@ -3,13 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { usePersonas, useDeletePersona } from "../hooks/usePersonas";
 import { Persona } from "../lib/api";
 
-interface PersonaListProps {
-  projectId: string;
-}
-
-export function PersonaList({ projectId }: PersonaListProps) {
+export function PersonaList() {
   const navigate = useNavigate();
-  const { data: personas, isLoading, error } = usePersonas(projectId);
+  const { data: personas, isLoading, error } = usePersonas();
   const deletePersona = useDeletePersona();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -34,7 +30,7 @@ export function PersonaList({ projectId }: PersonaListProps) {
   }
 
   const handleRowClick = (persona: Persona) => {
-    navigate(`/project/${projectId}/personas/${persona.id}`);
+    navigate(`/personas/${persona.id}`);
   };
 
   const handleDelete = async (e: React.MouseEvent, persona: Persona) => {

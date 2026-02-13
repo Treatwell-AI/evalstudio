@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getProject } from "./project.js";
 import { getStorageDir } from "./storage.js";
 import type { Message } from "./types.js";
 
@@ -40,7 +39,6 @@ export type ConnectorConfig = LangGraphConnectorConfig | HttpConnectorConfig;
 
 export interface Connector {
   id: string;
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -52,7 +50,6 @@ export interface Connector {
 }
 
 export interface CreateConnectorInput {
-  projectId: string;
   name: string;
   type: ConnectorType;
   baseUrl: string;
@@ -89,27 +86,17 @@ function saveConnectors(connectors: Connector[]): void {
 }
 
 export function createConnector(input: CreateConnectorInput): Connector {
-  const project = getProject(input.projectId);
-  if (!project) {
-    throw new Error(`Project with id "${input.projectId}" not found`);
-  }
-
   const connectors = loadConnectors();
 
-  if (
-    connectors.some(
-      (c) => c.projectId === input.projectId && c.name === input.name
-    )
-  ) {
+  if (connectors.some((c) => c.name === input.name)) {
     throw new Error(
-      `Connector with name "${input.name}" already exists in this project`
+      `Connector with name "${input.name}" already exists`
     );
   }
 
   const now = new Date().toISOString();
   const connector: Connector = {
     id: randomUUID(),
-    projectId: input.projectId,
     name: input.name,
     type: input.type,
     baseUrl: input.baseUrl,
@@ -131,20 +118,13 @@ export function getConnector(id: string): Connector | undefined {
   return connectors.find((c) => c.id === id);
 }
 
-export function getConnectorByName(
-  projectId: string,
-  name: string
-): Connector | undefined {
+export function getConnectorByName(name: string): Connector | undefined {
   const connectors = loadConnectors();
-  return connectors.find((c) => c.projectId === projectId && c.name === name);
+  return connectors.find((c) => c.name === name);
 }
 
-export function listConnectors(projectId?: string): Connector[] {
-  const connectors = loadConnectors();
-  if (projectId) {
-    return connectors.filter((c) => c.projectId === projectId);
-  }
-  return connectors;
+export function listConnectors(): Connector[] {
+  return loadConnectors();
 }
 
 export function updateConnector(
@@ -162,13 +142,10 @@ export function updateConnector(
 
   if (
     input.name &&
-    connectors.some(
-      (c) =>
-        c.projectId === connector.projectId && c.name === input.name && c.id !== id
-    )
+    connectors.some((c) => c.name === input.name && c.id !== id)
   ) {
     throw new Error(
-      `Connector with name "${input.name}" already exists in this project`
+      `Connector with name "${input.name}" already exists`
     );
   }
 
@@ -210,18 +187,6 @@ export function deleteConnector(id: string): boolean {
   saveConnectors(connectors);
 
   return true;
-}
-
-export function deleteConnectorsByProject(projectId: string): number {
-  const connectors = loadConnectors();
-  const filtered = connectors.filter((c) => c.projectId !== projectId);
-  const deletedCount = connectors.length - filtered.length;
-
-  if (deletedCount > 0) {
-    saveConnectors(filtered);
-  }
-
-  return deletedCount;
 }
 
 /**
