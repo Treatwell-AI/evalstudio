@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CLI README** - Added README.md to `@evalstudio/cli` package with quick start guide, command reference, and development setup instructions
+
 ### Changed
 
 - **BREAKING**: Removed `Project` entity and `projectId` from all entities
