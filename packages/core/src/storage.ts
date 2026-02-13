@@ -171,8 +171,11 @@ export function initLocalProject(
   const projectDir = dir;
   const configPath = join(projectDir, CONFIG_FILENAME);
 
-  if (existsSync(configPath)) {
-    throw new Error(`Already initialized: ${configPath} already exists`);
+  const storagePath = join(projectDir, LOCAL_STORAGE_DIRNAME);
+
+  const existing = [configPath, storagePath].filter(existsSync);
+  if (existing.length > 0) {
+    throw new Error(`Already initialized: ${existing.join(", ")} already exists`);
   }
 
   mkdirSync(projectDir, { recursive: true });
@@ -180,7 +183,6 @@ export function initLocalProject(
   const config: ProjectConfig = { version: 2, name };
   writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
 
-  const storagePath = join(projectDir, LOCAL_STORAGE_DIRNAME);
   mkdirSync(storagePath, { recursive: true });
 
   return { projectDir, configPath, storagePath };
