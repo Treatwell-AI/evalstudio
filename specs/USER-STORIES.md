@@ -64,6 +64,7 @@
 ### Results Review & Iteration
 
 [x] As a user, I want to review the full conversation from an eval run so that I can understand what happened
+[x] As a user, I want tool calls and results displayed clearly in the conversation view so that I can see what tools the agent used and what they returned
 [ ] As a user, I want to edit any message in a completed run so that I can test alternative paths
 [ ] As a user, I want to re-run from an edited message so that I can see how the agent responds to the change
 [ ] As a user, I want edits to be recorded as few-shot examples so that future runs of the same scenario can learn from corrections

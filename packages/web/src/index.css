@@ -2644,21 +2644,13 @@ body {
   cursor: pointer;
 }
 
-/* Tool Calls (from assistant messages) */
+/* Tool Calls */
 .run-preview-tool-calls {
-  margin-top: 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   width: 85%;
   margin-right: auto;
-}
-
-/* When tool calls are inside a message, remove the width constraints */
-.run-preview-message .run-preview-tool-calls {
-  max-width: none;
-  margin-right: 0;
-  margin-top: 0.5rem;
 }
 
 .run-preview-tool-call {

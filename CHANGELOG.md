@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Tool message display** - Refactored tool call/result rendering in run messages UI
+  - Tool UI is now driven by `role: "tool"` messages instead of being embedded inside assistant messages
+  - `tool_calls` from assistant messages are used only as an input lookup (for tool name and args)
+  - Assistant messages with only tool calls (no text) are filtered out, reducing visual clutter
+  - Removed unused CSS rules for nested tool call wrappers
+
 ### Added
 
 - **CLI README** - Added README.md to `@evalstudio/cli` package with quick start guide, command reference, and development setup instructions

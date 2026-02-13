@@ -1,24 +1,30 @@
 import { useState, useMemo } from "react";
 import { Message, ToolCall, getMessageContent } from "../lib/api";
 
-/** Map of tool_call_id to tool result message */
-type ToolResultsMap = Map<string, Message>;
+/** Map of tool_call_id -> ToolCall (input/args) from assistant messages */
+type ToolCallsMap = Map<string, ToolCall>;
 
-/** Build a map of tool_call_id -> tool result message for quick lookup */
-function buildToolResultsMap(messages: Message[]): ToolResultsMap {
-  const map = new Map<string, Message>();
+/** Build a map of tool_call_id -> ToolCall from all assistant messages' tool_calls */
+function buildToolCallsMap(messages: Message[]): ToolCallsMap {
+  const map = new Map<string, ToolCall>();
   for (const msg of messages) {
-    if (msg.role === "tool" && msg.tool_call_id) {
-      map.set(msg.tool_call_id, msg);
+    if (msg.role === "assistant" && msg.tool_calls) {
+      for (const call of msg.tool_calls) {
+        if (call.id) {
+          map.set(call.id, call);
+        }
+      }
     }
   }
   return map;
 }
 
-/** Check if a tool message's result is shown inline with a tool call */
-function isToolResultShownInline(message: Message, toolResultsMap: ToolResultsMap): boolean {
-  if (message.role !== "tool" || !message.tool_call_id) return false;
-  return toolResultsMap.has(message.tool_call_id);
+/** Check if an assistant message has only tool calls (no text content) */
+function isToolCallOnlyMessage(message: Message): boolean {
+  if (message.role !== "assistant") return false;
+  const content = getMessageContent(message);
+  const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
+  return (!content || content.trim() === "") && !!hasToolCalls;
 }
 
 /** Format tool result content (try JSON pretty print) */
@@ -43,17 +49,11 @@ function formatArgValue(value: unknown): string {
   return String(value);
 }
 
-/** Check if an assistant message has only tool calls (no text content) */
-function isToolCallOnlyMessage(message: Message): boolean {
-  if (message.role !== "assistant") return false;
-  const content = getMessageContent(message);
-  const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
-  return (!content || content.trim() === "") && !!hasToolCalls;
-}
-
-function ToolCallWithResult({ call, result }: { call: ToolCall; result?: Message }) {
+/** Renders a tool message as a collapsible box with input (from tool_calls lookup) and output */
+function ToolMessageDisplay({ message, toolCall }: { message: Message; toolCall?: ToolCall }) {
   const [expanded, setExpanded] = useState(false);
-  const argEntries = Object.entries(call.args || {});
+  const toolName = toolCall?.name || message.name || "unknown";
+  const argEntries = Object.entries(toolCall?.args || {});
 
   return (
     <div className={`run-preview-tool-call ${expanded ? "expanded" : "collapsed"}`}>
@@ -62,7 +62,7 @@ function ToolCallWithResult({ call, result }: { call: ToolCall; result?: Message
         onClick={() => setExpanded(!expanded)}
       >
         <div className="run-preview-tool-call-title">
-          <span className="run-preview-role">tool - <span className="run-preview-tool-name">{call.name}</span></span>
+          <span className="run-preview-role">tool - <span className="run-preview-tool-name">{toolName}</span></span>
         </div>
         <button className="run-preview-expand-btn">
           {expanded ? "Collapse" : "Expand"}
@@ -83,30 +83,14 @@ function ToolCallWithResult({ call, result }: { call: ToolCall; result?: Message
               </div>
             </div>
           )}
-          {result && (
-            <div className="run-preview-tool-section run-preview-tool-section-result">
-              <span className="run-preview-tool-section-label">Output</span>
-              <pre className="run-preview-tool-result-content">
-                {formatToolResult(result)}
-              </pre>
-            </div>
-          )}
+          <div className="run-preview-tool-section run-preview-tool-section-result">
+            <span className="run-preview-tool-section-label">Output</span>
+            <pre className="run-preview-tool-result-content">
+              {formatToolResult(message)}
+            </pre>
+          </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function ToolCallsDisplay({ toolCalls, toolResults }: { toolCalls: ToolCall[]; toolResults: ToolResultsMap }) {
-  return (
-    <div className="run-preview-tool-calls">
-      {toolCalls.map((call, index) => (
-        <ToolCallWithResult
-          key={call.id || index}
-          call={call}
-          result={call.id ? toolResults.get(call.id) : undefined}
-        />
-      ))}
     </div>
   );
 }
@@ -147,14 +131,15 @@ export function MessagesDisplay({
 }: MessagesDisplayProps) {
   const [systemExpanded, setSystemExpanded] = useState(false);
 
-  // Build tool results map for inline display
-  const toolResultsMap = useMemo(() => buildToolResultsMap(messages), [messages]);
+  // Build tool_call_id -> ToolCall map from assistant messages (for input lookup)
+  const toolCallsMap = useMemo(() => buildToolCallsMap(messages), [messages]);
 
   // Separate system messages from conversation messages
-  // Also filter out tool messages that are shown inline with their tool calls
+  // Filter out assistant messages that only contain tool calls (no text) - the tool
+  // interaction will be shown when the corresponding role=tool message renders
   const systemMessages = messages.filter((m) => m.role === "system");
   const conversationMessages = messages.filter(
-    (m) => m.role !== "system" && !isToolResultShownInline(m, toolResultsMap)
+    (m) => m.role !== "system" && !isToolCallOnlyMessage(m)
   );
 
   const hasContent = systemMessages.length > 0 || conversationMessages.length > 0 || additionalContent;
@@ -187,13 +172,14 @@ export function MessagesDisplay({
       {conversationMessages.length > 0 || additionalContent ? (
         <div className="run-preview-messages">
           {conversationMessages.map((message, index) =>
-            isToolCallOnlyMessage(message) ? (
-              // Tool-call-only messages: render tool calls directly without assistant wrapper
-              <ToolCallsDisplay
-                key={index}
-                toolCalls={message.tool_calls!}
-                toolResults={toolResultsMap}
-              />
+            message.role === "tool" ? (
+              // Tool messages drive the tool UI - look up input from toolCallsMap
+              <div key={index} className="run-preview-tool-calls">
+                <ToolMessageDisplay
+                  message={message}
+                  toolCall={message.tool_call_id ? toolCallsMap.get(message.tool_call_id) : undefined}
+                />
+              </div>
             ) : (
               <div
                 key={index}
@@ -201,9 +187,6 @@ export function MessagesDisplay({
               >
                 <span className="run-preview-role">{message.role}</span>
                 <div className="run-preview-content-text">{getMessageContent(message)}</div>
-                {message.tool_calls && message.tool_calls.length > 0 && (
-                  <ToolCallsDisplay toolCalls={message.tool_calls} toolResults={toolResultsMap} />
-                )}
               </div>
             )
           )}
@@ -310,24 +293,23 @@ export function SimulatedMessage({
 
   if (!messages || messages.length === 0) return null;
 
-  // Build tool results map for inline display
-  const toolResultsMap = buildToolResultsMap(messages);
+  // Build tool_call_id -> ToolCall map from assistant messages (for input lookup)
+  const toolCallsMap = buildToolCallsMap(messages);
 
-  // Filter out tool messages that are shown inline with their tool calls
-  const visibleMessages = messages.filter(
-    (m) => !isToolResultShownInline(m, toolResultsMap)
-  );
+  // Filter out assistant messages that only contain tool calls (no text)
+  const visibleMessages = messages.filter((m) => !isToolCallOnlyMessage(m));
 
   return (
     <>
       {visibleMessages.map((message, index) =>
-        isToolCallOnlyMessage(message) ? (
-          // Tool-call-only messages: render tool calls directly without assistant wrapper
-          <ToolCallsDisplay
-            key={index}
-            toolCalls={message.tool_calls!}
-            toolResults={toolResultsMap}
-          />
+        message.role === "tool" ? (
+          // Tool messages drive the tool UI
+          <div key={index} className="run-preview-tool-calls">
+            <ToolMessageDisplay
+              message={message}
+              toolCall={message.tool_call_id ? toolCallsMap.get(message.tool_call_id) : undefined}
+            />
+          </div>
         ) : (
           <div
             key={index}
@@ -335,9 +317,6 @@ export function SimulatedMessage({
           >
             <span className="run-preview-role">{message.role} (response)</span>
             <div className="run-preview-content-text">{getMessageContent(message)}</div>
-            {message.tool_calls && message.tool_calls.length > 0 && (
-              <ToolCallsDisplay toolCalls={message.tool_calls} toolResults={toolResultsMap} />
-            )}
             {index === visibleMessages.length - 1 && latencyMs && (
               <span className="run-preview-latency">{latencyMs}ms</span>
             )}
