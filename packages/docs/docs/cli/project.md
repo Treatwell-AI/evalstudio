@@ -34,11 +34,12 @@ Project initialized in ./my-evals
 
 ## Project Configuration
 
-The project is defined by the `evalstudio.config.json` file. You can edit it directly or update it via the API (`PUT /api/project`).
+The project is defined by the `evalstudio.config.json` file. You can edit it directly, update it via the API (`PUT /api/project`), or use the CLI `config` command.
 
 ```json
 {
   "name": "my-product-evals",
+  "maxConcurrency": 5,
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",
@@ -51,6 +52,26 @@ The project is defined by the `evalstudio.config.json` file. You can edit it dir
   }
 }
 ```
+
+## evalstudio config
+
+View or update project configuration values from the CLI.
+
+### Show Configuration
+
+```bash
+evalstudio config show
+evalstudio config show --json
+```
+
+### Set Configuration
+
+```bash
+evalstudio config set name "my-new-project-name"
+evalstudio config set maxConcurrency 10
+```
+
+Supported keys: `name`, `maxConcurrency`.
 
 ## Project Directory Resolution
 

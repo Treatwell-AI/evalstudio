@@ -230,7 +230,7 @@ export const runCommand = new Command("run")
     new Command("process")
       .description("Process queued runs")
       .option("-w, --watch", "Watch mode - continuously process runs")
-      .option("-c, --concurrency <number>", "Maximum concurrent runs (default: 3)")
+      .option("-c, --concurrency <number>", "Maximum concurrent runs (default: project config or 3)")
       .option("--poll <ms>", "Poll interval in milliseconds (default: 2000)")
       .action(
         async (options: {
@@ -240,14 +240,14 @@ export const runCommand = new Command("run")
         }) => {
           const maxConcurrent = options.concurrency
             ? parseInt(options.concurrency, 10)
-            : 3;
+            : undefined;
           const pollIntervalMs = options.poll
             ? parseInt(options.poll, 10)
             : 2000;
 
           const processor = new RunProcessor({
             pollIntervalMs,
-            maxConcurrent,
+            ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
             onRunStart: (run) => {
               console.log(`\x1b[36m▶\x1b[0m Starting run ${run.id}`);
             },
@@ -266,7 +266,7 @@ export const runCommand = new Command("run")
           if (options.watch) {
             // Watch mode: run continuously
             console.log("Starting run processor in watch mode...");
-            console.log(`  Concurrency: ${maxConcurrent}`);
+            console.log(`  Concurrency: ${maxConcurrent ?? "project config or 3"}`);
             console.log(`  Poll interval: ${pollIntervalMs}ms`);
             console.log("\nPress Ctrl+C to stop\n");
 

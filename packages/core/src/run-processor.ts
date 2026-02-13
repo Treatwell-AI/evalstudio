@@ -89,9 +89,20 @@ export class RunProcessor {
   private options: InternalOptions;
 
   constructor(options: RunProcessorOptions = {}) {
+    // Read maxConcurrency from project config as fallback
+    let configMaxConcurrency: number | undefined;
+    if (options.maxConcurrent === undefined) {
+      try {
+        const config = readProjectConfig();
+        configMaxConcurrency = config.maxConcurrency;
+      } catch {
+        // No project config available, use default
+      }
+    }
+
     this.options = {
       pollIntervalMs: options.pollIntervalMs ?? 5000,
-      maxConcurrent: options.maxConcurrent ?? 3,
+      maxConcurrent: options.maxConcurrent ?? configMaxConcurrency ?? 3,
       onStatusChange: options.onStatusChange,
       onRunStart: options.onRunStart,
       onRunComplete: options.onRunComplete,

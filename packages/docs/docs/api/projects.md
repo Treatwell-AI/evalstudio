@@ -24,6 +24,7 @@ Get the current project configuration.
 ```json
 {
   "name": "my-product-evals",
+  "maxConcurrency": 5,
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",
@@ -54,11 +55,13 @@ Update the project configuration.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | No | Project name |
+| `maxConcurrency` | number \| null | No | Max concurrent runs (null to clear, min: 1) |
 | `llmSettings` | object \| null | No | LLM configuration (null to clear) |
 
 ```json
 {
   "name": "updated-project-name",
+  "maxConcurrency": 5,
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",
@@ -73,6 +76,7 @@ Update the project configuration.
 ```json
 {
   "name": "updated-project-name",
+  "maxConcurrency": 5,
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",

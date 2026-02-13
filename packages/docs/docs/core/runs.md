@@ -157,7 +157,7 @@ interface ListRunsOptions {
 ```typescript
 interface RunProcessorOptions {
   pollIntervalMs?: number;   // Polling interval in milliseconds (default: 5000)
-  maxConcurrent?: number;    // Maximum concurrent run executions (default: 3)
+  maxConcurrent?: number;    // Max concurrent runs (falls back to project config, then 3)
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   onRunStart?: (run: Run) => void;
   onRunComplete?: (run: Run, result: ConnectorInvokeResult) => void;

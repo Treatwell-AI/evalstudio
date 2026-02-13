@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from "module";
 import { Command } from "commander";
+import { configCommand } from "./commands/config.js";
 import { connectorCommand } from "./commands/connector.js";
 import { evalCommand } from "./commands/eval.js";
 import { initCommand } from "./commands/init.js";
@@ -22,6 +23,7 @@ program
   .description("EvalStudio CLI - Test chatbots, AI agents, and REST APIs")
   .version(packageJson.version);
 
+program.addCommand(configCommand);
 program.addCommand(initCommand);
 program.addCommand(connectorCommand);
 program.addCommand(evalCommand);

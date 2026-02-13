@@ -22,11 +22,13 @@ export interface ProjectConfig {
   version: number;
   name: string;
   llmSettings?: ProjectLLMSettings;
+  maxConcurrency?: number;
 }
 
 export interface UpdateProjectConfigInput {
   name?: string;
   llmSettings?: ProjectLLMSettings | null;
+  maxConcurrency?: number | null;
 }
 
 export interface Status {

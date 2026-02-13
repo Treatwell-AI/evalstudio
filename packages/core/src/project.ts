@@ -14,6 +14,8 @@ export interface UpdateProjectConfigInput {
   name?: string;
   /** Set to null to clear LLM settings */
   llmSettings?: ProjectLLMSettings | null;
+  /** Maximum concurrent run executions. Set to null to clear (revert to default). */
+  maxConcurrency?: number | null;
 }
 
 /**
@@ -62,10 +64,24 @@ export function updateProjectConfig(
     newLLMSettings = config.llmSettings;
   }
 
+  // Handle maxConcurrency: null clears, undefined keeps existing, number updates
+  let newMaxConcurrency: number | undefined;
+  if (input.maxConcurrency === null) {
+    newMaxConcurrency = undefined;
+  } else if (input.maxConcurrency !== undefined) {
+    if (input.maxConcurrency < 1) {
+      throw new Error("maxConcurrency must be at least 1");
+    }
+    newMaxConcurrency = input.maxConcurrency;
+  } else {
+    newMaxConcurrency = config.maxConcurrency;
+  }
+
   const updated: ProjectConfig = {
     ...config,
     name: input.name ?? config.name,
     llmSettings: newLLMSettings,
+    maxConcurrency: newMaxConcurrency,
   };
 
   writeProjectConfig(updated);

@@ -107,4 +107,75 @@ describe("project config", () => {
       expect(updated.llmSettings?.evaluation?.providerId).toBe("provider-1");
     });
   });
+
+  describe("maxConcurrency", () => {
+    it("returns config with maxConcurrency when set", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          maxConcurrency: 5,
+        }, null, 2)
+      );
+
+      const config = getProjectConfig();
+
+      expect(config.maxConcurrency).toBe(5);
+    });
+
+    it("returns undefined maxConcurrency when not set", () => {
+      const config = getProjectConfig();
+
+      expect(config.maxConcurrency).toBeUndefined();
+    });
+
+    it("updates maxConcurrency", () => {
+      const updated = updateProjectConfig({ maxConcurrency: 10 });
+
+      expect(updated.maxConcurrency).toBe(10);
+      expect(updated.name).toBe("test-project");
+    });
+
+    it("clears maxConcurrency when set to null", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          maxConcurrency: 5,
+        }, null, 2)
+      );
+
+      const updated = updateProjectConfig({ maxConcurrency: null });
+
+      expect(updated.maxConcurrency).toBeUndefined();
+    });
+
+    it("preserves maxConcurrency when not included in update", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          maxConcurrency: 7,
+        }, null, 2)
+      );
+
+      const updated = updateProjectConfig({ name: "new-name" });
+
+      expect(updated.name).toBe("new-name");
+      expect(updated.maxConcurrency).toBe(7);
+    });
+
+    it("throws when maxConcurrency is less than 1", () => {
+      expect(() => updateProjectConfig({ maxConcurrency: 0 })).toThrow(
+        "maxConcurrency must be at least 1"
+      );
+
+      expect(() => updateProjectConfig({ maxConcurrency: -1 })).toThrow(
+        "maxConcurrency must be at least 1"
+      );
+    });
+  });
 });

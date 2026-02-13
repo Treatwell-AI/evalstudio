@@ -60,6 +60,15 @@ export function Sidebar({ projectName }: SidebarProps) {
         <div className="sidebar-section-title">Settings</div>
 
         <NavLink
+          to="/settings/general"
+          className={({ isActive }) =>
+            `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
+          }
+        >
+          General
+        </NavLink>
+
+        <NavLink
           to="/settings/connectors"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`

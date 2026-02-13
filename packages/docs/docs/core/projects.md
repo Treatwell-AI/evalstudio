@@ -30,6 +30,7 @@ The `evalstudio.config.json` file defines the project settings:
 ```json
 {
   "name": "my-product-evals",
+  "maxConcurrency": 5,
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",
@@ -61,6 +62,7 @@ import {
 ```typescript
 interface Project {
   name: string;                      // Project name
+  maxConcurrency?: number;           // Max concurrent run executions (default: 3)
   llmSettings?: ProjectLLMSettings;  // LLM configuration
 }
 ```
@@ -89,7 +91,8 @@ interface ProjectLLMSettings {
 ```typescript
 interface UpdateProjectInput {
   name?: string;
-  llmSettings?: ProjectLLMSettings | null;  // null to clear settings
+  maxConcurrency?: number | null;            // null to clear (reverts to default: 3)
+  llmSettings?: ProjectLLMSettings | null;   // null to clear settings
 }
 ```
 

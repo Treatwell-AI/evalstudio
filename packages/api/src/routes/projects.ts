@@ -8,6 +8,7 @@ import {
 interface UpdateProjectConfigBody {
   name?: string;
   llmSettings?: ProjectLLMSettings | null;
+  maxConcurrency?: number | null;
 }
 
 export async function projectsRoute(fastify: FastifyInstance) {
@@ -18,12 +19,13 @@ export async function projectsRoute(fastify: FastifyInstance) {
   fastify.put<{ Body: UpdateProjectConfigBody }>(
     "/project",
     async (request, reply) => {
-      const { name, llmSettings } = request.body;
+      const { name, llmSettings, maxConcurrency } = request.body;
 
       try {
         const config = updateProjectConfig({
           name,
           llmSettings,
+          maxConcurrency,
         });
 
         return config;

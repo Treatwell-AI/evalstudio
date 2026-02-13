@@ -84,6 +84,7 @@
 [x] As a user, I want one folder to equal one project so that project isolation is simple and follows standard dev tool conventions
 [x] As a user, I want to point to a project directory via `EVALSTUDIO_PROJECT_DIR` so that I can run commands from any working directory
 [x] As a user, I want a clear error message when no project is found so that I know how to fix it (init, cd, or set env var)
+[x] As a user, I want to set the max concurrent run executions from the web UI settings page and CLI so that I can control resource usage without editing config files
 
 ### Collaboration & Permissions
 

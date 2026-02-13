@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Configurable max concurrency** - Set max concurrent run executions via project settings
+  - New `maxConcurrency` field in `evalstudio.config.json` (validated: must be >= 1)
+  - Web UI: Settings > General page with project name and max concurrency controls
+  - CLI: `evalstudio config show` and `evalstudio config set maxConcurrency <n>` commands
+  - CLI: `run process --concurrency` falls back to project config before defaulting to 3
+  - RunProcessor reads from project config when no explicit value is provided
+  - Priority chain: explicit option > project config > default (3)
+
 ### Changed
 
 - **Documentation cleanup** - Removed all stale references to the old multi-project feature across docs

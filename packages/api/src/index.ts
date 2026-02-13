@@ -79,11 +79,11 @@ export async function createServer(options: ServerOptions = {}) {
   const enableProcessor = options.runProcessor ?? true;
   if (enableProcessor) {
     const pollMs = options.runProcessorPollMs ?? 5000;
-    const maxConcurrent = options.runProcessorMaxConcurrent ?? 3;
+    const maxConcurrent = options.runProcessorMaxConcurrent;
 
     runProcessor = new RunProcessor({
       pollIntervalMs: pollMs,
-      maxConcurrent,
+      ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
       onRunStart: (run) => {
         console.log(`[RunProcessor] Starting run ${run.id}`);
       },
@@ -99,7 +99,7 @@ export async function createServer(options: ServerOptions = {}) {
 
     runProcessor.start();
     console.log(
-      `[RunProcessor] Started (poll: ${pollMs}ms, concurrency: ${maxConcurrent})`
+      `[RunProcessor] Started (poll: ${pollMs}ms)`
     );
   }
 

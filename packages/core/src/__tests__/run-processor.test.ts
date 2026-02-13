@@ -120,6 +120,100 @@ describe("RunProcessor", () => {
       });
       expect(processor.isRunning()).toBe(false);
     });
+
+    it("reads maxConcurrency from project config when not provided", () => {
+      // Write config with maxConcurrency
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "processor-test",
+          llmSettings: {
+            evaluation: { providerId: llmProviderId },
+          },
+          maxConcurrency: 7,
+        }, null, 2)
+      );
+
+      // Create 8 queued runs
+      for (let i = 0; i < 8; i++) {
+        createRun({ evalId });
+      }
+
+      mockFetch.mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            message: { role: "assistant", content: "Done" },
+          }),
+      }));
+
+      // Processor should read maxConcurrency=7 from config
+      const processor = new RunProcessor();
+      return processor.processOnce().then((started) => {
+        expect(started).toBe(7);
+
+        // Restore config
+        writeFileSync(
+          join(testDir, "evalstudio.config.json"),
+          JSON.stringify({
+            version: 2,
+            name: "processor-test",
+            llmSettings: {
+              evaluation: { providerId: llmProviderId },
+            },
+          }, null, 2)
+        );
+      });
+    });
+
+    it("uses explicit maxConcurrent over project config", () => {
+      // Write config with maxConcurrency=10
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "processor-test",
+          llmSettings: {
+            evaluation: { providerId: llmProviderId },
+          },
+          maxConcurrency: 10,
+        }, null, 2)
+      );
+
+      // Create 5 queued runs
+      for (let i = 0; i < 5; i++) {
+        createRun({ evalId });
+      }
+
+      mockFetch.mockImplementation(async () => ({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            message: { role: "assistant", content: "Done" },
+          }),
+      }));
+
+      // Explicit maxConcurrent=2 should override config's 10
+      const processor = new RunProcessor({ maxConcurrent: 2 });
+      return processor.processOnce().then((started) => {
+        expect(started).toBe(2);
+
+        // Restore config
+        writeFileSync(
+          join(testDir, "evalstudio.config.json"),
+          JSON.stringify({
+            version: 2,
+            name: "processor-test",
+            llmSettings: {
+              evaluation: { providerId: llmProviderId },
+            },
+          }, null, 2)
+        );
+      });
+    });
   });
 
   describe("start/stop", () => {

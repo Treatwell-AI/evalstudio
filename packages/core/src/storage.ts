@@ -48,6 +48,8 @@ export interface ProjectConfig {
   version: number;
   name: string;
   llmSettings?: ProjectLLMSettings;
+  /** Maximum concurrent run executions (default: 3) */
+  maxConcurrency?: number;
 }
 
 function discoverProjectDir(startDir: string): string | null {
