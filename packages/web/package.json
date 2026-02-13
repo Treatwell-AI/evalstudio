@@ -1,6 +1,6 @@
 {
   "name": "@evalstudio/web",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "Web dashboard for EvalStudio",
   "type": "module",
