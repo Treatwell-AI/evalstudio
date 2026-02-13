@@ -5,6 +5,7 @@ import { usePersonas } from "../hooks/usePersonas";
 import { useRunsByScenario } from "../hooks/useRuns";
 import { Message } from "../lib/api";
 import { ScenarioPlaygroundModal } from "../components/ScenarioPlaygroundModal";
+import { SeedMessagesEditor } from "../components/SeedMessagesEditor";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
@@ -30,7 +31,7 @@ export function ScenarioDetailPage() {
 
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [messagesJson, setMessagesJson] = useState("[]");
+  const [seedMessages, setSeedMessages] = useState<Message[]>([]);
   const [maxMessages, setMaxMessages] = useState("");
   const [successCriteria, setSuccessCriteria] = useState("");
   const [failureCriteria, setFailureCriteria] = useState("");
@@ -44,7 +45,7 @@ export function ScenarioDetailPage() {
     if (scenario) {
       setName(scenario.name);
       setInstructions(scenario.instructions || "");
-      setMessagesJson(scenario.messages ? JSON.stringify(scenario.messages, null, 2) : "[]");
+      setSeedMessages(scenario.messages || []);
       setMaxMessages(scenario.maxMessages?.toString() || "");
       setSuccessCriteria(scenario.successCriteria || "");
       setFailureCriteria(scenario.failureCriteria || "");
@@ -94,24 +95,13 @@ export function ScenarioDetailPage() {
       return;
     }
 
-    let messages: Message[] | undefined;
-    try {
-      const parsed = JSON.parse(messagesJson);
-      if (Array.isArray(parsed)) {
-        messages = parsed;
-      }
-    } catch {
-      setSaveError("Invalid JSON in messages field");
-      return;
-    }
-
     try {
       await updateScenario.mutateAsync({
         id: scenario.id,
         input: {
           name,
           instructions: instructions || undefined,
-          messages,
+          messages: seedMessages.length > 0 ? seedMessages : undefined,
           maxMessages: maxMessages ? parseInt(maxMessages, 10) : undefined,
           successCriteria: successCriteria || undefined,
           failureCriteria: failureCriteria || undefined,
@@ -139,7 +129,7 @@ export function ScenarioDetailPage() {
     // Reset to original values
     setName(scenario.name);
     setInstructions(scenario.instructions || "");
-    setMessagesJson(scenario.messages ? JSON.stringify(scenario.messages, null, 2) : "[]");
+    setSeedMessages(scenario.messages || []);
     setMaxMessages(scenario.maxMessages?.toString() || "");
     setSuccessCriteria(scenario.successCriteria || "");
     setFailureCriteria(scenario.failureCriteria || "");
@@ -255,22 +245,10 @@ export function ScenarioDetailPage() {
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="scenario-messages">
-            Initial Messages (JSON array, optional)
-          </label>
-          <p className="form-hint">
-            Seed the conversation with prior messages. Format: {`[{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]`}
-          </p>
-          <textarea
-            id="scenario-messages"
-            value={messagesJson}
-            onChange={(e) => handleChange(setMessagesJson)(e.target.value)}
-            rows={6}
-            className="code-textarea"
-            placeholder='[{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi there!"}]'
-          />
-        </div>
+        <SeedMessagesEditor
+          messages={seedMessages}
+          onChange={handleChange(setSeedMessages)}
+        />
       </div>
 
       <div className="dashboard-card scenario-edit-form">

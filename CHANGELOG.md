@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Scenario seed messages editor** - Visual editor for scenario initial messages in the web UI
+  - Chat-like bubble interface matching the run messages display style (user messages right-aligned, assistant left-aligned)
+  - Add/remove messages with a single click; roles auto-alternate and can be toggled
+  - Auto-growing textareas that resize with content
+  - Toggle between Visual (default) and JSON editing modes
+
 ### Changed
 
 - **Tool message display** - Refactored tool call/result rendering in run messages UI

@@ -33,7 +33,7 @@
 ### Conversation Seeding
 
 [x] As a user, I want to provide an initial set of messages to a scenario and let generation/evaluation continue from that point so that I can cover complex scenarios by copying real conversations and assess various endings
-[ ] As a user, I want to create/edit the Eval seeding messages with a dedicated UI which allow to add/remove messages without having to write a JSON structure
+[x] As a user, I want to create/edit the scenario seeding messages with a dedicated UI which allow to add/remove messages without having to write a JSON structure
 [x] As a user, I want the system to detect who sent the last seed message: if it's from the agent, generate a persona message first; if it's from the persona, send directly to the agent for a reply
 
 ### Connectors and Providers
