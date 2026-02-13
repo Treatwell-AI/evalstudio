@@ -10,5 +10,5 @@ Read and execute the steps in `.claude/shared/validation-steps.md`.
 
 ## Options
 
-- `/validate --fix` - Run `yarn lint --fix` before validation
+- `/validate --fix` - Run `pnpm lint --fix` before validation
 - `/validate --quick` - Skip build step (faster iteration)

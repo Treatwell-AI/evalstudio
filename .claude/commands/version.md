@@ -21,25 +21,22 @@ Bump the version across all packages in the monorepo.
 
 ### Bump Version
 
-1. **Read current version** from `packages/core/package.json`
+1. **Read current version** from `packages/core/package.json` (for the summary display)
 
-2. **Calculate new version**:
-   - `patch`: increment Z (0.0.1 → 0.0.2)
-   - `minor`: increment Y, reset Z (0.0.1 → 0.1.0)
-   - `major`: increment X, reset Y and Z (0.0.1 → 1.0.0)
-   - Explicit version: use as-is (validate semver format)
-
-3. **Update all package.json files using pnpm**:
+2. **Update all package.json files using pnpm**:
    ```bash
-   # Use pnpm recursive exec to run npm version in all packages
-   pnpm -r exec npm version <version> --no-git-tag-version
+   # npm version handles patch/minor/major calculation natively
+   pnpm -r exec npm version <argument> --no-git-tag-version
    ```
+   Where `<argument>` is passed through directly: `patch`, `minor`, `major`, or an explicit semver like `1.2.3`.
    This updates:
    - `packages/core/package.json` (@evalstudio/core)
    - `packages/cli/package.json` (@evalstudio/cli)
    - `packages/api/package.json` (@evalstudio/api)
    - `packages/web/package.json` (@evalstudio/web)
    - `packages/docs/package.json` (@evalstudio/docs)
+
+3. **Read new version** back from `packages/core/package.json` (needed for commit message and tag)
 
 4. **Commit the version bump**:
    ```bash

@@ -5,7 +5,7 @@ Execute these steps in sequence and report results:
 ## 1. Type Checking
 
 ```bash
-yarn typecheck
+pnpm typecheck
 ```
 
 - If errors: list them and offer to help fix
@@ -14,16 +14,16 @@ yarn typecheck
 ## 2. Linting
 
 ```bash
-yarn lint
+pnpm lint
 ```
 
-- If errors: offer `yarn lint --fix` for auto-fixable issues
+- If errors: offer `pnpm lint --fix` for auto-fixable issues
 - If pass: continue
 
 ## 3. Unit Tests
 
 ```bash
-yarn test
+pnpm test
 ```
 
 - Report: X passed, Y failed
@@ -32,7 +32,7 @@ yarn test
 ## 4. Build
 
 ```bash
-yarn build
+pnpm build
 ```
 
 - If errors: show build errors

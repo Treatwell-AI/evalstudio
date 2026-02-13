@@ -69,5 +69,5 @@ If adding new pages, update sidebar configuration.
 ## 5. Preview (optional)
 
 ```bash
-cd packages/docs && yarn start
+pnpm --filter @evalstudio/docs start
 ```
