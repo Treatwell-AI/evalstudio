@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Connectors API
 
-REST endpoints for managing connector configurations. Connectors belong to a project and define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
+REST endpoints for managing connector configurations. Connectors define how to connect to target systems like LangGraph agents or generic HTTP endpoints.
 
 ## Endpoints
 
@@ -23,13 +23,7 @@ REST endpoints for managing connector configurations. Connectors belong to a pro
 
 ## GET /api/connectors
 
-List connectors, optionally filtered by project.
-
-### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projectId` | string | Filter by project ID |
+List all connectors.
 
 ### Response (200 OK)
 
@@ -37,7 +31,6 @@ List connectors, optionally filtered by project.
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",
@@ -55,11 +48,7 @@ List connectors, optionally filtered by project.
 ### Example
 
 ```bash
-# List all connectors
 curl http://localhost:3000/api/connectors
-
-# List connectors for a specific project
-curl http://localhost:3000/api/connectors?projectId=123e4567-e89b-12d3-a456-426614174000
 ```
 
 ---
@@ -93,8 +82,7 @@ Create a new connector.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `projectId` | string | Yes | Parent project ID |
-| `name` | string | Yes | Connector name (unique within project) |
+| `name` | string | Yes | Connector name |
 | `type` | string | Yes | Connector type: "http" or "langgraph" |
 | `baseUrl` | string | Yes | Base URL for the API endpoint |
 | `authType` | string | No | Auth type: "none", "api-key", "bearer", "basic" |
@@ -118,7 +106,6 @@ Create a new connector.
 
 ```json
 {
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8123",
@@ -135,7 +122,6 @@ Create a new connector.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8123",
@@ -153,9 +139,8 @@ Create a new connector.
 
 | Status | Description |
 |--------|-------------|
-| 400 | Missing required field (projectId, name, type, or baseUrl) |
-| 404 | Project not found |
-| 409 | Connector with name already exists in project |
+| 400 | Missing required field (name, type, or baseUrl) |
+| 409 | Connector with name already exists |
 
 ### Example
 
@@ -163,7 +148,6 @@ Create a new connector.
 curl -X POST http://localhost:3000/api/connectors \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",
@@ -182,7 +166,6 @@ Get a connector by its ID.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8123",
@@ -237,7 +220,6 @@ Update an existing connector.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8124",
@@ -254,7 +236,7 @@ Update an existing connector.
 | Status | Description |
 |--------|-------------|
 | 404 | Connector not found |
-| 409 | Connector with name already exists in project |
+| 409 | Connector with name already exists |
 
 ### Example
 

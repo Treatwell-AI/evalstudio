@@ -1,42 +1,76 @@
 # EvalStudio
 
-A flexible evaluation platform for testing chatbots, AI agents, and REST APIs. Run multi-turn conversation tests or structured JSON evaluations, assess responses with LLM-as-judge, and integrate into your CI/CD pipeline.
+A flexible evaluation platform for testing chatbots, AI agents, and REST APIs. Run multi-turn conversation tests, assess responses with LLM-as-judge, and integrate into your CI/CD pipeline.
 
 ## Key Features
 
 - **Multi-turn conversation testing** - Define personas, scenarios, and seed messages to simulate realistic interactions
-- **Multiple interfaces** - CLI for developers/CI, Web UI for teams, REST API for automation
-- **Pluggable connectors** - Test HTTP endpoints, LangGraph agents (messages or state), or custom implementations
-- **Flexible evaluation** - Exact match, regex, JSON schema, JSONPath assertions, or LLM-as-judge
-- **Parallel execution** - Run 50-500 evaluations efficiently with configurable concurrency
+- **LLM-as-judge evaluation** - Evaluate agent responses against success and failure criteria using LLM
+- **Multiple interfaces** - CLI for developers and CI/CD, Web UI for teams
+- **Connectors** - Test HTTP endpoints or LangGraph agents
+- **Concurrent execution** - Run evaluations in parallel with configurable concurrency
 - **Git-friendly** - Tests stored as JSON files, works seamlessly with version control
 
 ## Quick Start
 
 ```bash
-# Install globally
+# Initialize a project
+mkdir my-evals && cd my-evals
+npx @evalstudio/cli init
+
+# Start the Web UI
+npx @evalstudio/cli serve --open
+```
+
+This creates an `evalstudio.config.json` and a `data/` directory, then opens the Web UI at `http://localhost:3000` where you can manage connectors, personas, scenarios, evals, and runs.
+
+### CLI Workflow
+
+Everything available in the Web UI can also be done from the command line. Install globally for shorter commands:
+
+```bash
 npm install -g @evalstudio/cli
 
-# Initialize a new project directory
-evalstudio init my-evals
-cd my-evals
+# Configure an LLM provider for evaluation
+evalstudio llm-provider create "openai" --provider openai --api-key sk-...
 
-# Create a project and start configuring
-evalstudio project create --name "My Project"
+# Define the agent endpoint to test
+evalstudio connector create "my-agent" \
+  --type langgraph \
+  --base-url "http://localhost:2024" \
+  --config '{"assistantId": "agent"}'
 
-# Check status
-evalstudio status
+# Create a persona and scenario
+evalstudio persona create "frustrated-customer" \
+  -d "A customer who is unhappy with their recent purchase"
+
+evalstudio scenario create "refund-request" \
+  -i "Ask for a refund on a recent order" \
+  --success-criteria "Agent offers a refund or escalation path" \
+  --failure-criteria "Agent ignores the refund request" \
+  --personas "frustrated-customer"
+
+# Create an eval and run it
+evalstudio eval create -n "customer-service-eval" \
+  -c "my-agent" --scenario "refund-request"
+
+evalstudio run create -e "customer-service-eval"
+evalstudio run process
 ```
+
+All commands support `--json` for machine-readable output.
 
 ## Packages
 
-| Package            | Description                       |
-| ------------------ | --------------------------------- |
-| `@evalstudio/core` | Core evaluation engine (required) |
-| `@evalstudio/cli`  | Command-line interface            |
-| `@evalstudio/api`  | REST API server with WebSocket    |
-| `@evalstudio/web`  | React-based Web UI                |
-| `@evalstudio/docs` | Documentation site                |
+| Package | Description |
+|---------|-------------|
+| `@evalstudio/core` | Core evaluation engine (zero dependencies) |
+| `@evalstudio/cli` | CLI — bundles API and Web UI via `evalstudio serve` |
+| `@evalstudio/api` | Fastify REST API server (embedded in CLI) |
+| `@evalstudio/web` | React Web UI (embedded in CLI) |
+| `@evalstudio/docs` | Documentation site (Docusaurus) |
+
+Only `@evalstudio/core` and `@evalstudio/cli` are published to npm. The API and Web UI are bundled into the CLI package.
 
 ## Documentation
 
@@ -46,32 +80,52 @@ evalstudio status
 
 ## Development
 
-### Check Status
+### Prerequisites
 
-Verify your EvalStudio installation is working:
+- Node.js 20+
+- pnpm 9.15+
 
-**CLI:**
+### Setup
+
 ```bash
-evalstudio status          # Human-readable output
-evalstudio status --json   # JSON output for scripts
+git clone https://github.com/Treatwell-AI/evalstudio.git
+cd evalstudio
+pnpm install
+pnpm build
 ```
 
-**API:**
-```bash
-# Start the API server
-pnpm --filter @evalstudio/api start
+### Commands
 
-# Check status
-curl http://localhost:3000/status
+```bash
+# Build all packages
+pnpm build
+
+# Run tests across all packages
+pnpm test
+
+# Typecheck all packages
+pnpm typecheck
+
+# Lint all packages
+pnpm lint
+
+# Development mode (watch)
+pnpm dev
+
+# Work on a specific package
+pnpm --filter @evalstudio/core test
+pnpm --filter @evalstudio/web dev
 ```
 
-**Programmatic:**
-```typescript
-import { getStatus } from "@evalstudio/core";
+### Running Locally
 
-const status = getStatus();
-console.log(status);
-// { name: "evalstudio", version: "0.0.1", status: "ok", timestamp: "...", node: "v20.x.x" }
+```bash
+# After building, start API + Web UI
+node packages/cli/dist/index.js serve --open
+
+# Or dev mode with hot reload
+pnpm --filter @evalstudio/api start   # API on port 3000
+pnpm --filter @evalstudio/web dev     # Web on port 5173 (proxies to 3000)
 ```
 
 ## Claude Code Commands
@@ -84,23 +138,20 @@ When using Claude Code, these slash commands are available:
 | `/feature validate` | Run validation (typecheck, lint, test, build) |
 | `/feature changelog` | Generate changelog entry |
 | `/feature docs` | Update documentation |
-| `/feature complete` | Validate + changelog + commit |
+| `/feature complete` | Validate + changelog + docs + commit |
 | `/feature status` | Show current feature progress |
-
-Standalone commands (work without active feature):
-
-| Command | Description |
-|---------|-------------|
-| `/validate` | Run all validation steps |
-| `/changelog` | Generate changelog from git history |
-| `/docs` | Update documentation |
+| `/validate` | Run all validation steps (standalone) |
+| `/changelog` | Generate changelog from git history (standalone) |
+| `/docs` | Update documentation (standalone) |
+| `/version` | Bump version across all packages |
+| `/fast-forward-main` | Fast-forward main to current branch |
 
 ## Tech Stack
 
-- **Core**: Node.js 20+, TypeScript, LangChain.js/LangGraph.js, Zod
-- **CLI**: Commander.js, Ink
+- **Core**: Node.js 20+, TypeScript, zero production dependencies
+- **CLI**: Commander.js
 - **API**: Fastify
-- **Web**: React 18, Vite, TanStack Query, shadcn/ui
+- **Web**: React 18, Vite, TanStack Query, Recharts, React Router
 
 ## License
 

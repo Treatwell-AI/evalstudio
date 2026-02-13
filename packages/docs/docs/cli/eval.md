@@ -27,19 +27,17 @@ evalstudio eval create [options]
 | Option | Description |
 |--------|-------------|
 | `-n, --name <name>` | Eval name (required) |
-| `-p, --project <project>` | Project ID or name (required) |
 | `-c, --connector <connector>` | Connector ID or name (required) |
-| `--scenario <scenario>` | Scenario ID or name (required - defines evaluation criteria) |
+| `--scenario <scenario>` | Scenario ID or name (required) |
 | `--json` | Output as JSON |
 
-Note: LLM provider for evaluation is configured at the project level via `evalstudio project llm-settings set`.
+Note: LLM provider for evaluation is configured at the project level in `evalstudio.config.json`.
 
 **Example:**
 
 ```bash
 evalstudio eval create \
   -n "Booking Test Suite" \
-  -p my-product \
   -c "My Agent Connector" \
   --scenario "Booking Cancellation"
 ```
@@ -49,7 +47,6 @@ Output:
 Eval created successfully
   ID:          987fcdeb-51a2-3bc4-d567-890123456789
   Name:        Booking Test Suite
-  Project:     my-product
   Connector:   My Agent Connector
   Scenario:    Booking Cancellation
   Success:     Agent confirms cancellation and explains refund policy
@@ -68,13 +65,12 @@ evalstudio eval list [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Filter by project ID or name |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio eval list -p my-product
+evalstudio eval list
 ```
 
 Output:
@@ -82,9 +78,7 @@ Output:
 Evals:
 ------
   Booking Test Suite (987fcdeb-51a2-3bc4-d567-890123456789)
-    Project: my-product
   Full Agent Suite (abc12345-6789-def0-1234-567890abcdef)
-    Project: my-product
     Scenarios: 3
 ```
 
@@ -115,7 +109,6 @@ Eval: Booking Test Suite
 ------
   ID:          987fcdeb-51a2-3bc4-d567-890123456789
   Name:        Booking Test Suite
-  Project:     my-product
   Success:     Agent confirms cancellation and explains refund policy
   Failure:     Agent fails to process cancellation
   Max Msgs:    10
@@ -188,7 +181,7 @@ Evals can contain multiple scenarios. When running an eval:
 2. For each scenario, it uses the personas associated with that scenario
 3. A run is created for each scenario/persona combination
 
-For example, if an eval has 2 scenarios, and each scenario has 3 personas, creating runs produces 6 runs (2 × 3).
+For example, if an eval has 2 scenarios, and each scenario has 3 personas, creating runs produces 6 runs (2 x 3).
 
 Personas are associated with scenarios, not with evals directly. This allows different scenarios to test different persona types.
 
@@ -197,7 +190,7 @@ Personas are associated with scenarios, not with evals directly. This allows dif
 All commands support the `--json` flag for machine-readable output, useful for scripts and CI/CD pipelines.
 
 ```bash
-evalstudio eval list -p my-product --json
+evalstudio eval list --json
 ```
 
 Output:
@@ -205,7 +198,6 @@ Output:
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "Booking Test Suite",
     "connectorId": "connector-uuid",
     "input": [],

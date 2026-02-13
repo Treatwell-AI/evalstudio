@@ -11,19 +11,19 @@ EvalStudio is a flexible evaluation platform for testing chatbots, AI agents, an
 
 - **Multi-turn conversation testing** - Define personas, scenarios, and seed messages to simulate realistic interactions
 - **Multiple interfaces** - CLI for developers/CI, Web UI for teams, REST API for automation
-- **Pluggable connectors** - Test HTTP endpoints, LangGraph agents (messages or state), or custom implementations
-- **Flexible evaluation** - Exact match, regex, JSON schema, JSONPath assertions, or LLM-as-judge
-- **Parallel execution** - Run 50-500 evaluations efficiently with configurable concurrency
+- **Connectors** - Test HTTP endpoints or LangGraph agents
+- **LLM-as-judge evaluation** - Evaluate agent responses against success and failure criteria using LLM
+- **Concurrent execution** - Run evaluations in parallel with configurable concurrency
 - **Git-friendly** - Tests stored as JSON files, works seamlessly with version control
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `@evalstudio/core` | Core evaluation engine (required) |
-| `@evalstudio/cli` | Command-line interface |
-| `@evalstudio/api` | REST API server with WebSocket |
-| `@evalstudio/web` | React-based Web UI |
+| `@evalstudio/core` | Core evaluation engine (zero dependencies) |
+| `@evalstudio/cli` | CLI — bundles API and Web UI via `evalstudio serve` |
+| `@evalstudio/api` | Fastify REST API server (embedded in CLI) |
+| `@evalstudio/web` | React Web UI (embedded in CLI) |
 | `@evalstudio/docs` | Documentation site (you're here!) |
 
 ## Quick Links

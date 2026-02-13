@@ -20,14 +20,7 @@ REST API endpoints for managing evals. Evals can contain multiple scenarios to c
 
 ```http
 GET /api/evals
-GET /api/evals?projectId=<project-id>
 ```
-
-### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projectId` | string | Filter evals by project ID |
 
 ### Response
 
@@ -35,7 +28,6 @@ GET /api/evals?projectId=<project-id>
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "Booking Cancellation Test",
     "connectorId": "connector-uuid",
     "input": [],
@@ -64,7 +56,6 @@ GET /api/evals/:id?expand=true
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
   "input": [],
@@ -117,7 +108,6 @@ Content-Type: application/json
 
 ```json
 {
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
   "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
@@ -131,7 +121,6 @@ Note: LLM provider for evaluation is configured at the project level via project
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `projectId` | string | Yes | Parent project ID |
 | `name` | string | Yes | Display name for the eval |
 | `connectorId` | string | Yes | Connector for running this eval |
 | `scenarioIds` | string[] | Yes | Array of scenario IDs (at least one required) |
@@ -144,7 +133,6 @@ Note: LLM provider for evaluation is configured at the project level via project
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
   "input": [{ "role": "user", "content": "I need to cancel" }],
@@ -158,8 +146,8 @@ Note: LLM provider for evaluation is configured at the project level via project
 
 | Status | Description |
 |--------|-------------|
-| 400 | Project ID is required / Name is required / Connector ID is required / At least one Scenario ID is required / Scenario/Connector doesn't belong to project |
-| 404 | Project/Scenario/Connector not found |
+| 400 | Name is required / Connector ID is required / At least one Scenario ID is required |
+| 404 | Scenario/Connector not found |
 
 ## Update Eval
 
@@ -184,7 +172,6 @@ All fields are optional. Only provided fields will be updated.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Updated Eval Name",
   "connectorId": "connector-uuid",
   "input": [],
@@ -198,7 +185,7 @@ All fields are optional. Only provided fields will be updated.
 
 | Status | Description |
 |--------|-------------|
-| 400 | Scenario/Connector doesn't belong to project / scenarioIds cannot be empty |
+| 400 | scenarioIds cannot be empty |
 | 404 | Eval/Scenario/Connector not found |
 
 ## Delete Eval
@@ -229,6 +216,6 @@ Evals can contain multiple scenarios, allowing you to create comprehensive test 
 2. For each scenario, it uses the personas associated with that scenario
 3. A run is created for each scenario/persona combination
 
-For example, if an eval has 2 scenarios, and each scenario has 3 personas, creating runs for the eval produces 6 runs (2 × 3).
+For example, if an eval has 2 scenarios, and each scenario has 3 personas, creating runs for the eval produces 6 runs (2 x 3).
 
 Personas are associated with scenarios, not with evals directly. This allows different scenarios to test different persona types.

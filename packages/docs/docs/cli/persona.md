@@ -24,7 +24,6 @@ evalstudio persona create <name> [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (required) |
 | `-d, --description <text>` | Short description of the persona |
 | `-s, --system-prompt <prompt>` | Full description / system prompt for this persona |
 | `--json` | Output as JSON |
@@ -33,7 +32,6 @@ evalstudio persona create <name> [options]
 
 ```bash
 evalstudio persona create impatient-user \
-  -p my-product \
   -d "A user who wants quick answers" \
   -s "You are an impatient user who values brevity and expects quick, concise responses."
 ```
@@ -43,7 +41,6 @@ Output:
 Persona created successfully
   ID:          987fcdeb-51a2-3bc4-d567-890123456789
   Name:        impatient-user
-  Project:     my-product
   Description: A user who wants quick answers
   System:      You are an impatient user who values brevity and expects quick, concise responses.
   Created:     2026-01-28T10:00:00.000Z
@@ -59,13 +56,12 @@ evalstudio persona list [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Filter by project ID or name |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio persona list -p my-product
+evalstudio persona list
 ```
 
 Output:
@@ -73,10 +69,8 @@ Output:
 Personas:
 ---------
   impatient-user (987fcdeb-51a2-3bc4-d567-890123456789)
-    Project: my-product
     A user who wants quick answers
   technical-user (abc12345-6789-def0-1234-567890abcdef)
-    Project: my-product
     A technically savvy user
 ```
 
@@ -88,17 +82,16 @@ Show persona details.
 evalstudio persona show <identifier> [options]
 ```
 
-The identifier is the persona ID. Use `-p` option to look up by name instead.
+The identifier can be the persona ID or name.
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (for lookup by name) |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio persona show impatient-user -p my-product
+evalstudio persona show impatient-user
 ```
 
 Output:
@@ -107,7 +100,6 @@ Persona: impatient-user
 ---------
   ID:          987fcdeb-51a2-3bc4-d567-890123456789
   Name:        impatient-user
-  Project:     my-product
   Description: A user who wants quick answers
   System:      You are an impatient user who values brevity and expects quick, concise responses.
   Created:     2026-01-28T10:00:00.000Z
@@ -164,7 +156,7 @@ Persona "impatient-user" deleted successfully
 All commands support the `--json` flag for machine-readable output, useful for scripts and CI/CD pipelines.
 
 ```bash
-evalstudio persona list -p my-product --json
+evalstudio persona list --json
 ```
 
 Output:
@@ -172,7 +164,6 @@ Output:
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "impatient-user",
     "description": "A user who wants quick answers",
     "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses.",

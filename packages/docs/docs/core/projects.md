@@ -30,7 +30,6 @@ The `evalstudio.config.json` file defines the project settings:
 ```json
 {
   "name": "my-product-evals",
-  "description": "Evaluations for my product",
   "llmSettings": {
     "evaluation": {
       "providerId": "provider-uuid",
@@ -62,7 +61,6 @@ import {
 ```typescript
 interface Project {
   name: string;                      // Project name
-  description?: string;              // Optional description
   llmSettings?: ProjectLLMSettings;  // LLM configuration
 }
 ```
@@ -91,7 +89,6 @@ interface ProjectLLMSettings {
 ```typescript
 interface UpdateProjectInput {
   name?: string;
-  description?: string;
   llmSettings?: ProjectLLMSettings | null;  // null to clear settings
 }
 ```
@@ -121,7 +118,6 @@ function updateProject(input: UpdateProjectInput): Project;
 
 ```typescript
 const updated = updateProject({
-  description: "Updated description",
   llmSettings: {
     evaluation: {
       providerId: "provider-uuid",

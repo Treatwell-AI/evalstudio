@@ -24,7 +24,6 @@ evalstudio connector create <name> [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (required) |
 | `--type <type>` | Connector type: http or langgraph (required) |
 | `--base-url <url>` | Base URL for the API endpoint (required) |
 | `--auth-type <authType>` | Authentication type: none, api-key, bearer, basic |
@@ -37,7 +36,6 @@ evalstudio connector create <name> [options]
 ```bash
 # HTTP connector
 evalstudio connector create "Production API" \
-  -p my-product \
   --type http \
   --base-url https://api.example.com \
   --auth-type bearer \
@@ -45,7 +43,6 @@ evalstudio connector create "Production API" \
 
 # LangGraph connector (assistantId is required in config)
 evalstudio connector create "LangGraph Dev" \
-  -p my-product \
   --type langgraph \
   --base-url http://localhost:8123 \
   --config '{"assistantId": "my-assistant"}'
@@ -56,7 +53,6 @@ Output:
 Connector created successfully
   ID:       987fcdeb-51a2-3bc4-d567-890123456789
   Name:     LangGraph Dev
-  Project:  my-product
   Type:     langgraph
   Base URL: http://localhost:8123
   Config:   {"assistantId":"my-assistant"}
@@ -73,13 +69,12 @@ evalstudio connector list [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Filter by project ID or name |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio connector list -p my-product
+evalstudio connector list
 ```
 
 Output:
@@ -87,11 +82,9 @@ Output:
 Connectors:
 -----------
   LangGraph Dev (987fcdeb-51a2-3bc4-d567-890123456789)
-    Project:  my-product
     Type:     langgraph
     Base URL: http://localhost:8123
   Production API (abc12345-6789-def0-1234-567890abcdef)
-    Project:  my-product
     Type:     http
     Base URL: https://api.example.com
 ```
@@ -104,15 +97,16 @@ Show connector details.
 evalstudio connector show <identifier> [options]
 ```
 
+The identifier can be the connector ID or name.
+
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (for lookup by name) |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio connector show "LangGraph Dev" -p my-product
+evalstudio connector show "LangGraph Dev"
 ```
 
 Output:
@@ -121,7 +115,6 @@ Connector: LangGraph Dev
 -----------
   ID:       987fcdeb-51a2-3bc4-d567-890123456789
   Name:     LangGraph Dev
-  Project:  my-product
   Type:     langgraph
   Base URL: http://localhost:8123
   Config:   {"assistantId":"my-assistant"}
@@ -211,14 +204,13 @@ Available Connector Types:
 All commands support `--json` for machine-readable output:
 
 ```bash
-evalstudio connector list -p my-product --json
+evalstudio connector list --json
 ```
 
 ```json
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",

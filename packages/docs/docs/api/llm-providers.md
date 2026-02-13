@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # LLM Providers API
 
-REST endpoints for managing LLM provider configurations. LLM providers belong to a project and define the provider credentials used during eval execution.
+REST endpoints for managing LLM provider configurations. LLM providers define the provider credentials used during eval execution.
 
 ## Endpoints
 
@@ -22,13 +22,7 @@ REST endpoints for managing LLM provider configurations. LLM providers belong to
 
 ## GET /api/llm-providers
 
-List LLM providers, optionally filtered by project.
-
-### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projectId` | string | Filter by project ID |
+List all LLM providers.
 
 ### Response (200 OK)
 
@@ -36,7 +30,6 @@ List LLM providers, optionally filtered by project.
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "Production OpenAI",
     "provider": "openai",
     "apiKey": "sk-your-api-key",
@@ -49,11 +42,7 @@ List LLM providers, optionally filtered by project.
 ### Example
 
 ```bash
-# List all LLM providers
 curl http://localhost:3000/api/llm-providers
-
-# List providers for a specific project
-curl http://localhost:3000/api/llm-providers?projectId=123e4567-e89b-12d3-a456-426614174000
 ```
 
 ---
@@ -131,14 +120,12 @@ Create a new LLM provider.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `projectId` | string | Yes | Parent project ID |
-| `name` | string | Yes | Provider name (unique within project) |
+| `name` | string | Yes | Provider name |
 | `provider` | string | Yes | Provider type: "openai" or "anthropic" |
 | `apiKey` | string | Yes | API key for the provider |
 
 ```json
 {
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Production OpenAI",
   "provider": "openai",
   "apiKey": "sk-your-api-key"
@@ -150,7 +137,6 @@ Create a new LLM provider.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Production OpenAI",
   "provider": "openai",
   "apiKey": "sk-your-api-key",
@@ -163,9 +149,8 @@ Create a new LLM provider.
 
 | Status | Description |
 |--------|-------------|
-| 400 | Missing required field (projectId, name, provider, or apiKey) |
-| 404 | Project not found |
-| 409 | LLM provider with name already exists in project |
+| 400 | Missing required field (name, provider, or apiKey) |
+| 409 | LLM provider with name already exists |
 
 ### Example
 
@@ -173,7 +158,6 @@ Create a new LLM provider.
 curl -X POST http://localhost:3000/api/llm-providers \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "Production OpenAI",
     "provider": "openai",
     "apiKey": "sk-your-api-key"
@@ -191,7 +175,6 @@ Get an LLM provider by its ID.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Production OpenAI",
   "provider": "openai",
   "apiKey": "sk-your-api-key",
@@ -237,7 +220,6 @@ Update an existing LLM provider.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "Updated Provider Name",
   "provider": "openai",
   "apiKey": "sk-your-api-key",
@@ -251,7 +233,7 @@ Update an existing LLM provider.
 | Status | Description |
 |--------|-------------|
 | 404 | LLM provider not found |
-| 409 | LLM provider with name already exists in project |
+| 409 | LLM provider with name already exists |
 
 ### Example
 

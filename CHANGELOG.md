@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Documentation cleanup** - Removed all stale references to the old multi-project feature across docs
+  - Removed `projectId` from all API endpoint docs (request bodies, query params, response examples)
+  - Removed `-p, --project` option from all CLI command docs
+  - Rewrote `cli/project.md` to document `evalstudio init` instead of old `evalstudio project` CRUD commands
+  - Rewrote `api/projects.md` to document `GET/PUT /api/project` (singular) instead of old CRUD endpoints
+  - Removed `description` field from `core/projects.md` (no longer part of the Project interface)
+  - Updated `intro.md` package descriptions and feature list
+  - Updated `README.md` with current project structure and getting started guide
+
 ### Added
 
 - **Scenario seed messages editor** - Visual editor for scenario initial messages in the web UI

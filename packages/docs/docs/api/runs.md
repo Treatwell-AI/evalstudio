@@ -23,7 +23,6 @@ REST API endpoints for managing evaluation runs. Runs track the execution of eva
 ```http
 GET /api/runs
 GET /api/runs?evalId=<eval-id>
-GET /api/runs?projectId=<project-id>
 ```
 
 ### Query Parameters
@@ -31,7 +30,6 @@ GET /api/runs?projectId=<project-id>
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `evalId` | string | Filter runs by eval ID (returns sorted by createdAt desc) |
-| `projectId` | string | Filter runs by project ID |
 
 ### Response
 
@@ -40,7 +38,6 @@ GET /api/runs?projectId=<project-id>
   {
     "id": "run-uuid",
     "evalId": "eval-uuid",
-    "projectId": "project-uuid",
     "personaId": "persona-uuid",
     "scenarioId": "scenario-uuid",
     "executionId": 1,
@@ -81,7 +78,6 @@ GET /api/runs/:id
 {
   "id": "run-uuid",
   "evalId": "eval-uuid",
-  "projectId": "project-uuid",
   "status": "completed",
   "startedAt": "2026-01-29T10:00:00.000Z",
   "completedAt": "2026-01-29T10:00:15.000Z",
@@ -149,7 +145,6 @@ Returns an **array** of created runs. If the scenario has 3 personas, 3 runs are
   {
     "id": "run-uuid-1",
     "evalId": "eval-uuid",
-    "projectId": "project-uuid",
     "personaId": "persona-uuid-1",
     "scenarioId": "scenario-uuid",
     "executionId": 1,
@@ -161,7 +156,6 @@ Returns an **array** of created runs. If the scenario has 3 personas, 3 runs are
   {
     "id": "run-uuid-2",
     "evalId": "eval-uuid",
-    "projectId": "project-uuid",
     "personaId": "persona-uuid-2",
     "scenarioId": "scenario-uuid",
     "executionId": 1,
@@ -218,7 +212,6 @@ Note: Playground runs store `connectorId` directly on the run since there's no p
 ```json
 {
   "id": "run-uuid",
-  "projectId": "project-uuid",
   "scenarioId": "scenario-uuid",
   "connectorId": "connector-uuid",
   "personaId": "persona-uuid",
@@ -287,7 +280,6 @@ All fields are optional. Only provided fields will be updated.
 {
   "id": "run-uuid",
   "evalId": "eval-uuid",
-  "projectId": "project-uuid",
   "status": "completed",
   "...": "..."
 }
@@ -348,7 +340,6 @@ Content-Type: application/json
 {
   "id": "run-uuid",
   "evalId": "eval-uuid",
-  "projectId": "project-uuid",
   "status": "queued",
   "messages": [],
   "createdAt": "2026-01-29T10:00:00.000Z",
@@ -374,7 +365,3 @@ Runs have the following status values:
 | `running` | Run is currently executing |
 | `completed` | Run finished (check `result.success` for pass/fail). Evaluation failures use this status |
 | `error` | Run encountered a system error (retryable). Check `error` field for details |
-
-## Cascade Deletion
-
-When an eval is deleted, all associated runs are automatically deleted. When a project is deleted, runs are deleted through the eval cascade.

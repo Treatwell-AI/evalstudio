@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Personas API
 
-REST endpoints for managing personas. Personas belong to a project and define a description and system prompt for test scenarios.
+REST endpoints for managing personas. Personas define a description and system prompt for test scenarios.
 
 ## Endpoints
 
@@ -20,13 +20,7 @@ REST endpoints for managing personas. Personas belong to a project and define a 
 
 ## GET /api/personas
 
-List personas, optionally filtered by project.
-
-### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projectId` | string | Filter by project ID |
+List all personas.
 
 ### Response (200 OK)
 
@@ -34,7 +28,6 @@ List personas, optionally filtered by project.
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "impatient-user",
     "description": "A user who wants quick answers",
     "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses.",
@@ -47,11 +40,7 @@ List personas, optionally filtered by project.
 ### Example
 
 ```bash
-# List all personas
 curl http://localhost:3000/api/personas
-
-# List personas for a specific project
-curl http://localhost:3000/api/personas?projectId=123e4567-e89b-12d3-a456-426614174000
 ```
 
 ---
@@ -64,14 +53,12 @@ Create a new persona.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `projectId` | string | Yes | Parent project ID |
-| `name` | string | Yes | Persona name (unique within project) |
+| `name` | string | Yes | Persona name |
 | `description` | string | No | Short description of the persona |
 | `systemPrompt` | string | No | Full description / system prompt for this persona |
 
 ```json
 {
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "impatient-user",
   "description": "A user who wants quick answers",
   "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses."
@@ -83,7 +70,6 @@ Create a new persona.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "impatient-user",
   "description": "A user who wants quick answers",
   "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses.",
@@ -96,9 +82,8 @@ Create a new persona.
 
 | Status | Description |
 |--------|-------------|
-| 400 | Project ID or name is required |
-| 404 | Project not found |
-| 409 | Persona with name already exists in project |
+| 400 | Name is required |
+| 409 | Persona with name already exists |
 
 ### Example
 
@@ -106,7 +91,6 @@ Create a new persona.
 curl -X POST http://localhost:3000/api/personas \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "impatient-user",
     "description": "A user who wants quick answers",
     "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses."
@@ -124,7 +108,6 @@ Get a persona by its ID.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "impatient-user",
   "description": "A user who wants quick answers",
   "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses.",
@@ -170,7 +153,6 @@ Update an existing persona.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "impatient-user",
   "description": "A user who wants quick answers",
   "systemPrompt": "You are a technical user who expects detailed, accurate responses.",
@@ -184,7 +166,7 @@ Update an existing persona.
 | Status | Description |
 |--------|-------------|
 | 404 | Persona not found |
-| 409 | Persona with name already exists in project |
+| 409 | Persona with name already exists |
 
 ### Example
 

@@ -24,12 +24,12 @@ evalstudio scenario create <name> [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (required) |
 | `-i, --instructions <instructions>` | Instructions for the scenario |
 | `-m, --messages-file <file>` | Path to JSON file with initial messages |
 | `--max-messages <number>` | Maximum conversation turns |
 | `--success-criteria <criteria>` | Success criteria in natural language |
 | `--failure-criteria <criteria>` | Failure criteria in natural language |
+| `--personas <names>` | Comma-separated persona names to associate |
 | `--json` | Output as JSON |
 
 **Example:**
@@ -37,7 +37,6 @@ evalstudio scenario create <name> [options]
 ```bash
 # Create with instructions and evaluation criteria
 evalstudio scenario create booking-cancellation \
-  -p my-product \
   -i "Customer wants to cancel a haircut appointment for tomorrow." \
   --max-messages 10 \
   --success-criteria "Agent confirms cancellation" \
@@ -45,7 +44,6 @@ evalstudio scenario create booking-cancellation \
 
 # Create with initial messages from a file
 evalstudio scenario create mid-conversation \
-  -p my-product \
   -i "Continue the cancellation flow" \
   -m ./conversation-seed.json
 ```
@@ -65,7 +63,6 @@ Output:
 Scenario created successfully
   ID:           987fcdeb-51a2-3bc4-d567-890123456789
   Name:         booking-cancellation
-  Project:      my-product
   Instructions: Customer wants to cancel a haircut appointment for tomorrow.
   Max Msgs:     10
   Success:      Agent confirms cancellation
@@ -83,13 +80,12 @@ evalstudio scenario list [options]
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Filter by project ID or name |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio scenario list -p my-product
+evalstudio scenario list
 ```
 
 Output:
@@ -97,10 +93,8 @@ Output:
 Scenarios:
 ----------
   booking-cancellation (987fcdeb-51a2-3bc4-d567-890123456789)
-    Project: my-product
     Customer wants to cancel a haircut appointment for tomorrow...
   reschedule-appointment (abc12345-6789-def0-1234-567890abcdef)
-    Project: my-product
     Customer wants to move their appointment to next week...
 ```
 
@@ -112,17 +106,16 @@ Show scenario details.
 evalstudio scenario show <identifier> [options]
 ```
 
-The identifier is the scenario ID. Use `-p` option to look up by name instead.
+The identifier can be the scenario ID or name.
 
 | Option | Description |
 |--------|-------------|
-| `-p, --project <project>` | Project ID or name (for lookup by name) |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-evalstudio scenario show booking-cancellation -p my-product
+evalstudio scenario show booking-cancellation
 ```
 
 Output:
@@ -131,7 +124,6 @@ Scenario: booking-cancellation
 ----------
   ID:           987fcdeb-51a2-3bc4-d567-890123456789
   Name:         booking-cancellation
-  Project:      my-product
   Instructions: Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.
   Created:      2026-01-28T10:00:00.000Z
   Updated:      2026-01-28T10:00:00.000Z
@@ -191,7 +183,7 @@ Scenario "booking-cancellation" deleted successfully
 All commands support the `--json` flag for machine-readable output, useful for scripts and CI/CD pipelines.
 
 ```bash
-evalstudio scenario list -p my-product --json
+evalstudio scenario list --json
 ```
 
 Output:
@@ -199,7 +191,6 @@ Output:
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "booking-cancellation",
     "instructions": "Customer wants to cancel a haircut appointment for tomorrow.",
     "maxMessages": 10,

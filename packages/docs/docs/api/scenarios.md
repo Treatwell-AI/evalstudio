@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Scenarios API
 
-REST endpoints for managing scenarios. Scenarios belong to a project and contain instructions that provide all the context needed for testing conversations. Scenarios can also include initial messages to seed conversations from a specific point.
+REST endpoints for managing scenarios. Scenarios contain instructions that provide all the context needed for testing conversations. Scenarios can also include initial messages to seed conversations from a specific point.
 
 ## Endpoints
 
@@ -20,13 +20,7 @@ REST endpoints for managing scenarios. Scenarios belong to a project and contain
 
 ## GET /api/scenarios
 
-List scenarios, optionally filtered by project.
-
-### Query Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `projectId` | string | Filter by project ID |
+List all scenarios.
 
 ### Response (200 OK)
 
@@ -34,7 +28,6 @@ List scenarios, optionally filtered by project.
 [
   {
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "booking-cancellation",
     "instructions": "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
     "maxMessages": 10,
@@ -50,11 +43,7 @@ List scenarios, optionally filtered by project.
 ### Example
 
 ```bash
-# List all scenarios
 curl http://localhost:3000/api/scenarios
-
-# List scenarios for a specific project
-curl http://localhost:3000/api/scenarios?projectId=123e4567-e89b-12d3-a456-426614174000
 ```
 
 ---
@@ -67,8 +56,7 @@ Create a new scenario.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `projectId` | string | Yes | Parent project ID |
-| `name` | string | Yes | Scenario name (unique within project) |
+| `name` | string | Yes | Scenario name |
 | `instructions` | string | No | Instructions providing all context for the scenario |
 | `messages` | array | No | Initial messages to seed the conversation |
 | `maxMessages` | number | No | Maximum conversation turns |
@@ -79,7 +67,6 @@ Create a new scenario.
 
 ```json
 {
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "booking-cancellation",
   "instructions": "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
   "maxMessages": 10,
@@ -98,7 +85,6 @@ Create a new scenario.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "booking-cancellation",
   "instructions": "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
   "maxMessages": 10,
@@ -114,9 +100,8 @@ Create a new scenario.
 
 | Status | Description |
 |--------|-------------|
-| 400 | Project ID or name is required |
-| 404 | Project not found |
-| 409 | Scenario with name already exists in project |
+| 400 | Name is required |
+| 409 | Scenario with name already exists |
 
 ### Example
 
@@ -124,7 +109,6 @@ Create a new scenario.
 curl -X POST http://localhost:3000/api/scenarios \
   -H "Content-Type: application/json" \
   -d '{
-    "projectId": "123e4567-e89b-12d3-a456-426614174000",
     "name": "booking-cancellation",
     "instructions": "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy."
   }'
@@ -141,7 +125,6 @@ Get a scenario by its ID.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "booking-cancellation",
   "instructions": "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
   "maxMessages": 10,
@@ -199,7 +182,6 @@ Update an existing scenario.
 ```json
 {
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "projectId": "123e4567-e89b-12d3-a456-426614174000",
   "name": "booking-cancellation",
   "instructions": "Customer wants to cancel appointment. VIP customer with flexible policy.",
   "maxMessages": 15,
@@ -216,7 +198,7 @@ Update an existing scenario.
 | Status | Description |
 |--------|-------------|
 | 404 | Scenario not found |
-| 409 | Scenario with name already exists in project |
+| 409 | Scenario with name already exists |
 
 ### Example
 
