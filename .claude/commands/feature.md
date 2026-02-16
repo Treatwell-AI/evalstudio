@@ -7,9 +7,6 @@ Comprehensive command for implementing features from start to finish.
 ```
 /feature                    # Start new feature (interactive)
 /feature <name>             # Start new feature with name
-/feature validate           # Run validation on current feature
-/feature changelog          # Generate changelog for current feature
-/feature docs               # Update docs for current feature
 /feature complete           # Full workflow: validate + changelog + docs + commit
 /feature status             # Show current feature progress
 ```
@@ -17,6 +14,19 @@ Comprehensive command for implementing features from start to finish.
 ---
 
 ## `/feature` or `/feature <name>` - Start New Feature
+
+### 0. Pre-flight Checks
+
+**REQUIRED** — run these checks before anything else. If any fail, **stop immediately** and report the error to the user.
+
+1. **No active feature**: Check if `.claude/current-feature.json` exists. If it does, **stop** with error:
+   > Error: Feature "<name>" is already in progress. Run `/feature complete` to finish it or delete `.claude/current-feature.json` to abandon it.
+
+2. **On main branch**: Run `git branch --show-current`. If the current branch is not `main`, **stop** with error:
+   > Error: Must be on `main` branch to start a new feature. Current branch: `<branch>`. Switch to main first with `git checkout main`.
+
+3. **Clean working tree**: Run `git status --porcelain`. If there are uncommitted changes, **stop** with error:
+   > Error: Working tree has uncommitted changes. Commit or stash them before starting a new feature.
 
 ### 1. Gather Info
 
@@ -75,38 +85,21 @@ Reference `.claude/shared/package-guidance.md` for package-specific implementati
 
 ---
 
-## `/feature validate` - Run Validation
-
-1. Read `.claude/current-feature.json` for context
-2. Execute steps from `.claude/shared/validation-steps.md`
-3. Prefix output with feature name
-4. Update checklist if tests pass
-
----
-
-## `/feature changelog` - Generate Changelog
-
-1. Read `.claude/current-feature.json` for context (use description, issue)
-2. Execute steps from `.claude/shared/changelog-steps.md`
-3. Pre-fill entry with feature description and issue reference
-4. Update checklist
-
----
-
-## `/feature docs` - Update Documentation
-
-1. Read `.claude/current-feature.json` for context (affected packages)
-2. Execute steps from `.claude/shared/docs-steps.md`
-3. Focus on packages marked in feature config
-4. Update checklist
-
----
-
 ## `/feature complete` - Full Completion
 
 **IMPORTANT**: This command must be explicitly invoked by the user. Do NOT run this automatically after implementation - wait for the user to run `/feature complete` when they are ready to finalize.
 
-Run the complete workflow:
+### Pre-flight Checks
+
+**REQUIRED** — run these checks before anything else. If any fail, **stop immediately**.
+
+1. **Active feature**: Verify `.claude/current-feature.json` exists. If not, **stop** with error:
+   > Error: No active feature. Run `/feature` to start one first.
+
+2. **On feature branch**: Run `git branch --show-current`. Verify it matches `feat/<name>` from the tracking file. If not, **stop** with error:
+   > Error: Expected branch `feat/<name>`, but on `<current>`. Switch to the feature branch first.
+
+### Workflow
 
 1. **Validate**: Execute `.claude/shared/validation-steps.md`
    - Stop if validation fails
@@ -132,10 +125,26 @@ Run the complete workflow:
    - If no matching user story exists, create a new one in the appropriate section and mark it as done
    - Format: `[x] As a user, I want to <feature capability> so that <benefit>`
 
-6. **Commit**: Stage and commit
+6. **Stage all changes**: Stage everything including cleanup
 
    ```bash
    git add .
+   git commit -m "feat(<scope>): final changes"
+   ```
+
+7. **Cleanup**: Delete `.claude/current-feature.json`, stage the deletion
+
+   ```bash
+   rm .claude/current-feature.json
+   git add .claude/current-feature.json
+   git commit -m "chore: remove feature tracking file"
+   ```
+
+8. **Squash-merge into main**: Merge all feature commits into a single commit on main and delete the branch
+
+   ```bash
+   git checkout main
+   git merge --squash feat/<feature-name>
    git commit -m "feat(<scope>): <description>
 
    <body from feature description>
@@ -143,15 +152,17 @@ Run the complete workflow:
    Closes #<issue>
 
    Co-Authored-By: Claude <noreply@anthropic.com>"
+   git branch -D feat/<feature-name>
    ```
 
-7. **Cleanup**: Delete `.claude/current-feature.json`
-
-8. **Next Steps**: Suggest `git push -u origin feat/<name>` and PR creation
+9. **Next Steps**: Suggest `git push origin main`
 
 ---
 
 ## `/feature status` - Show Progress
+
+0. **Pre-flight**: Verify `.claude/current-feature.json` exists. If not, **stop** with:
+   > No active feature. Run `/feature` to start one.
 
 Read `.claude/current-feature.json` and display:
 
@@ -178,5 +189,5 @@ Next: Run /feature complete
 
 ## Notes
 
-- If no `.claude/current-feature.json` exists when running subcommands, prompt to start a feature first or suggest standalone commands
-- Standalone `/validate`, `/changelog`, `/docs` work without feature context
+- Use standalone `/validate`, `/changelog`, `/docs` for ad-hoc use outside a feature workflow
+- `/feature complete` runs validation, changelog, and docs with feature context automatically
