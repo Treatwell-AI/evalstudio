@@ -34,8 +34,9 @@ List all connectors.
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",
-    "authType": "api-key",
-    "authValue": "lg-dev-key",
+    "headers": {
+      "X-API-Key": "lg-dev-key"
+    },
     "config": {
       "assistantId": "my-assistant"
     },
@@ -85,21 +86,19 @@ Create a new connector.
 | `name` | string | Yes | Connector name |
 | `type` | string | Yes | Connector type: "http" or "langgraph" |
 | `baseUrl` | string | Yes | Base URL for the API endpoint |
-| `authType` | string | No | Auth type: "none", "api-key", "bearer", "basic" |
-| `authValue` | string | No | Auth value (API key, token, credentials) |
+| `headers` | object | No | Custom headers sent with every request (key-value pairs) |
 | `config` | object | No | Type-specific configuration (see below) |
 
 **Config for LangGraph connectors:**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `assistantId` | string | Yes | The assistant ID to invoke |
+| `configurable` | object | No | Values sent as `config.configurable` in invoke requests |
 
 **Config for HTTP connectors:**
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `method` | string | No | HTTP method (GET, POST, PUT, PATCH) |
-| `headers` | object | No | Additional headers |
-| `timeout` | number | No | Request timeout in milliseconds |
 | `path` | string | No | Path to append to base URL |
 
 ```json
@@ -107,8 +106,9 @@ Create a new connector.
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8123",
-  "authType": "api-key",
-  "authValue": "lg-dev-key",
+  "headers": {
+    "X-API-Key": "lg-dev-key"
+  },
   "config": {
     "assistantId": "my-assistant"
   }
@@ -123,8 +123,9 @@ Create a new connector.
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8123",
-  "authType": "api-key",
-  "authValue": "lg-dev-key",
+  "headers": {
+    "X-API-Key": "lg-dev-key"
+  },
   "config": {
     "assistantId": "my-assistant"
   },
@@ -149,6 +150,7 @@ curl -X POST http://localhost:3000/api/connectors \
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",
+    "headers": {"X-API-Key": "lg-dev-key"},
     "config": {"assistantId": "my-assistant"}
   }'
 ```
@@ -200,13 +202,15 @@ Update an existing connector.
 | `name` | string | No | New connector name |
 | `type` | string | No | New connector type |
 | `baseUrl` | string | No | New base URL |
-| `authType` | string | No | New auth type |
-| `authValue` | string | No | New auth value |
+| `headers` | object | No | New custom headers (replaces existing) |
 | `config` | object | No | New configuration (replaces existing) |
 
 ```json
 {
   "baseUrl": "http://localhost:8124",
+  "headers": {
+    "X-API-Key": "new-key"
+  },
   "config": {
     "assistantId": "new-assistant"
   }
@@ -221,6 +225,9 @@ Update an existing connector.
   "name": "LangGraph Dev",
   "type": "langgraph",
   "baseUrl": "http://localhost:8124",
+  "headers": {
+    "X-API-Key": "new-key"
+  },
   "config": {
     "assistantId": "new-assistant"
   },

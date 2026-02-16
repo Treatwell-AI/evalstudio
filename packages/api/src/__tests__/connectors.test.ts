@@ -144,8 +144,7 @@ describe("connectors routes", () => {
           name: "langgraph-connector",
           type: "langgraph",
           baseUrl: "http://localhost:8123",
-          authType: "api-key",
-          authValue: "lg-dev-key",
+          headers: { "X-API-Key": "lg-dev-key" },
           config: { assistantId: "my-assistant" },
         },
       });
@@ -153,9 +152,35 @@ describe("connectors routes", () => {
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.type).toBe("langgraph");
-      expect(body.authType).toBe("api-key");
-      expect(body.authValue).toBe("lg-dev-key");
+      expect(body.headers).toEqual({ "X-API-Key": "lg-dev-key" });
       expect(body.config).toEqual({ assistantId: "my-assistant" });
+
+      await server.close();
+    });
+
+    it("creates a connector with custom headers", async () => {
+      const server = await createServer();
+
+      const response = await server.inject({
+        method: "POST",
+        url: "/api/connectors",
+        payload: {
+          name: "headers-connector",
+          type: "http",
+          baseUrl: "https://api.example.com",
+          headers: {
+            "X-Custom": "custom-value",
+            "X-Tenant-Id": "tenant-123",
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const body = JSON.parse(response.body);
+      expect(body.headers).toEqual({
+        "X-Custom": "custom-value",
+        "X-Tenant-Id": "tenant-123",
+      });
 
       await server.close();
     });

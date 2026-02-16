@@ -44,6 +44,8 @@
 [x] As a user, I want to quickly test the connector just created by clicking a button somewhere on the connector itself, it should send an "hello" msg to the connected chatbot and check the response
 [x] As a user, I want connectors to be global and reusable so that I can reference them across multiple runs and evals
 [x] As a user, I want to configure connector-specific settings (endpoint URL, authentication, headers) so that I can connect to secured APIs
+[x] As a user, I want to set arbitrary custom headers on connectors so that I can flexibly provide API keys, authorization tokens, and other headers without being limited to predefined auth types
+[x] As a user, I want to set LangGraph configurable values on connectors so that I can pass runtime configuration to my LangGraph agents
 
 ### Running Evals
 

@@ -49,42 +49,42 @@ describe("connector", () => {
       expect(connector.name).toBe("Test HTTP Connector");
       expect(connector.type).toBe("http");
       expect(connector.baseUrl).toBe("https://api.example.com");
-      expect(connector.authType).toBeUndefined();
-      expect(connector.authValue).toBeUndefined();
       expect(connector.config).toBeUndefined();
       expect(connector.createdAt).toBeDefined();
       expect(connector.updatedAt).toBeDefined();
     });
 
-    it("creates a connector with all fields including auth and config", () => {
+    it("creates a connector with all fields including headers and config", () => {
       const connector = createConnector({
         name: "LangGraph Dev API",
         type: "langgraph",
         baseUrl: "http://localhost:8123",
-        authType: "api-key",
-        authValue: "lg-dev-key-123",
+        headers: { "X-API-Key": "lg-dev-key-123" },
         config: { assistantId: "my-assistant" },
       });
 
       expect(connector.name).toBe("LangGraph Dev API");
       expect(connector.type).toBe("langgraph");
       expect(connector.baseUrl).toBe("http://localhost:8123");
-      expect(connector.authType).toBe("api-key");
-      expect(connector.authValue).toBe("lg-dev-key-123");
+      expect(connector.headers).toEqual({ "X-API-Key": "lg-dev-key-123" });
       expect(connector.config).toEqual({ assistantId: "my-assistant" });
     });
 
-    it("creates a connector with bearer auth", () => {
+    it("creates a connector with custom headers", () => {
       const connector = createConnector({
-        name: "Bearer Auth Connector",
+        name: "Custom Headers Connector",
         type: "http",
-        baseUrl: "https://secure.api.com",
-        authType: "bearer",
-        authValue: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+        baseUrl: "https://api.example.com",
+        headers: {
+          "X-Custom-Header": "custom-value",
+          "X-Tenant-Id": "tenant-123",
+        },
       });
 
-      expect(connector.authType).toBe("bearer");
-      expect(connector.authValue).toBe("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
+      expect(connector.headers).toEqual({
+        "X-Custom-Header": "custom-value",
+        "X-Tenant-Id": "tenant-123",
+      });
     });
 
     it("throws error for duplicate name", () => {
@@ -206,22 +206,6 @@ describe("connector", () => {
       expect(updated?.baseUrl).toBe("https://new.api.com");
     });
 
-    it("updates auth settings", () => {
-      const created = createConnector({
-        name: "Auth Update",
-        type: "http",
-        baseUrl: "https://api.example.com",
-        authType: "none",
-      });
-
-      const updated = updateConnector(created.id, {
-        authType: "api-key",
-        authValue: "new-api-key",
-      });
-      expect(updated?.authType).toBe("api-key");
-      expect(updated?.authValue).toBe("new-api-key");
-    });
-
     it("updates config", () => {
       const created = createConnector({
         name: "Config Update",
@@ -234,6 +218,32 @@ describe("connector", () => {
         config: { assistantId: "updated" },
       });
       expect(updated?.config).toEqual({ assistantId: "updated" });
+    });
+
+    it("updates custom headers", () => {
+      const created = createConnector({
+        name: "Headers Update",
+        type: "http",
+        baseUrl: "https://api.example.com",
+        headers: { "X-Old": "old-value" },
+      });
+
+      const updated = updateConnector(created.id, {
+        headers: { "X-New": "new-value" },
+      });
+      expect(updated?.headers).toEqual({ "X-New": "new-value" });
+    });
+
+    it("preserves headers when not provided in update", () => {
+      const created = createConnector({
+        name: "Headers Preserve",
+        type: "http",
+        baseUrl: "https://api.example.com",
+        headers: { "X-Keep": "keep-value" },
+      });
+
+      const updated = updateConnector(created.id, { name: "Renamed" });
+      expect(updated?.headers).toEqual({ "X-Keep": "keep-value" });
     });
 
     it("returns undefined for non-existent connector", () => {
@@ -340,62 +350,6 @@ describe("connector", () => {
       );
     });
 
-    it("tests HTTP connector with api-key auth", async () => {
-      const connector = createConnector({
-        name: "Test HTTP Auth",
-        type: "http",
-        baseUrl: "https://api.example.com",
-        authType: "api-key",
-        authValue: "test-api-key",
-      });
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () => "OK",
-      });
-
-      await testConnector(connector.id);
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com",
-        expect.objectContaining({
-          headers: {
-            "Content-Type": "application/json",
-            "X-API-Key": "test-api-key",
-          },
-        })
-      );
-    });
-
-    it("tests HTTP connector with bearer auth", async () => {
-      const connector = createConnector({
-        name: "Test HTTP Bearer",
-        type: "http",
-        baseUrl: "https://api.example.com",
-        authType: "bearer",
-        authValue: "test-token",
-      });
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () => "OK",
-      });
-
-      await testConnector(connector.id);
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com",
-        expect.objectContaining({
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer test-token",
-          },
-        })
-      );
-    });
-
     it("tests LangGraph connector successfully", async () => {
       const connector = createConnector({
         name: "Test LangGraph",
@@ -408,18 +362,17 @@ describe("connector", () => {
         ok: true,
         status: 200,
         text: async () =>
-          JSON.stringify({ messages: [{ role: "assistant", content: "Hi there!" }] }),
+          JSON.stringify({ version: "0.1.0" }),
       });
 
       const result = await testConnector(connector.id);
 
       expect(result.success).toBe(true);
-      expect(result.response).toBe("Hi there!");
       expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:8123/runs/wait",
+        "http://localhost:8123/info",
         expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining("my-assistant"),
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
         })
       );
     });
@@ -442,6 +395,95 @@ describe("connector", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("500");
       expect(result.latencyMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it("sends custom headers in test request", async () => {
+      const connector = createConnector({
+        name: "Test Custom Headers",
+        type: "http",
+        baseUrl: "https://api.example.com",
+        headers: {
+          "X-Custom": "custom-value",
+          "X-Tenant-Id": "tenant-123",
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "OK",
+      });
+
+      await testConnector(connector.id);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.example.com",
+        expect.objectContaining({
+          headers: {
+            "Content-Type": "application/json",
+            "X-Custom": "custom-value",
+            "X-Tenant-Id": "tenant-123",
+          },
+        })
+      );
+    });
+
+    it("custom headers override default Content-Type", async () => {
+      const connector = createConnector({
+        name: "Test Override Headers",
+        type: "http",
+        baseUrl: "https://api.example.com",
+        headers: {
+          "Content-Type": "text/plain",
+          Authorization: "Bearer my-token",
+        },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => "OK",
+      });
+
+      await testConnector(connector.id);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.example.com",
+        expect.objectContaining({
+          headers: {
+            "Content-Type": "text/plain",
+            Authorization: "Bearer my-token",
+          },
+        })
+      );
+    });
+
+    it("sends custom headers for LangGraph connector", async () => {
+      const connector = createConnector({
+        name: "Test LG Headers",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "my-assistant" },
+        headers: { "X-Custom": "lg-value" },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ messages: [] }),
+      });
+
+      await testConnector(connector.id);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8123/info",
+        expect.objectContaining({
+          headers: {
+            "Content-Type": "application/json",
+            "X-Custom": "lg-value",
+          },
+        })
+      );
     });
 
     it("returns error on network failure", async () => {

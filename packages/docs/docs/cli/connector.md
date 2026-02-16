@@ -26,25 +26,25 @@ evalstudio connector create <name> [options]
 |--------|-------------|
 | `--type <type>` | Connector type: http or langgraph (required) |
 | `--base-url <url>` | Base URL for the API endpoint (required) |
-| `--auth-type <authType>` | Authentication type: none, api-key, bearer, basic |
-| `--auth-value <value>` | Authentication value (API key, token, credentials) |
+| `--header <key:value>` | Custom header as key:value pair (repeatable) |
 | `--config <json>` | Configuration as JSON string |
 | `--json` | Output as JSON |
 
 **Example:**
 
 ```bash
-# HTTP connector
+# HTTP connector with custom headers
 evalstudio connector create "Production API" \
   --type http \
   --base-url https://api.example.com \
-  --auth-type bearer \
-  --auth-value my-token
+  --header "Authorization:Bearer my-token" \
+  --header "X-Custom:value"
 
 # LangGraph connector (assistantId is required in config)
 evalstudio connector create "LangGraph Dev" \
   --type langgraph \
   --base-url http://localhost:8123 \
+  --header "X-API-Key:my-key" \
   --config '{"assistantId": "my-assistant"}'
 ```
 
@@ -55,6 +55,7 @@ Connector created successfully
   Name:     LangGraph Dev
   Type:     langgraph
   Base URL: http://localhost:8123
+  Headers:  X-API-Key: my-k...y-key
   Config:   {"assistantId":"my-assistant"}
   Created:  2026-01-29T10:00:00.000Z
 ```
@@ -117,6 +118,7 @@ Connector: LangGraph Dev
   Name:     LangGraph Dev
   Type:     langgraph
   Base URL: http://localhost:8123
+  Headers:  X-API-Key: my-k...y-key
   Config:   {"assistantId":"my-assistant"}
   Created:  2026-01-29T10:00:00.000Z
   Updated:  2026-01-29T10:00:00.000Z
@@ -135,8 +137,7 @@ evalstudio connector update <identifier> [options]
 | `-n, --name <name>` | New connector name |
 | `--type <type>` | New connector type (http or langgraph) |
 | `--base-url <url>` | New base URL |
-| `--auth-type <authType>` | New authentication type |
-| `--auth-value <value>` | New authentication value |
+| `--header <key:value>` | Custom header as key:value pair (repeatable, replaces existing) |
 | `--config <json>` | New configuration as JSON string |
 | `--json` | Output as JSON |
 
@@ -145,6 +146,7 @@ evalstudio connector update <identifier> [options]
 ```bash
 evalstudio connector update 987fcdeb-51a2-3bc4-d567-890123456789 \
   --base-url http://localhost:8124 \
+  --header "X-API-Key:new-key" \
   --config '{"assistantId": "new-assistant"}'
 ```
 
@@ -214,6 +216,9 @@ evalstudio connector list --json
     "name": "LangGraph Dev",
     "type": "langgraph",
     "baseUrl": "http://localhost:8123",
+    "headers": {
+      "X-API-Key": "lg-dev-key"
+    },
     "config": {
       "assistantId": "my-assistant"
     },

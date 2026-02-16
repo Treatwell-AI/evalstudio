@@ -21,7 +21,6 @@ import {
   invokeConnector,
   type Connector,
   type ConnectorType,
-  type AuthType,
   type ConnectorConfig,
   type LangGraphConnectorConfig,
   type HttpConnectorConfig,
@@ -46,18 +45,6 @@ Supported connector types:
 - `http` - Generic HTTP/REST API connector
 - `langgraph` - LangGraph Dev API connector for langgraph-backed agents
 
-### AuthType
-
-```typescript
-type AuthType = "none" | "api-key" | "bearer" | "basic";
-```
-
-Supported authentication types:
-- `none` - No authentication
-- `api-key` - API key authentication
-- `bearer` - Bearer token authentication
-- `basic` - Basic authentication (base64 encoded credentials)
-
 ### Connector
 
 ```typescript
@@ -66,9 +53,8 @@ interface Connector {
   name: string;            // Connector name (unique)
   type: ConnectorType;     // Connector type (http or langgraph)
   baseUrl: string;         // Base URL for the API endpoint
-  authType?: AuthType;     // Authentication type
-  authValue?: string;      // Authentication value (API key, token, etc.)
-  config?: ConnectorConfig; // Optional configuration
+  headers?: Record<string, string>; // Custom headers sent with every request
+  config?: ConnectorConfig; // Optional type-specific configuration
   createdAt: string;       // ISO 8601 timestamp
   updatedAt: string;       // ISO 8601 timestamp
 }
@@ -81,8 +67,7 @@ interface CreateConnectorInput {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 ```
@@ -94,8 +79,7 @@ interface UpdateConnectorInput {
   name?: string;
   type?: ConnectorType;
   baseUrl?: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 ```
@@ -169,6 +153,7 @@ Type-safe configuration for LangGraph Dev API connectors.
 ```typescript
 interface LangGraphConnectorConfig {
   assistantId: string;              // The assistant ID to invoke (required)
+  configurable?: Record<string, unknown>; // Values sent as config.configurable in invoke requests
 }
 ```
 
@@ -179,8 +164,6 @@ Type-safe configuration for generic HTTP/REST API connectors.
 ```typescript
 interface HttpConnectorConfig {
   method?: "GET" | "POST" | "PUT" | "PATCH"; // HTTP method (default: POST)
-  headers?: Record<string, string>;          // Additional headers
-  timeout?: number;                          // Request timeout in ms
   path?: string;                             // Path to append to base URL
 }
 ```
@@ -206,13 +189,15 @@ function createConnector(input: CreateConnectorInput): Connector;
 **Throws**: Error if a connector with the same name already exists.
 
 ```typescript
-// HTTP connector
+// HTTP connector with custom headers
 const httpConnector = createConnector({
   name: "Production API",
   type: "http",
   baseUrl: "https://api.example.com",
-  authType: "bearer",
-  authValue: "my-token",
+  headers: {
+    Authorization: "Bearer my-token",
+    "X-Custom-Header": "value",
+  },
 });
 
 // LangGraph connector
@@ -220,8 +205,10 @@ const langGraphConnector = createConnector({
   name: "LangGraph Dev",
   type: "langgraph",
   baseUrl: "http://localhost:8123",
+  headers: { "X-API-Key": "my-key" },
   config: {
     assistantId: "my-assistant",
+    configurable: { model_name: "gpt-4o" },
   },
 });
 ```
@@ -278,8 +265,7 @@ function updateConnector(id: string, input: UpdateConnectorInput): Connector | u
 ```typescript
 const updated = updateConnector(connector.id, {
   baseUrl: "https://new.api.com",
-  authType: "api-key",
-  authValue: "new-api-key",
+  headers: { Authorization: "Bearer new-token" },
 });
 ```
 
@@ -329,7 +315,7 @@ if (result.success) {
 }
 ```
 
-For HTTP connectors, sends a POST request with `{"message": "hello"}`. For LangGraph connectors, sends a request to the `/runs/wait` endpoint with a "hello" user message and waits for completion.
+For HTTP connectors, sends a POST request with `{"message": "hello"}`. For LangGraph connectors, sends a GET request to the `/info` endpoint.
 
 ### invokeConnector()
 
@@ -375,6 +361,10 @@ When `runId` is provided for LangGraph connectors, a thread is created with that
 ```typescript
 const config: LangGraphConnectorConfig = {
   assistantId: "my-assistant",  // Required: Assistant ID to use
+  configurable: {               // Optional: Values sent as config.configurable
+    model_name: "gpt-4o",
+    system_prompt: "You are a helpful assistant",
+  },
 };
 ```
 
@@ -383,10 +373,6 @@ const config: LangGraphConnectorConfig = {
 ```typescript
 const config: HttpConnectorConfig = {
   method: "POST",               // Optional: HTTP method (default: POST)
-  headers: {                    // Optional: Custom headers
-    "X-Custom-Header": "value",
-  },
-  timeout: 30000,               // Optional: Request timeout in ms
   path: "/v1/chat",             // Optional: Path to append to base URL
 };
 ```

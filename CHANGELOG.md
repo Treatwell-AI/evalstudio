@@ -7,11 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Flexible connector headers** - Connectors now support arbitrary custom headers via a `headers` field
+  - Key-value header editor in the web UI for all connector types
+  - CLI: `--header <key:value>` repeatable option for create/update commands
+  - Headers are sent with every request (test, invoke) and override defaults like `Content-Type`
+- **LangGraph configurable** - New `configurable` field on LangGraph connectors
+  - Sent as `config.configurable` in invoke request bodies per LangGraph API spec
+  - Editable as JSON in the web UI connector form
+
+### Changed
+
+- **HTTP connector form** - Method and path are now dedicated form fields instead of a raw JSON textarea
+- **Connector form layout** - Type-specific fields (assistant ID, configurable, method, path) shown contextually
+
 ### Removed
 
 - **Unused LangGraph connector fields** - Removed `graphId` and `metadata` from `LangGraphConnectorConfig`
   - These fields were defined in the interface but never sent in API requests
   - Updated web UI connector form to remove references to removed fields
+- **Auth type/value fields** - Removed `authType` and `authValue` from connectors, replaced by flexible headers
+  - Removed `AuthType` type export from core
+  - Auth dropdown and value input removed from web UI and CLI
+  - `HttpConnectorConfig.timeout` field removed
 
 ## [0.3.4] - 2026-02-13
 

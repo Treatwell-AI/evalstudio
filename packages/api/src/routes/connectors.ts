@@ -8,7 +8,6 @@ import {
   listConnectors,
   testConnector,
   updateConnector,
-  type AuthType,
   type ConnectorConfig,
   type ConnectorType,
   type Message,
@@ -18,8 +17,7 @@ interface CreateConnectorBody {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 
@@ -27,8 +25,7 @@ interface UpdateConnectorBody {
   name?: string;
   type?: ConnectorType;
   baseUrl?: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 
@@ -62,7 +59,7 @@ export async function connectorsRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateConnectorBody }>(
     "/connectors",
     async (request, reply) => {
-      const { name, type, baseUrl, authType, authValue, config } = request.body;
+      const { name, type, baseUrl, headers, config } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -84,8 +81,7 @@ export async function connectorsRoute(fastify: FastifyInstance) {
           name,
           type,
           baseUrl,
-          authType,
-          authValue,
+          headers,
           config,
         });
         reply.code(201);
@@ -103,15 +99,14 @@ export async function connectorsRoute(fastify: FastifyInstance) {
   fastify.put<{ Params: ConnectorParams; Body: UpdateConnectorBody }>(
     "/connectors/:id",
     async (request, reply) => {
-      const { name, type, baseUrl, authType, authValue, config } = request.body;
+      const { name, type, baseUrl, headers, config } = request.body;
 
       try {
         const connector = updateConnector(request.params.id, {
           name,
           type,
           baseUrl,
-          authType,
-          authValue,
+          headers,
           config,
         });
 

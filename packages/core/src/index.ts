@@ -82,7 +82,6 @@ export {
   listConnectors,
   testConnector,
   updateConnector,
-  type AuthType,
   type Connector,
   type ConnectorConfig,
   type ConnectorInvokeInput,

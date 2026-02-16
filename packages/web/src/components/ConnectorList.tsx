@@ -77,10 +77,9 @@ export function ConnectorList({ onEdit }: ConnectorListProps) {
                 <span className="connector-url">
                   URL: {connector.baseUrl}
                 </span>
-                {connector.authType && connector.authType !== "none" && (
-                  <span className="connector-auth">
-                    Auth: {connector.authType}
-                    {connector.authValue && ` (${maskValue(connector.authValue)})`}
+                {connector.headers && Object.keys(connector.headers).length > 0 && (
+                  <span className="connector-headers">
+                    Headers: {Object.entries(connector.headers).map(([k, v]) => `${k}: ${maskValue(v)}`).join(", ")}
                   </span>
                 )}
                 {connector.config && Object.keys(connector.config).length > 0 && (

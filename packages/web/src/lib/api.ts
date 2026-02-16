@@ -257,22 +257,18 @@ export interface DefaultModels {
 
 export type ConnectorType = "http" | "langgraph";
 
-export type AuthType = "none" | "api-key" | "bearer" | "basic";
-
 /** Configuration for LangGraph Dev API connectors */
 export interface LangGraphConnectorConfig {
   /** The assistant ID to use when invoking the LangGraph agent (required) */
   assistantId: string;
+  /** Configurable values passed in config.configurable of invoke requests */
+  configurable?: Record<string, unknown>;
 }
 
 /** Configuration for generic HTTP/REST API connectors */
 export interface HttpConnectorConfig {
   /** HTTP method to use (defaults to POST) */
   method?: "GET" | "POST" | "PUT" | "PATCH";
-  /** Additional headers */
-  headers?: Record<string, string>;
-  /** Request timeout in milliseconds */
-  timeout?: number;
   /** Path to append to base URL */
   path?: string;
 }
@@ -285,8 +281,8 @@ export interface Connector {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  /** Custom headers to include in every request */
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
   createdAt: string;
   updatedAt: string;
@@ -296,8 +292,7 @@ export interface CreateConnectorInput {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 
@@ -305,8 +300,7 @@ export interface UpdateConnectorInput {
   name?: string;
   type?: ConnectorType;
   baseUrl?: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 

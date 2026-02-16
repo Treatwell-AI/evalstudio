@@ -6,14 +6,14 @@ import type { Message } from "./types.js";
 
 export type ConnectorType = "http" | "langgraph";
 
-export type AuthType = "none" | "api-key" | "bearer" | "basic";
-
 /**
  * Configuration for LangGraph Dev API connectors
  */
 export interface LangGraphConnectorConfig {
   /** The assistant ID to use when invoking the LangGraph agent (required) */
   assistantId: string;
+  /** Configurable values passed in config.configurable of invoke requests */
+  configurable?: Record<string, unknown>;
 }
 
 /**
@@ -22,10 +22,6 @@ export interface LangGraphConnectorConfig {
 export interface HttpConnectorConfig {
   /** HTTP method to use (defaults to POST) */
   method?: "GET" | "POST" | "PUT" | "PATCH";
-  /** Additional headers to include in requests */
-  headers?: Record<string, string>;
-  /** Request timeout in milliseconds */
-  timeout?: number;
   /** Path to append to base URL for requests */
   path?: string;
 }
@@ -38,8 +34,8 @@ export interface Connector {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  /** Custom headers to include in every request */
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
   createdAt: string;
   updatedAt: string;
@@ -49,8 +45,7 @@ export interface CreateConnectorInput {
   name: string;
   type: ConnectorType;
   baseUrl: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 
@@ -58,8 +53,7 @@ export interface UpdateConnectorInput {
   name?: string;
   type?: ConnectorType;
   baseUrl?: string;
-  authType?: AuthType;
-  authValue?: string;
+  headers?: Record<string, string>;
   config?: ConnectorConfig;
 }
 
@@ -96,8 +90,7 @@ export function createConnector(input: CreateConnectorInput): Connector {
     name: input.name,
     type: input.type,
     baseUrl: input.baseUrl,
-    authType: input.authType,
-    authValue: input.authValue,
+    headers: input.headers,
     config: input.config,
     createdAt: now,
     updatedAt: now,
@@ -145,22 +138,12 @@ export function updateConnector(
     );
   }
 
-  // Determine the new authType
-  const newAuthType = input.authType ?? connector.authType;
-
-  // Clear authValue if authType is being set to "none"
-  const newAuthValue =
-    newAuthType === "none"
-      ? undefined
-      : input.authValue ?? connector.authValue;
-
   const updated: Connector = {
     ...connector,
     name: input.name ?? connector.name,
     type: input.type ?? connector.type,
     baseUrl: input.baseUrl ?? connector.baseUrl,
-    authType: newAuthType,
-    authValue: newAuthValue,
+    headers: input.headers !== undefined ? input.headers : connector.headers,
     config: input.config ?? connector.config,
     updatedAt: new Date().toISOString(),
   };
@@ -248,20 +231,11 @@ interface ConnectorStrategy {
 // Shared Utilities
 // ============================================================================
 
-function buildAuthHeaders(connector: Connector): Record<string, string> {
-  const headers: Record<string, string> = {
+function buildRequestHeaders(connector: Connector): Record<string, string> {
+  return {
     "Content-Type": "application/json",
+    ...connector.headers,
   };
-
-  if (connector.authType === "api-key" && connector.authValue) {
-    headers["X-API-Key"] = connector.authValue;
-  } else if (connector.authType === "bearer" && connector.authValue) {
-    headers["Authorization"] = `Bearer ${connector.authValue}`;
-  } else if (connector.authType === "basic" && connector.authValue) {
-    headers["Authorization"] = `Basic ${connector.authValue}`;
-  }
-
-  return headers;
 }
 
 async function withTiming<T>(
@@ -283,7 +257,7 @@ const langGraphStrategy: ConnectorStrategy = {
     return {
       url: `${connector.baseUrl}/info`,
       method: "GET",
-      headers: buildAuthHeaders(connector)
+      headers: buildRequestHeaders(connector)
     };
   },
 
@@ -309,7 +283,7 @@ const langGraphStrategy: ConnectorStrategy = {
     return {
       url,
       method: "POST",
-      headers: buildAuthHeaders(connector),
+      headers: buildRequestHeaders(connector),
       body: JSON.stringify({
         assistant_id: assistantId,
         input: {
@@ -319,6 +293,9 @@ const langGraphStrategy: ConnectorStrategy = {
         multitask_strategy: "enqueue",
         // Auto-create thread if it doesn't exist (avoids separate API call)
         if_not_exists: "create",
+        ...(lgConfig?.configurable && {
+          config: { configurable: lgConfig.configurable },
+        }),
       }),
     };
   },
@@ -402,7 +379,7 @@ const httpStrategy: ConnectorStrategy = {
     return {
       url: connector.baseUrl,
       method: "POST",
-      headers: buildAuthHeaders(connector),
+      headers: buildRequestHeaders(connector),
       body: JSON.stringify({
         message: "hello",
         messages: [{ role: "user", content: "hello" }],
@@ -421,7 +398,7 @@ const httpStrategy: ConnectorStrategy = {
     return {
       url: connector.baseUrl + path,
       method,
-      headers: { ...buildAuthHeaders(connector), ...httpConfig?.headers },
+      headers: buildRequestHeaders(connector),
       body: JSON.stringify({
         messages: input.messages,
       }),

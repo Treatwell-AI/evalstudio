@@ -5,7 +5,7 @@ import {
   useUpdateConnector,
   useDeleteConnector,
 } from "../hooks/useConnectors";
-import { ConnectorType, AuthType, LangGraphConnectorConfig } from "../lib/api";
+import { ConnectorType, HttpConnectorConfig, LangGraphConnectorConfig } from "../lib/api";
 
 interface ConnectorFormProps {
   connectorId: string | null;
@@ -16,10 +16,11 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState<ConnectorType>("http");
   const [baseUrl, setBaseUrl] = useState("");
-  const [authType, setAuthType] = useState<AuthType>("none");
-  const [authValue, setAuthValue] = useState("");
+  const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>([]);
   const [assistantId, setAssistantId] = useState("");
-  const [configJson, setConfigJson] = useState("");
+  const [configurableJson, setConfigurableJson] = useState("");
+  const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT" | "PATCH">("POST");
+  const [httpPath, setHttpPath] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: existingConnector } = useConnector(connectorId);
@@ -35,24 +36,29 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
       setName(existingConnector.name);
       setType(existingConnector.type);
       setBaseUrl(existingConnector.baseUrl);
-      setAuthType(existingConnector.authType || "none");
-      setAuthValue(existingConnector.authValue || "");
 
-      // Extract assistantId from config for langgraph connectors
+      // Load custom headers
+      if (existingConnector.headers && Object.keys(existingConnector.headers).length > 0) {
+        setCustomHeaders(
+          Object.entries(existingConnector.headers).map(([key, value]) => ({ key, value }))
+        );
+      } else {
+        setCustomHeaders([]);
+      }
+
+      // Extract assistantId and configurable from config for langgraph connectors
       if (existingConnector.type === "langgraph" && existingConnector.config) {
         const lgConfig = existingConnector.config as LangGraphConnectorConfig;
         setAssistantId(lgConfig.assistantId || "");
-        // Show other config fields without assistantId
-        const { assistantId: _, ...otherConfig } = lgConfig;
-        if (Object.keys(otherConfig).length > 0) {
-          setConfigJson(JSON.stringify(otherConfig, null, 2));
+        if (lgConfig.configurable && Object.keys(lgConfig.configurable).length > 0) {
+          setConfigurableJson(JSON.stringify(lgConfig.configurable, null, 2));
         } else {
-          setConfigJson("");
+          setConfigurableJson("");
         }
-      } else if (existingConnector.config) {
-        setConfigJson(JSON.stringify(existingConnector.config, null, 2));
-      } else {
-        setConfigJson("");
+      } else if (existingConnector.type === "http" && existingConnector.config) {
+        const httpConfig = existingConnector.config as HttpConnectorConfig;
+        setHttpMethod(httpConfig.method || "POST");
+        setHttpPath(httpConfig.path || "");
       }
     }
   }, [existingConnector]);
@@ -77,30 +83,36 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
       return;
     }
 
+    // Build custom headers object
+    const headersWithValues = customHeaders.filter((h) => h.key.trim());
+    const headers: Record<string, string> | undefined =
+      headersWithValues.length > 0
+        ? Object.fromEntries(headersWithValues.map((h) => [h.key.trim(), h.value]))
+        : undefined;
+
     // Build config object
     let config: Record<string, unknown> | undefined;
 
     if (type === "langgraph") {
-      // Start with assistantId for langgraph
       config = { assistantId: assistantId.trim() };
 
-      // Merge additional config if provided
-      if (configJson.trim()) {
+      if (configurableJson.trim()) {
         try {
-          const additionalConfig = JSON.parse(configJson);
-          config = { ...config, ...additionalConfig };
+          const configurable = JSON.parse(configurableJson);
+          config = { ...config, configurable };
         } catch {
-          setError("Invalid JSON in configuration");
+          setError("Invalid JSON in configurable");
           return;
         }
       }
-    } else if (configJson.trim()) {
-      // HTTP connector - just use the JSON config
-      try {
-        config = JSON.parse(configJson);
-      } catch {
-        setError("Invalid JSON in configuration");
-        return;
+    } else if (type === "http") {
+      const hasMethod = httpMethod !== "POST";
+      const hasPath = httpPath.trim() !== "";
+      if (hasMethod || hasPath) {
+        config = {
+          ...(hasMethod && { method: httpMethod }),
+          ...(hasPath && { path: httpPath.trim() }),
+        };
       }
     }
 
@@ -112,8 +124,7 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
             name,
             type,
             baseUrl,
-            authType,
-            authValue: authType === "none" ? undefined : authValue || undefined,
+            headers,
             config,
           },
         });
@@ -122,8 +133,7 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
           name,
           type,
           baseUrl,
-          authType: authType === "none" ? undefined : authType,
-          authValue: authType === "none" ? undefined : authValue || undefined,
+          headers,
           config,
         });
       }
@@ -194,71 +204,114 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
           </div>
 
           {type === "langgraph" && (
-            <div className="form-group">
-              <label htmlFor="connector-assistant-id">Assistant ID *</label>
-              <input
-                id="connector-assistant-id"
-                type="text"
-                value={assistantId}
-                onChange={(e) => setAssistantId(e.target.value)}
-                placeholder="my-assistant"
-                required
-              />
-              <span className="form-hint">
-                The assistant ID to use when invoking the LangGraph agent
-              </span>
-            </div>
+            <>
+              <div className="form-group">
+                <label htmlFor="connector-assistant-id">Assistant ID *</label>
+                <input
+                  id="connector-assistant-id"
+                  type="text"
+                  value={assistantId}
+                  onChange={(e) => setAssistantId(e.target.value)}
+                  placeholder="my-assistant"
+                  required
+                />
+                <span className="form-hint">
+                  The assistant ID to use when invoking the LangGraph agent
+                </span>
+              </div>
+              <div className="form-group">
+                <label htmlFor="connector-configurable">Configurable (JSON)</label>
+                <textarea
+                  id="connector-configurable"
+                  value={configurableJson}
+                  onChange={(e) => setConfigurableJson(e.target.value)}
+                  placeholder={`{\n  "key": "value"\n}`}
+                  rows={3}
+                />
+                <span className="form-hint">
+                  Optional values sent as config.configurable in invoke requests
+                </span>
+              </div>
+            </>
+          )}
+
+          {type === "http" && (
+            <>
+              <div className="form-group">
+                <label htmlFor="connector-method">Method</label>
+                <select
+                  id="connector-method"
+                  value={httpMethod}
+                  onChange={(e) => setHttpMethod(e.target.value as "GET" | "POST" | "PUT" | "PATCH")}
+                >
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                  <option value="PUT">PUT</option>
+                  <option value="PATCH">PATCH</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="connector-path">Path</label>
+                <input
+                  id="connector-path"
+                  type="text"
+                  value={httpPath}
+                  onChange={(e) => setHttpPath(e.target.value)}
+                  placeholder="/v1/chat"
+                />
+                <span className="form-hint">
+                  Optional path appended to the base URL
+                </span>
+              </div>
+            </>
           )}
 
           <div className="form-group">
-            <label htmlFor="connector-auth-type">Authentication</label>
-            <select
-              id="connector-auth-type"
-              value={authType}
-              onChange={(e) => setAuthType(e.target.value as AuthType)}
-            >
-              <option value="none">None</option>
-              <option value="api-key">API Key</option>
-              <option value="bearer">Bearer Token</option>
-              <option value="basic">Basic Auth</option>
-            </select>
-          </div>
-
-          {authType !== "none" && (
-            <div className="form-group">
-              <label htmlFor="connector-auth-value">
-                {authType === "api-key"
-                  ? "API Key"
-                  : authType === "bearer"
-                  ? "Bearer Token"
-                  : "Credentials (base64)"}
-              </label>
-              <input
-                id="connector-auth-value"
-                type="password"
-                value={authValue}
-                onChange={(e) => setAuthValue(e.target.value)}
-                placeholder={isEditing ? "(unchanged)" : ""}
-              />
-            </div>
-          )}
-
-          <div className="form-group">
-            <label htmlFor="connector-config">
-              {type === "langgraph" ? "Additional Configuration (JSON)" : "Configuration (JSON)"}
-            </label>
-            <textarea
-              id="connector-config"
-              value={configJson}
-              onChange={(e) => setConfigJson(e.target.value)}
-              placeholder='{\n  "headers": {},\n  "timeout": 30000\n}'
-              rows={4}
-            />
+            <label>Headers</label>
             <span className="form-hint">
-              {type === "langgraph"
-                ? "Optional additional configuration (JSON)"
-                : "Optional: headers, timeout, method, path, etc."}
+              Custom headers sent with every request (e.g. Authorization, API keys)
             </span>
+            {customHeaders.map((header, index) => (
+              <div key={index} className="header-row" style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <input
+                  type="text"
+                  value={header.key}
+                  onChange={(e) => {
+                    const updated = [...customHeaders];
+                    updated[index] = { ...updated[index], key: e.target.value };
+                    setCustomHeaders(updated);
+                  }}
+                  placeholder="Header name"
+                  style={{ flex: 1 }}
+                />
+                <input
+                  type="text"
+                  value={header.value}
+                  onChange={(e) => {
+                    const updated = [...customHeaders];
+                    updated[index] = { ...updated[index], value: e.target.value };
+                    setCustomHeaders(updated);
+                  }}
+                  placeholder="Value"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => setCustomHeaders(customHeaders.filter((_, i) => i !== index))}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setCustomHeaders([...customHeaders, { key: "", value: "" }])}
+              style={{ marginTop: "0.5rem" }}
+            >
+              + Add Header
+            </button>
           </div>
 
           <div className="form-actions">

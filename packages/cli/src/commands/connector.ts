@@ -7,12 +7,10 @@ import {
   getConnectorTypes,
   listConnectors,
   updateConnector,
-  type AuthType,
   type ConnectorType,
 } from "@evalstudio/core";
 
 const validConnectorTypes: ConnectorType[] = ["http", "langgraph"];
-const validAuthTypes: AuthType[] = ["none", "api-key", "bearer", "basic"];
 
 export const connectorCommand = new Command("connector")
   .description("Manage connectors for bridging EvalStudio to external APIs")
@@ -25,9 +23,8 @@ export const connectorCommand = new Command("connector")
         "Connector type (http or langgraph)"
       )
       .requiredOption("--base-url <url>", "Base URL for the API endpoint")
-      .option("--auth-type <authType>", "Authentication type (none, api-key, bearer, basic)")
-      .option("--auth-value <value>", "Authentication value (API key, token, or base64 credentials)")
       .option("--config <json>", "Configuration as JSON string (e.g., '{\"assistantId\": \"my-agent\"}' for langgraph)")
+      .option("--header <key:value...>", "Custom headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
         (
@@ -35,9 +32,8 @@ export const connectorCommand = new Command("connector")
           options: {
             type: string;
             baseUrl: string;
-            authType?: string;
-            authValue?: string;
             config?: string;
+            header?: string[];
             json?: boolean;
           }
         ) => {
@@ -45,13 +41,6 @@ export const connectorCommand = new Command("connector")
             if (!validConnectorTypes.includes(options.type as ConnectorType)) {
               console.error(
                 `Error: Invalid type "${options.type}". Must be one of: ${validConnectorTypes.join(", ")}`
-              );
-              process.exit(1);
-            }
-
-            if (options.authType && !validAuthTypes.includes(options.authType as AuthType)) {
-              console.error(
-                `Error: Invalid auth type "${options.authType}". Must be one of: ${validAuthTypes.join(", ")}`
               );
               process.exit(1);
             }
@@ -66,12 +55,13 @@ export const connectorCommand = new Command("connector")
               }
             }
 
+            const headers = parseHeaders(options.header);
+
             const connector = createConnector({
               name,
               type: options.type as ConnectorType,
               baseUrl: options.baseUrl,
-              authType: options.authType as AuthType | undefined,
-              authValue: options.authValue,
+              headers,
               config,
             });
 
@@ -83,11 +73,8 @@ export const connectorCommand = new Command("connector")
               console.log(`  Name:     ${connector.name}`);
               console.log(`  Type:     ${connector.type}`);
               console.log(`  Base URL: ${connector.baseUrl}`);
-              if (connector.authType) {
-                console.log(`  Auth:     ${connector.authType}`);
-              }
-              if (connector.authValue) {
-                console.log(`  Auth Val: ${maskValue(connector.authValue)}`);
+              if (connector.headers && Object.keys(connector.headers).length > 0) {
+                console.log(`  Headers:  ${formatHeaders(connector.headers)}`);
               }
               if (connector.config) {
                 console.log(`  Config:   ${JSON.stringify(connector.config)}`);
@@ -155,11 +142,8 @@ export const connectorCommand = new Command("connector")
             console.log(`  Name:     ${connector.name}`);
             console.log(`  Type:     ${connector.type}`);
             console.log(`  Base URL: ${connector.baseUrl}`);
-            if (connector.authType) {
-              console.log(`  Auth:     ${connector.authType}`);
-            }
-            if (connector.authValue) {
-              console.log(`  Auth Val: ${maskValue(connector.authValue)}`);
+            if (connector.headers && Object.keys(connector.headers).length > 0) {
+              console.log(`  Headers:  ${formatHeaders(connector.headers)}`);
             }
             if (connector.config) {
               console.log(`  Config:   ${JSON.stringify(connector.config)}`);
@@ -177,9 +161,8 @@ export const connectorCommand = new Command("connector")
       .option("-n, --name <name>", "New connector name")
       .option("--type <type>", "New connector type (http or langgraph)")
       .option("--base-url <url>", "New base URL")
-      .option("--auth-type <authType>", "New authentication type")
-      .option("--auth-value <value>", "New authentication value")
       .option("--config <json>", "New configuration as JSON string")
+      .option("--header <key:value...>", "Custom headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
         (
@@ -188,9 +171,8 @@ export const connectorCommand = new Command("connector")
             name?: string;
             type?: string;
             baseUrl?: string;
-            authType?: string;
-            authValue?: string;
             config?: string;
+            header?: string[];
             json?: boolean;
           }
         ) => {
@@ -211,16 +193,6 @@ export const connectorCommand = new Command("connector")
             process.exit(1);
           }
 
-          if (
-            options.authType &&
-            !validAuthTypes.includes(options.authType as AuthType)
-          ) {
-            console.error(
-              `Error: Invalid auth type "${options.authType}". Must be one of: ${validAuthTypes.join(", ")}`
-            );
-            process.exit(1);
-          }
-
           let config: Record<string, unknown> | undefined;
           if (options.config) {
             try {
@@ -231,13 +203,14 @@ export const connectorCommand = new Command("connector")
             }
           }
 
+          const headers = parseHeaders(options.header);
+
           try {
             const updated = updateConnector(existing.id, {
               name: options.name,
               type: options.type as ConnectorType | undefined,
               baseUrl: options.baseUrl,
-              authType: options.authType as AuthType | undefined,
-              authValue: options.authValue,
+              headers,
               config,
             });
 
@@ -254,11 +227,8 @@ export const connectorCommand = new Command("connector")
               console.log(`  Name:     ${updated.name}`);
               console.log(`  Type:     ${updated.type}`);
               console.log(`  Base URL: ${updated.baseUrl}`);
-              if (updated.authType) {
-                console.log(`  Auth:     ${updated.authType}`);
-              }
-              if (updated.authValue) {
-                console.log(`  Auth Val: ${maskValue(updated.authValue)}`);
+              if (updated.headers && Object.keys(updated.headers).length > 0) {
+                console.log(`  Headers:  ${formatHeaders(updated.headers)}`);
               }
               if (updated.config) {
                 console.log(`  Config:   ${JSON.stringify(updated.config)}`);
@@ -327,4 +297,26 @@ function maskValue(value: string): string {
     return "****";
   }
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function parseHeaders(headerArgs?: string[]): Record<string, string> | undefined {
+  if (!headerArgs || headerArgs.length === 0) return undefined;
+  const headers: Record<string, string> = {};
+  for (const h of headerArgs) {
+    const colonIndex = h.indexOf(":");
+    if (colonIndex === -1) {
+      console.error(`Error: Invalid header format "${h}". Use key:value`);
+      process.exit(1);
+    }
+    const key = h.slice(0, colonIndex).trim();
+    const value = h.slice(colonIndex + 1).trim();
+    headers[key] = value;
+  }
+  return headers;
+}
+
+function formatHeaders(headers: Record<string, string>): string {
+  return Object.entries(headers)
+    .map(([k, v]) => `${k}: ${maskValue(v)}`)
+    .join(", ");
 }
