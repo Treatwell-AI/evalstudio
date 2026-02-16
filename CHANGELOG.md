@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **Unused LangGraph connector fields** - Removed `graphId` and `metadata` from `LangGraphConnectorConfig`
+  - These fields were defined in the interface but never sent in API requests
+  - Updated web UI connector form to remove references to removed fields
+
 ## [0.3.4] - 2026-02-13
 
 ### Added

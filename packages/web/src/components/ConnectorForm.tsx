@@ -251,16 +251,12 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
               id="connector-config"
               value={configJson}
               onChange={(e) => setConfigJson(e.target.value)}
-              placeholder={
-                type === "langgraph"
-                  ? '{\n  "graphId": "my-graph"\n}'
-                  : '{\n  "headers": {},\n  "timeout": 30000\n}'
-              }
+              placeholder='{\n  "headers": {},\n  "timeout": 30000\n}'
               rows={4}
             />
             <span className="form-hint">
               {type === "langgraph"
-                ? "Optional: graphId, metadata"
+                ? "Optional additional configuration (JSON)"
                 : "Optional: headers, timeout, method, path, etc."}
             </span>
           </div>

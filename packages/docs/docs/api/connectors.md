@@ -93,8 +93,6 @@ Create a new connector.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `assistantId` | string | Yes | The assistant ID to invoke |
-| `graphId` | string | No | The graph ID to use |
-| `metadata` | object | No | Additional metadata to pass to the agent |
 
 **Config for HTTP connectors:**
 | Field | Type | Required | Description |

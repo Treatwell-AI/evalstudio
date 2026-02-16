@@ -169,8 +169,6 @@ Type-safe configuration for LangGraph Dev API connectors.
 ```typescript
 interface LangGraphConnectorConfig {
   assistantId: string;              // The assistant ID to invoke (required)
-  graphId?: string;                 // The graph ID to use
-  metadata?: Record<string, unknown>; // Additional metadata to pass
 }
 ```
 
@@ -377,8 +375,6 @@ When `runId` is provided for LangGraph connectors, a thread is created with that
 ```typescript
 const config: LangGraphConnectorConfig = {
   assistantId: "my-assistant",  // Required: Assistant ID to use
-  graphId: "my-graph",          // Optional: Graph ID
-  metadata: { key: "value" },   // Optional: Additional metadata
 };
 ```
 

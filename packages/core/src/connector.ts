@@ -14,10 +14,6 @@ export type AuthType = "none" | "api-key" | "bearer" | "basic";
 export interface LangGraphConnectorConfig {
   /** The assistant ID to use when invoking the LangGraph agent (required) */
   assistantId: string;
-  /** The graph ID to use (optional, defaults to assistant's graph) */
-  graphId?: string;
-  /** Additional metadata to pass to the agent */
-  metadata?: Record<string, unknown>;
 }
 
 /**

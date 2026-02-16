@@ -231,9 +231,9 @@ describe("connector", () => {
       });
 
       const updated = updateConnector(created.id, {
-        config: { assistantId: "updated", metadata: { key: "value" } },
+        config: { assistantId: "updated" },
       });
-      expect(updated?.config).toEqual({ assistantId: "updated", metadata: { key: "value" } });
+      expect(updated?.config).toEqual({ assistantId: "updated" });
     });
 
     it("returns undefined for non-existent connector", () => {
