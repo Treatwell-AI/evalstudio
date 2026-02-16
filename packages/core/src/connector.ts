@@ -231,7 +231,7 @@ interface ConnectorRequestConfig {
   url: string;
   method: string;
   headers: Record<string, string>;
-  body: string;
+  body?: string;
 }
 
 interface ConnectorStrategy {
@@ -282,20 +282,12 @@ async function withTiming<T>(
 
 const langGraphStrategy: ConnectorStrategy = {
   buildTestRequest(connector: Connector): ConnectorRequestConfig {
-    const lgConfig = connector.config as LangGraphConnectorConfig | undefined;
-    const assistantId = lgConfig?.assistantId || "default";
+    // https://docs.langchain.com/langsmith/agent-server-api/system/server-information
 
     return {
-      url: `${connector.baseUrl}/runs/wait`,
-      method: "POST",
-      headers: buildAuthHeaders(connector),
-      body: JSON.stringify({
-        assistant_id: assistantId,
-        input: {
-          messages: [{ role: "user", content: "hello" }],
-        },
-        config: {},
-      }),
+      url: `${connector.baseUrl}/info`,
+      method: "GET",
+      headers: buildAuthHeaders(connector)
     };
   },
 
@@ -306,6 +298,7 @@ const langGraphStrategy: ConnectorStrategy = {
     const lgConfig = connector.config as LangGraphConnectorConfig | undefined;
     const assistantId = lgConfig?.assistantId || "default";
 
+    // https://docs.langchain.com/langsmith/agent-server-api/thread-runs/create-run-wait-for-output
     // Use thread-scoped endpoint if runId is provided for better organization in LangSmith
     const url = input.runId
       ? `${connector.baseUrl}/threads/${input.runId}/runs/wait`
