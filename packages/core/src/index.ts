@@ -1,6 +1,10 @@
 export { getStatus, type Status } from "./status.js";
 export type { Message } from "./types.js";
 export {
+  createJsonRepository,
+  type Repository,
+} from "./repository.js";
+export {
   getStorageDir,
   setStorageDir,
   resetStorageDir,

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Storage abstraction** - Introduced `Repository<T>` interface and `createJsonRepository<T>()` factory to decouple entity storage from the filesystem
+  - `persona.ts` refactored as the first entity to use the repository pattern
+  - All entity-specific business logic (validation, uniqueness, timestamps) remains unchanged
+  - Foundation for future support of alternative storage backends (database, cloud, etc.)
+
 ## [0.3.5] - 2026-02-16
 
 ### Added

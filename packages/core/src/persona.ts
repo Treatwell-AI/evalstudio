@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 
 export interface Persona {
   id: string;
@@ -24,26 +22,10 @@ export interface UpdatePersonaInput {
   systemPrompt?: string;
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "personas.json");
-}
-
-function loadPersonas(): Persona[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Persona[];
-}
-
-function savePersonas(personas: Persona[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(personas, null, 2));
-}
+const repo: Repository<Persona> = createJsonRepository<Persona>("personas.json");
 
 export function createPersona(input: CreatePersonaInput): Persona {
-  const personas = loadPersonas();
+  const personas = repo.findAll();
 
   if (personas.some((p) => p.name === input.name)) {
     throw new Error(
@@ -62,30 +44,28 @@ export function createPersona(input: CreatePersonaInput): Persona {
   };
 
   personas.push(persona);
-  savePersonas(personas);
+  repo.saveAll(personas);
 
   return persona;
 }
 
 export function getPersona(id: string): Persona | undefined {
-  const personas = loadPersonas();
-  return personas.find((p) => p.id === id);
+  return repo.findAll().find((p) => p.id === id);
 }
 
 export function getPersonaByName(name: string): Persona | undefined {
-  const personas = loadPersonas();
-  return personas.find((p) => p.name === name);
+  return repo.findAll().find((p) => p.name === name);
 }
 
 export function listPersonas(): Persona[] {
-  return loadPersonas();
+  return repo.findAll();
 }
 
 export function updatePersona(
   id: string,
   input: UpdatePersonaInput
 ): Persona | undefined {
-  const personas = loadPersonas();
+  const personas = repo.findAll();
   const index = personas.findIndex((p) => p.id === id);
 
   if (index === -1) {
@@ -112,13 +92,13 @@ export function updatePersona(
   };
 
   personas[index] = updated;
-  savePersonas(personas);
+  repo.saveAll(personas);
 
   return updated;
 }
 
 export function deletePersona(id: string): boolean {
-  const personas = loadPersonas();
+  const personas = repo.findAll();
   const index = personas.findIndex((p) => p.id === id);
 
   if (index === -1) {
@@ -126,7 +106,7 @@ export function deletePersona(id: string): boolean {
   }
 
   personas.splice(index, 1);
-  savePersonas(personas);
+  repo.saveAll(personas);
 
   return true;
 }
