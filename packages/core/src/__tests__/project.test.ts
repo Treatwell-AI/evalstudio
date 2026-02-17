@@ -7,7 +7,7 @@ import {
   updateProjectConfig,
 } from "../project.js";
 import { createLLMProvider } from "../llm-provider.js";
-import { resetStorageDir, setConfigDir, setStorageDir } from "../storage.js";
+import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
 
 let testDir: string;
 

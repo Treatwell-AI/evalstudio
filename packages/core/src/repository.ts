@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { getStorageDir } from "./project-resolver.js";
 
 /**
  * Generic repository interface for entity storage.

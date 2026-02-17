@@ -9,13 +9,13 @@ export {
   setStorageDir,
   resetStorageDir,
   getConfigPath,
-  readProjectConfig,
-  writeProjectConfig,
   setConfigDir,
   CONFIG_FILENAME,
   ERR_NO_PROJECT,
-} from "./storage.js";
+} from "./project-resolver.js";
 export {
+  readProjectConfig,
+  writeProjectConfig,
   getProjectConfig,
   updateProjectConfig,
   initLocalProject,

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getStatus } from "../status.js";
-import { setStorageDir, setConfigDir, resetStorageDir } from "../storage.js";
+import { setStorageDir, setConfigDir, resetStorageDir } from "../project-resolver.js";
 
 let testDir: string;
 

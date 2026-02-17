@@ -13,7 +13,7 @@ import {
   updateEval,
 } from "../eval.js";
 import { createScenario } from "../scenario.js";
-import { resetStorageDir, setStorageDir } from "../storage.js";
+import { resetStorageDir, setStorageDir } from "../project-resolver.js";
 
 let testDir: string;
 

@@ -1,17 +1,53 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getLLMProvider } from "./llm-provider.js";
-import {
-  CONFIG_FILENAME,
-  readProjectConfig,
-  writeProjectConfig,
-  type ProjectConfig,
-  type ProjectLLMSettings,
-  type LLMUseCaseSettings,
-} from "./storage.js";
+import { CONFIG_FILENAME, getConfigPath } from "./project-resolver.js";
 
-// Re-export types from storage
-export type { ProjectConfig, ProjectLLMSettings, LLMUseCaseSettings };
+/**
+ * LLM settings for a specific use-case (evaluation or persona generation)
+ */
+export interface LLMUseCaseSettings {
+  providerId: string;
+  model?: string;
+}
+
+/**
+ * Project-level LLM configuration for different use-cases
+ */
+export interface ProjectLLMSettings {
+  /** LLM settings for evaluation/judging conversations */
+  evaluation?: LLMUseCaseSettings;
+  /** LLM settings for persona response generation */
+  persona?: LLMUseCaseSettings;
+}
+
+/**
+ * Project configuration stored in evalstudio.config.json
+ */
+export interface ProjectConfig {
+  version: number;
+  name: string;
+  llmSettings?: ProjectLLMSettings;
+  /** Maximum concurrent run executions (default: 3) */
+  maxConcurrency?: number;
+}
+
+/**
+ * Reads and parses the project config from evalstudio.config.json.
+ */
+export function readProjectConfig(): ProjectConfig {
+  const configPath = getConfigPath();
+  const data = readFileSync(configPath, "utf-8");
+  return JSON.parse(data) as ProjectConfig;
+}
+
+/**
+ * Writes the project config back to evalstudio.config.json.
+ */
+export function writeProjectConfig(config: ProjectConfig): void {
+  const configPath = getConfigPath();
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+}
 
 export interface UpdateProjectConfigInput {
   name?: string;
@@ -94,14 +130,12 @@ export function updateProjectConfig(
 export interface InitLocalProjectResult {
   projectDir: string;
   configPath: string;
-  storagePath: string;
 }
-
-const LOCAL_STORAGE_DIRNAME = "data";
 
 /**
  * Initializes a new project in the given directory.
- * Creates evalstudio.config.json with version 2 and data/ storage dir.
+ * Creates evalstudio.config.json with version 2.
+ * Storage directory (data/) is created lazily on first write.
  */
 export function initLocalProject(
   dir: string,
@@ -109,11 +143,9 @@ export function initLocalProject(
 ): InitLocalProjectResult {
   const projectDir = dir;
   const configPath = join(projectDir, CONFIG_FILENAME);
-  const storagePath = join(projectDir, LOCAL_STORAGE_DIRNAME);
 
-  const existing = [configPath, storagePath].filter(existsSync);
-  if (existing.length > 0) {
-    throw new Error(`Already initialized: ${existing.join(", ")} already exists`);
+  if (existsSync(configPath)) {
+    throw new Error(`Already initialized: ${configPath} already exists`);
   }
 
   mkdirSync(projectDir, { recursive: true });
@@ -121,7 +153,5 @@ export function initLocalProject(
   const config: ProjectConfig = { version: 2, name };
   writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
 
-  mkdirSync(storagePath, { recursive: true });
-
-  return { projectDir, configPath, storagePath };
+  return { projectDir, configPath };
 }

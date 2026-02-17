@@ -14,7 +14,8 @@ import {
   type RunStatus,
   type RunResult,
 } from "./run.js";
-import { ERR_NO_PROJECT, readProjectConfig } from "./storage.js";
+import { ERR_NO_PROJECT } from "./project-resolver.js";
+import { readProjectConfig } from "./project.js";
 import type { Message } from "./types.js";
 import { buildTestAgentSystemPrompt } from "./prompt.js";
 import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";

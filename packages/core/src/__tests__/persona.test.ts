@@ -10,7 +10,7 @@ import {
   listPersonas,
   updatePersona,
 } from "../persona.js";
-import { resetStorageDir, setStorageDir } from "../storage.js";
+import { resetStorageDir, setStorageDir } from "../project-resolver.js";
 
 let testDir: string;
 

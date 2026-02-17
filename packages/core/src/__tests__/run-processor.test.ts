@@ -9,7 +9,7 @@ import { createPersona } from "../persona.js";
 import { createRun, getRun, listRuns, updateRun } from "../run.js";
 import { RunProcessor } from "../run-processor.js";
 import { createScenario } from "../scenario.js";
-import { resetStorageDir, setConfigDir, setStorageDir } from "../storage.js";
+import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
 
 // Mock the evaluator to return success on first evaluation
 vi.mock("../evaluator.js", () => ({
