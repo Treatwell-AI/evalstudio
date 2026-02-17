@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 import type { Message } from "./types.js";
 
 export type { Message };
@@ -64,26 +62,10 @@ export interface UpdateScenarioInput {
   personaIds?: string[];
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "scenarios.json");
-}
-
-function loadScenarios(): Scenario[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Scenario[];
-}
-
-function saveScenarios(scenarios: Scenario[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(scenarios, null, 2));
-}
+const repo: Repository<Scenario> = createJsonRepository<Scenario>("scenarios.json");
 
 export function createScenario(input: CreateScenarioInput): Scenario {
-  const scenarios = loadScenarios();
+  const scenarios = repo.findAll();
 
   if (scenarios.some((s) => s.name === input.name)) {
     throw new Error(
@@ -107,30 +89,30 @@ export function createScenario(input: CreateScenarioInput): Scenario {
   };
 
   scenarios.push(scenario);
-  saveScenarios(scenarios);
+  repo.saveAll(scenarios);
 
   return scenario;
 }
 
 export function getScenario(id: string): Scenario | undefined {
-  const scenarios = loadScenarios();
+  const scenarios = repo.findAll();
   return scenarios.find((s) => s.id === id);
 }
 
 export function getScenarioByName(name: string): Scenario | undefined {
-  const scenarios = loadScenarios();
+  const scenarios = repo.findAll();
   return scenarios.find((s) => s.name === name);
 }
 
 export function listScenarios(): Scenario[] {
-  return loadScenarios();
+  return repo.findAll();
 }
 
 export function updateScenario(
   id: string,
   input: UpdateScenarioInput
 ): Scenario | undefined {
-  const scenarios = loadScenarios();
+  const scenarios = repo.findAll();
   const index = scenarios.findIndex((s) => s.id === id);
 
   if (index === -1) {
@@ -162,13 +144,13 @@ export function updateScenario(
   };
 
   scenarios[index] = updated;
-  saveScenarios(scenarios);
+  repo.saveAll(scenarios);
 
   return updated;
 }
 
 export function deleteScenario(id: string): boolean {
-  const scenarios = loadScenarios();
+  const scenarios = repo.findAll();
   const index = scenarios.findIndex((s) => s.id === id);
 
   if (index === -1) {
@@ -176,7 +158,7 @@ export function deleteScenario(id: string): boolean {
   }
 
   scenarios.splice(index, 1);
-  saveScenarios(scenarios);
+  repo.saveAll(scenarios);
 
   return true;
 }

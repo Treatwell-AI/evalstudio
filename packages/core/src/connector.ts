@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 import type { Message } from "./types.js";
 
 export type ConnectorType = "http" | "langgraph";
@@ -57,26 +55,10 @@ export interface UpdateConnectorInput {
   config?: ConnectorConfig;
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "connectors.json");
-}
-
-function loadConnectors(): Connector[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Connector[];
-}
-
-function saveConnectors(connectors: Connector[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(connectors, null, 2));
-}
+const repo: Repository<Connector> = createJsonRepository<Connector>("connectors.json");
 
 export function createConnector(input: CreateConnectorInput): Connector {
-  const connectors = loadConnectors();
+  const connectors = repo.findAll();
 
   if (connectors.some((c) => c.name === input.name)) {
     throw new Error(
@@ -97,30 +79,30 @@ export function createConnector(input: CreateConnectorInput): Connector {
   };
 
   connectors.push(connector);
-  saveConnectors(connectors);
+  repo.saveAll(connectors);
 
   return connector;
 }
 
 export function getConnector(id: string): Connector | undefined {
-  const connectors = loadConnectors();
+  const connectors = repo.findAll();
   return connectors.find((c) => c.id === id);
 }
 
 export function getConnectorByName(name: string): Connector | undefined {
-  const connectors = loadConnectors();
+  const connectors = repo.findAll();
   return connectors.find((c) => c.name === name);
 }
 
 export function listConnectors(): Connector[] {
-  return loadConnectors();
+  return repo.findAll();
 }
 
 export function updateConnector(
   id: string,
   input: UpdateConnectorInput
 ): Connector | undefined {
-  const connectors = loadConnectors();
+  const connectors = repo.findAll();
   const index = connectors.findIndex((c) => c.id === id);
 
   if (index === -1) {
@@ -149,13 +131,13 @@ export function updateConnector(
   };
 
   connectors[index] = updated;
-  saveConnectors(connectors);
+  repo.saveAll(connectors);
 
   return updated;
 }
 
 export function deleteConnector(id: string): boolean {
-  const connectors = loadConnectors();
+  const connectors = repo.findAll();
   const index = connectors.findIndex((c) => c.id === id);
 
   if (index === -1) {
@@ -163,7 +145,7 @@ export function deleteConnector(id: string): boolean {
   }
 
   connectors.splice(index, 1);
-  saveConnectors(connectors);
+  repo.saveAll(connectors);
 
   return true;
 }

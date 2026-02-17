@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { getConnector } from "./connector.js";
 import { getEval, type Message } from "./eval.js";
 import { createExecution } from "./execution.js";
 import { getPersona } from "./persona.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 import { getScenario } from "./scenario.js";
-import { getStorageDir } from "./storage.js";
 
 /**
  * Run status types:
@@ -79,23 +77,7 @@ export interface UpdateRunInput {
   threadId?: string;
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "runs.json");
-}
-
-function loadRuns(): Run[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Run[];
-}
-
-function saveRuns(runs: Run[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(runs, null, 2));
-}
+const repo: Repository<Run> = createJsonRepository<Run>("runs.json");
 
 export function createRuns(input: CreateRunInput): Run[] {
   const evalItem = getEval(input.evalId);
@@ -133,7 +115,7 @@ export function createRuns(input: CreateRunInput): Run[] {
     }
   }
 
-  const allRuns = loadRuns();
+  const allRuns = repo.findAll();
   const now = new Date().toISOString();
   const createdRuns: Run[] = [];
 
@@ -168,7 +150,7 @@ export function createRuns(input: CreateRunInput): Run[] {
     }
   }
 
-  saveRuns(allRuns);
+  repo.saveAll(allRuns);
   return createdRuns;
 }
 
@@ -204,7 +186,7 @@ export function createPlaygroundRun(input: CreatePlaygroundRunInput): Run {
     }
   }
 
-  const allRuns = loadRuns();
+  const allRuns = repo.findAll();
   const now = new Date().toISOString();
 
   const run: Run = {
@@ -220,13 +202,13 @@ export function createPlaygroundRun(input: CreatePlaygroundRunInput): Run {
   };
 
   allRuns.push(run);
-  saveRuns(allRuns);
+  repo.saveAll(allRuns);
 
   return run;
 }
 
 export function getRun(id: string): Run | undefined {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   return runs.find((r) => r.id === id);
 }
 
@@ -242,7 +224,7 @@ export function listRuns(evalId?: string): Run[];
 export function listRuns(
   evalIdOrOptions?: string | ListRunsOptions,
 ): Run[] {
-  const runs = loadRuns();
+  const runs = repo.findAll();
 
   // Handle new object-based API
   if (typeof evalIdOrOptions === "object" && evalIdOrOptions !== null) {
@@ -286,7 +268,7 @@ export function listRuns(
 }
 
 export function listRunsByEval(evalId: string): Run[] {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   return runs
     .filter((r) => r.evalId === evalId)
     .sort(
@@ -296,7 +278,7 @@ export function listRunsByEval(evalId: string): Run[] {
 }
 
 export function listRunsByScenario(scenarioId: string): Run[] {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   return runs
     .filter((r) => r.scenarioId === scenarioId)
     .sort(
@@ -306,7 +288,7 @@ export function listRunsByScenario(scenarioId: string): Run[] {
 }
 
 export function listRunsByPersona(personaId: string): Run[] {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   return runs
     .filter((r) => r.personaId === personaId)
     .sort(
@@ -316,7 +298,7 @@ export function listRunsByPersona(personaId: string): Run[] {
 }
 
 export function updateRun(id: string, input: UpdateRunInput): Run | undefined {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   const index = runs.findIndex((r) => r.id === id);
 
   if (index === -1) {
@@ -341,13 +323,13 @@ export function updateRun(id: string, input: UpdateRunInput): Run | undefined {
   };
 
   runs[index] = updated;
-  saveRuns(runs);
+  repo.saveAll(runs);
 
   return updated;
 }
 
 export function deleteRun(id: string): boolean {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   const index = runs.findIndex((r) => r.id === id);
 
   if (index === -1) {
@@ -355,18 +337,18 @@ export function deleteRun(id: string): boolean {
   }
 
   runs.splice(index, 1);
-  saveRuns(runs);
+  repo.saveAll(runs);
 
   return true;
 }
 
 export function deleteRunsByEval(evalId: string): number {
-  const runs = loadRuns();
+  const runs = repo.findAll();
   const filtered = runs.filter((r) => r.evalId !== evalId);
   const deletedCount = runs.length - filtered.length;
 
   if (deletedCount > 0) {
-    saveRuns(filtered);
+    repo.saveAll(filtered);
   }
 
   return deletedCount;

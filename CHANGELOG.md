@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Storage abstraction** - Introduced `Repository<T>` interface and `createJsonRepository<T>()` factory to decouple entity storage from the filesystem
-  - `persona.ts` refactored as the first entity to use the repository pattern
-  - All entity-specific business logic (validation, uniqueness, timestamps) remains unchanged
+  - All entity modules now use the repository pattern: persona, scenario, connector, llm-provider, execution, eval, and run
+  - Removed direct `node:fs` / `node:path` / `storage.js` imports from entity modules — storage I/O is fully centralized in `repository.ts`
+  - All entity-specific business logic (validation, uniqueness, cascading deletes, filtering) remains unchanged
   - Foundation for future support of alternative storage backends (database, cloud, etc.)
 
 ## [0.3.5] - 2026-02-16

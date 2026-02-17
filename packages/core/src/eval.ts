@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { getConnector } from "./connector.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 import { deleteRunsByEval } from "./run.js";
 import { getScenario } from "./scenario.js";
-import { getStorageDir } from "./storage.js";
 import type { Message } from "./types.js";
 import type { FailureCriteriaMode } from "./scenario.js";
 
@@ -67,23 +65,7 @@ export interface EvalWithRelations extends Eval {
   };
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "evals.json");
-}
-
-function loadEvals(): Eval[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Eval[];
-}
-
-function saveEvals(evals: Eval[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(evals, null, 2));
-}
+const repo: Repository<Eval> = createJsonRepository<Eval>("evals.json");
 
 export function createEval(input: CreateEvalInput): Eval {
   // Validate connector (required)
@@ -104,7 +86,7 @@ export function createEval(input: CreateEvalInput): Eval {
     }
   }
 
-  const evals = loadEvals();
+  const evals = repo.findAll();
   const now = new Date().toISOString();
   const evalItem: Eval = {
     id: randomUUID(),
@@ -117,23 +99,23 @@ export function createEval(input: CreateEvalInput): Eval {
   };
 
   evals.push(evalItem);
-  saveEvals(evals);
+  repo.saveAll(evals);
 
   return evalItem;
 }
 
 export function getEval(id: string): Eval | undefined {
-  const evals = loadEvals();
+  const evals = repo.findAll();
   return evals.find((e) => e.id === id);
 }
 
 export function getEvalByScenario(scenarioId: string): Eval | undefined {
-  const evals = loadEvals();
+  const evals = repo.findAll();
   return evals.find((e) => e.scenarioIds.includes(scenarioId));
 }
 
 export function listEvals(): Eval[] {
-  return loadEvals();
+  return repo.findAll();
 }
 
 export function getEvalWithRelations(
@@ -190,7 +172,7 @@ export function updateEval(
   id: string,
   input: UpdateEvalInput
 ): Eval | undefined {
-  const evals = loadEvals();
+  const evals = repo.findAll();
   const index = evals.findIndex((e) => e.id === id);
 
   if (index === -1) {
@@ -229,13 +211,13 @@ export function updateEval(
   };
 
   evals[index] = updated;
-  saveEvals(evals);
+  repo.saveAll(evals);
 
   return updated;
 }
 
 export function deleteEval(id: string): boolean {
-  const evals = loadEvals();
+  const evals = repo.findAll();
   const index = evals.findIndex((e) => e.id === id);
 
   if (index === -1) {
@@ -246,7 +228,7 @@ export function deleteEval(id: string): boolean {
   deleteRunsByEval(id);
 
   evals.splice(index, 1);
-  saveEvals(evals);
+  repo.saveAll(evals);
 
   return true;
 }

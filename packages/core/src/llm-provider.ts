@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 
 export type ProviderType = "openai" | "anthropic";
 
@@ -33,26 +31,10 @@ export interface UpdateLLMProviderInput {
   config?: LLMProviderConfig;
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "llm-providers.json");
-}
-
-function loadLLMProviders(): LLMProvider[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as LLMProvider[];
-}
-
-function saveLLMProviders(providers: LLMProvider[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(providers, null, 2));
-}
+const repo: Repository<LLMProvider> = createJsonRepository<LLMProvider>("llm-providers.json");
 
 export function createLLMProvider(input: CreateLLMProviderInput): LLMProvider {
-  const providers = loadLLMProviders();
+  const providers = repo.findAll();
 
   if (providers.some((p) => p.name === input.name)) {
     throw new Error(
@@ -72,30 +54,30 @@ export function createLLMProvider(input: CreateLLMProviderInput): LLMProvider {
   };
 
   providers.push(provider);
-  saveLLMProviders(providers);
+  repo.saveAll(providers);
 
   return provider;
 }
 
 export function getLLMProvider(id: string): LLMProvider | undefined {
-  const providers = loadLLMProviders();
+  const providers = repo.findAll();
   return providers.find((p) => p.id === id);
 }
 
 export function getLLMProviderByName(name: string): LLMProvider | undefined {
-  const providers = loadLLMProviders();
+  const providers = repo.findAll();
   return providers.find((p) => p.name === name);
 }
 
 export function listLLMProviders(): LLMProvider[] {
-  return loadLLMProviders();
+  return repo.findAll();
 }
 
 export function updateLLMProvider(
   id: string,
   input: UpdateLLMProviderInput
 ): LLMProvider | undefined {
-  const providers = loadLLMProviders();
+  const providers = repo.findAll();
   const index = providers.findIndex((p) => p.id === id);
 
   if (index === -1) {
@@ -123,13 +105,13 @@ export function updateLLMProvider(
   };
 
   providers[index] = updated;
-  saveLLMProviders(providers);
+  repo.saveAll(providers);
 
   return updated;
 }
 
 export function deleteLLMProvider(id: string): boolean {
-  const providers = loadLLMProviders();
+  const providers = repo.findAll();
   const index = providers.findIndex((p) => p.id === id);
 
   if (index === -1) {
@@ -137,7 +119,7 @@ export function deleteLLMProvider(id: string): boolean {
   }
 
   providers.splice(index, 1);
-  saveLLMProviders(providers);
+  repo.saveAll(providers);
 
   return true;
 }

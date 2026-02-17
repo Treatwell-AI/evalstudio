@@ -1,6 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getStorageDir } from "./storage.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 
 /**
  * Execution represents a batch of runs created together from a single eval run.
@@ -19,23 +17,7 @@ export interface CreateExecutionInput {
   evalId: string;
 }
 
-function getStoragePath(): string {
-  return join(getStorageDir(), "executions.json");
-}
-
-function loadExecutions(): Execution[] {
-  const path = getStoragePath();
-  if (!existsSync(path)) {
-    return [];
-  }
-  const data = readFileSync(path, "utf-8");
-  return JSON.parse(data) as Execution[];
-}
-
-function saveExecutions(executions: Execution[]): void {
-  const path = getStoragePath();
-  writeFileSync(path, JSON.stringify(executions, null, 2));
-}
+const repo: Repository<Execution> = createJsonRepository<Execution>("executions.json");
 
 /**
  * Get the next auto-increment ID for executions.
@@ -52,7 +34,7 @@ function getNextId(executions: Execution[]): number {
  * Creates a new execution for a batch of runs.
  */
 export function createExecution(input: CreateExecutionInput): Execution {
-  const executions = loadExecutions();
+  const executions = repo.findAll();
   const now = new Date().toISOString();
 
   const execution: Execution = {
@@ -62,18 +44,18 @@ export function createExecution(input: CreateExecutionInput): Execution {
   };
 
   executions.push(execution);
-  saveExecutions(executions);
+  repo.saveAll(executions);
 
   return execution;
 }
 
 export function getExecution(id: number): Execution | undefined {
-  const executions = loadExecutions();
+  const executions = repo.findAll();
   return executions.find((e) => e.id === id);
 }
 
 export function listExecutions(evalId?: string): Execution[] {
-  const executions = loadExecutions();
+  const executions = repo.findAll();
   if (evalId) {
     return executions
       .filter((e) => e.evalId === evalId)
@@ -83,7 +65,7 @@ export function listExecutions(evalId?: string): Execution[] {
 }
 
 export function deleteExecution(id: number): boolean {
-  const executions = loadExecutions();
+  const executions = repo.findAll();
   const index = executions.findIndex((e) => e.id === id);
 
   if (index === -1) {
@@ -91,18 +73,18 @@ export function deleteExecution(id: number): boolean {
   }
 
   executions.splice(index, 1);
-  saveExecutions(executions);
+  repo.saveAll(executions);
 
   return true;
 }
 
 export function deleteExecutionsByEval(evalId: string): number {
-  const executions = loadExecutions();
+  const executions = repo.findAll();
   const filtered = executions.filter((e) => e.evalId !== evalId);
   const deletedCount = executions.length - filtered.length;
 
   if (deletedCount > 0) {
-    saveExecutions(filtered);
+    repo.saveAll(filtered);
   }
 
   return deletedCount;
