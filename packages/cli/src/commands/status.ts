@@ -16,7 +16,6 @@ export const statusCommand = new Command("status")
       console.log(`Version:   ${status.version}`);
       console.log(`Status:    ${status.status}`);
       console.log(`Node:      ${status.node}`);
-      console.log(`Storage:   ${status.storageDir}`);
       console.log(`Timestamp: ${status.timestamp}`);
     }
   });

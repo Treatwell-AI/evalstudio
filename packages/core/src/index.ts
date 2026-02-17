@@ -8,22 +8,22 @@ export {
   getStorageDir,
   setStorageDir,
   resetStorageDir,
-  initLocalProject,
   getConfigPath,
   readProjectConfig,
   writeProjectConfig,
   setConfigDir,
   CONFIG_FILENAME,
   ERR_NO_PROJECT,
-  type InitLocalProjectResult,
-  type ProjectConfig,
-  type ProjectLLMSettings,
-  type LLMUseCaseSettings,
 } from "./storage.js";
 export {
   getProjectConfig,
   updateProjectConfig,
+  initLocalProject,
+  type InitLocalProjectResult,
   type UpdateProjectConfigInput,
+  type ProjectConfig,
+  type ProjectLLMSettings,
+  type LLMUseCaseSettings,
 } from "./project.js";
 export {
   createPersona,

@@ -1,5 +1,4 @@
 import { createRequire } from "module";
-import { getStorageDir } from "./storage.js";
 
 const require = createRequire(import.meta.url);
 const packageJson = require("../package.json") as { version: string };
@@ -10,7 +9,6 @@ export interface Status {
   status: "ok" | "error";
   timestamp: string;
   node: string;
-  storageDir: string;
 }
 
 export function getStatus(): Status {
@@ -20,6 +18,5 @@ export function getStatus(): Status {
     status: "ok",
     timestamp: new Date().toISOString(),
     node: process.version,
-    storageDir: getStorageDir(),
   };
 }

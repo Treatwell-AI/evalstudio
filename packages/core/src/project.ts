@@ -1,5 +1,8 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { getLLMProvider } from "./llm-provider.js";
 import {
+  CONFIG_FILENAME,
   readProjectConfig,
   writeProjectConfig,
   type ProjectConfig,
@@ -86,4 +89,39 @@ export function updateProjectConfig(
 
   writeProjectConfig(updated);
   return updated;
+}
+
+export interface InitLocalProjectResult {
+  projectDir: string;
+  configPath: string;
+  storagePath: string;
+}
+
+const LOCAL_STORAGE_DIRNAME = "data";
+
+/**
+ * Initializes a new project in the given directory.
+ * Creates evalstudio.config.json with version 2 and data/ storage dir.
+ */
+export function initLocalProject(
+  dir: string,
+  name: string,
+): InitLocalProjectResult {
+  const projectDir = dir;
+  const configPath = join(projectDir, CONFIG_FILENAME);
+  const storagePath = join(projectDir, LOCAL_STORAGE_DIRNAME);
+
+  const existing = [configPath, storagePath].filter(existsSync);
+  if (existing.length > 0) {
+    throw new Error(`Already initialized: ${existing.join(", ")} already exists`);
+  }
+
+  mkdirSync(projectDir, { recursive: true });
+
+  const config: ProjectConfig = { version: 2, name };
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+
+  mkdirSync(storagePath, { recursive: true });
+
+  return { projectDir, configPath, storagePath };
 }
