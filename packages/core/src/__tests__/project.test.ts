@@ -17,10 +17,9 @@ let ctx: ProjectContext;
 /**
  * Helper to set up the workspace structure:
  *   tempDir/
- *     evalstudio.config.json    (workspace config)
+ *     evalstudio.config.json    (workspace config with project entries)
  *     projects/
  *       proj1/
- *         project.config.json   (per-project config)
  *         data/
  */
 function setupWorkspace(
@@ -32,10 +31,11 @@ function setupWorkspace(
   const dataDir = join(projectDir, "data");
   mkdirSync(dataDir, { recursive: true });
 
+  const projectEntry = { id: projectId, name: "Test Project", ...projOverrides };
   const wsConfig = {
     version: 3,
     name: "test-workspace",
-    projects: [{ id: projectId, name: "Test Project" }],
+    projects: [projectEntry],
     ...wsOverrides,
   };
   writeFileSync(
@@ -43,20 +43,10 @@ function setupWorkspace(
     JSON.stringify(wsConfig, null, 2),
   );
 
-  const projConfig = {
-    name: "Test Project",
-    ...projOverrides,
-  };
-  writeFileSync(
-    join(projectDir, "project.config.json"),
-    JSON.stringify(projConfig, null, 2),
-  );
-
   ctx = {
     id: projectId,
     name: "Test Project",
     dataDir,
-    configPath: join(projectDir, "project.config.json"),
     workspaceDir: tempDir,
   };
 }

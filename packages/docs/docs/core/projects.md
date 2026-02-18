@@ -10,19 +10,18 @@ EvalStudio supports multiple projects within a single workspace. Each project ha
 
 ```
 my-evals/
-  evalstudio.config.json          # Workspace config + project registry + defaults
+  evalstudio.config.json          # Workspace config + project registry + defaults + per-project overrides
   projects/
     <uuid>/
-      project.config.json         # Per-project overrides
       data/                       # Entity data (personas, scenarios, etc.)
 ```
 
 ## Configuration Hierarchy
 
-Workspace defaults are merged with per-project overrides:
+All configuration lives in `evalstudio.config.json`. Workspace defaults are merged with per-project overrides stored in the `projects[]` array:
 
-- **Workspace config** (`evalstudio.config.json`) — shared defaults for LLM settings, max concurrency
-- **Per-project config** (`project.config.json`) — project-specific overrides; unset fields inherit from workspace
+- **Workspace-level fields** (`llmSettings`, `maxConcurrency`) — shared defaults
+- **Per-project entries** (`projects[].llmSettings`, `projects[].maxConcurrency`) — project-specific overrides; unset fields inherit from workspace
 
 ## Import
 
@@ -61,7 +60,6 @@ interface ProjectContext {
   id: string;           // UUID
   name: string;         // Display name
   dataDir: string;      // Absolute path to projects/{uuid}/data/
-  configPath: string;   // Absolute path to projects/{uuid}/project.config.json
   workspaceDir: string; // Absolute path to workspace root
 }
 ```
@@ -82,8 +80,15 @@ interface ProjectConfig {
 ### WorkspaceConfig
 
 ```typescript
+interface ProjectEntry {
+  id: string;
+  name: string;
+  llmSettings?: LLMSettings;
+  maxConcurrency?: number;
+}
+
 interface WorkspaceConfig extends ProjectConfig {
-  projects: Array<{ id: string; name: string }>;
+  projects: ProjectEntry[];
 }
 ```
 
@@ -113,7 +118,7 @@ function resolveProjectFromCwd(startDir?: string): ProjectContext;
 ```
 
 Resolution order:
-1. If inside `projects/{uuid}/` (has `project.config.json`), use that project
+1. If inside `projects/{uuid}/` (registered in workspace config), use that project
 2. If at workspace root with exactly one project, use it
 3. Otherwise, throw
 

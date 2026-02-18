@@ -18,7 +18,6 @@ describe("connector", () => {
       id: "test-project-id",
       name: "Test Project",
       dataDir,
-      configPath: join(tempDir, "project.config.json"),
       workspaceDir: tempDir,
     };
     mod = createConnectorModule(ctx);

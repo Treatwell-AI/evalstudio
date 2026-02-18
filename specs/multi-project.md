@@ -11,7 +11,7 @@ Currently, one directory = one project. To test multiple products or agents, you
 
 ## Proposal
 
-A single EvalStudio workspace hosts multiple projects. Each project represents a distinct product or agent being tested. The root `evalstudio.config.json` holds workspace-level defaults (LLM credentials, concurrency), and each project has a `project.config.json` that can override what it needs.
+A single EvalStudio workspace hosts multiple projects. Each project represents a distinct product or agent being tested. The root `evalstudio.config.json` holds workspace-level defaults (LLM credentials, concurrency) and per-project overrides in the `projects[]` array entries.
 
 ---
 
@@ -21,13 +21,11 @@ Every project lives under `projects/{uuid}/`. There is no `data/` at the root le
 
 ```
 my-evals/
-  evalstudio.config.json                   # Workspace config (defaults + project registry)
+  evalstudio.config.json                   # Workspace config (defaults + project registry + per-project overrides)
   projects/
     a1b2c3d4-e5f6-7890-abcd-ef1234567890/
-      project.config.json                  # Per-project overrides
       data/                                # Per-project entity data
     f9e8d7c6-b5a4-3210-fedc-ba9876543210/
-      project.config.json                  # Per-project overrides
       data/                                # Per-project entity data
 ```
 
@@ -35,10 +33,9 @@ my-evals/
 
 On `evalstudio init`, the CLI:
 
-1. Creates `evalstudio.config.json` (version 3) with the workspace name
+1. Creates `evalstudio.config.json` (version 3) with the workspace name and first project entry in `projects[]`
 2. Generates a UUID for the first project
-3. Creates `projects/{uuid}/project.config.json` with the project name
-4. Creates `projects/{uuid}/data/`
+3. Creates `projects/{uuid}/data/`
 
 Result:
 
@@ -47,7 +44,6 @@ my-evals/
   evalstudio.config.json                   # { version: 3, name: "my-evals", projects: [{ id: "a1b2...", name: "My Product" }], llmSettings: ... }
   projects/
     a1b2c3d4-e5f6-7890-abcd-ef1234567890/
-      project.config.json                  # { name: "My Product" }
       data/
 ```
 
@@ -84,21 +80,13 @@ The root config acts as a registry of projects and provides defaults.
 The `projects` array is the source of truth for which projects exist. Each entry has:
 
 - `id` — UUID, matches the folder name under `projects/`
-- `name` — display name (also stored in per-project config for convenience)
+- `name` — display name
+- `llmSettings` — (optional) per-project LLM overrides
+- `maxConcurrency` — (optional) per-project concurrency override
 
-### Per-project config
+### Per-project overrides
 
-```json
-{
-  "name": "Booking Chatbot",
-  "llmSettings": {
-    "provider": "anthropic",
-    "apiKey": "sk-ant-..."
-  }
-}
-```
-
-Per-project configs (`project.config.json`) are **sparse** — they only contain fields that differ from the workspace. Fields not present are inherited from the root config. This means:
+Per-project settings are stored directly in the `projects[]` array entries and are **sparse** — they only contain fields that differ from the workspace. Fields not present are inherited from the root config. This means:
 
 - A project that only needs a different connector doesn't need to repeat the LLM settings
 - A project that needs a different provider overrides only `llmSettings`
@@ -159,7 +147,6 @@ interface ProjectContext {
   id: string; // UUID
   name: string; // Display name
   dataDir: string; // Absolute path to projects/{uuid}/data/
-  configPath: string; // Absolute path to projects/{uuid}/project.config.json
   workspaceDir: string; // Absolute path to workspace root
 }
 
@@ -193,11 +180,18 @@ function updateProjectConfig(
 ): ProjectConfig;
 ```
 
-`getProjectConfig()` reads the per-project config and merges with workspace defaults. `updateProjectConfig()` writes only to the per-project config file.
+`getProjectConfig()` reads the project entry from the workspace config and merges with workspace defaults. `updateProjectConfig()` updates the project entry in the workspace config.
 
 ```typescript
+interface ProjectEntry {
+  id: string;
+  name: string;
+  llmSettings?: LLMSettings;
+  maxConcurrency?: number;
+}
+
 interface WorkspaceConfig extends ProjectConfig {
-  projects: Array<{ id: string; name: string }>;
+  projects: ProjectEntry[];
 }
 
 function readWorkspaceConfig(workspaceDir: string): WorkspaceConfig;
@@ -297,7 +291,7 @@ No global state, no ambient context, fully concurrent-safe.
 
 ### Project selection via `evalstudio use`
 
-Instead of a `--project` flag on every command, the user switches into a project directory. Since each project has its own `project.config.json`, the existing directory-based config discovery works naturally — all commands automatically operate on the project you're in.
+Instead of a `--project` flag on every command, the user switches into a project directory. Since each project has its own `projects/{uuid}/` directory registered in the workspace config, the directory-based discovery works naturally — all commands automatically operate on the project you're in.
 
 ```bash
 # Switch into a project (cd into projects/{uuid}/)
@@ -418,7 +412,7 @@ GET  /api/llm-providers/models          # Default model list (from core, not pro
   projects/:projectId/evals             # All eval CRUD
   projects/:projectId/connectors        # All connector CRUD
   projects/:projectId/runs              # All run CRUD
-  projects/:projectId/config            # Per-project config (project.config.json)
+  projects/:projectId/config            # Per-project config (from projects[] entry)
 ```
 
 ### Implementation
@@ -505,7 +499,7 @@ A single `RunProcessor` serves all projects:
 ### In scope
 
 - Folder structure with `projects/{uuid}/` subdirectories
-- Separate config files: `evalstudio.config.json` (workspace) + `project.config.json` (per-project)
+- Single config file: `evalstudio.config.json` (workspace defaults + per-project overrides in `projects[]` entries)
 - Project registry in workspace config (`projects` array)
 - Config inheritance (workspace → per-project shallow merge)
 - Full data isolation per project (`projects/{uuid}/data/`)

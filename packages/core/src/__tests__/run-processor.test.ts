@@ -23,10 +23,9 @@ vi.mock("../evaluator.js", () => ({
 /**
  * Helper to set up the workspace structure required by RunProcessor:
  *   workspaceDir/
- *     evalstudio.config.json     (workspace config, version 3)
+ *     evalstudio.config.json     (workspace config, version 3, with project entries)
  *     projects/
  *       {projectId}/
- *         project.config.json    (per-project config)
  *         data/                  (entity storage)
  */
 function setupWorkspace(
@@ -39,18 +38,8 @@ function setupWorkspace(
   const dataDir = join(projectDir, "data");
   mkdirSync(dataDir, { recursive: true });
 
-  const wsConfig = {
-    version: 3,
-    name: "test-workspace",
-    projects: [{ id: projectId, name: "Test Project" }],
-    ...wsOverrides,
-  };
-  writeFileSync(
-    join(workspaceDir, "evalstudio.config.json"),
-    JSON.stringify(wsConfig, null, 2),
-  );
-
-  const projConfig = {
+  const projectEntry = {
+    id: projectId,
     name: "Test Project",
     llmSettings: {
       provider: "openai",
@@ -58,16 +47,21 @@ function setupWorkspace(
     },
     ...projOverrides,
   };
+  const wsConfig = {
+    version: 3,
+    name: "test-workspace",
+    projects: [projectEntry],
+    ...wsOverrides,
+  };
   writeFileSync(
-    join(projectDir, "project.config.json"),
-    JSON.stringify(projConfig, null, 2),
+    join(workspaceDir, "evalstudio.config.json"),
+    JSON.stringify(wsConfig, null, 2),
   );
 
   return {
     id: projectId,
     name: "Test Project",
     dataDir,
-    configPath: join(projectDir, "project.config.json"),
     workspaceDir,
   };
 }
@@ -166,7 +160,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 3,
           name: "test-workspace",
-          projects: [{ id: projectId, name: "Test Project" }],
+          projects: [{ id: projectId, name: "Test Project", llmSettings: { provider: "openai", apiKey: "test-api-key" } }],
           maxConcurrency: 7,
         }, null, 2)
       );
@@ -198,7 +192,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 3,
             name: "test-workspace",
-            projects: [{ id: projectId, name: "Test Project" }],
+            projects: [{ id: projectId, name: "Test Project", llmSettings: { provider: "openai", apiKey: "test-api-key" } }],
           }, null, 2)
         );
       });
@@ -211,7 +205,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 3,
           name: "test-workspace",
-          projects: [{ id: projectId, name: "Test Project" }],
+          projects: [{ id: projectId, name: "Test Project", llmSettings: { provider: "openai", apiKey: "test-api-key" } }],
           maxConcurrency: 10,
         }, null, 2)
       );
@@ -243,7 +237,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 3,
             name: "test-workspace",
-            projects: [{ id: projectId, name: "Test Project" }],
+            projects: [{ id: projectId, name: "Test Project", llmSettings: { provider: "openai", apiKey: "test-api-key" } }],
           }, null, 2)
         );
       });

@@ -35,6 +35,17 @@ export interface LLMSettings {
 }
 
 /**
+ * Per-project entry stored in the projects[] array of evalstudio.config.json.
+ * Sparse — only contains fields that differ from the workspace defaults.
+ */
+export interface ProjectEntry {
+  id: string;
+  name: string;
+  llmSettings?: LLMSettings;
+  maxConcurrency?: number;
+}
+
+/**
  * Effective project configuration (workspace defaults merged with per-project overrides).
  * This is what consumers see — the merged result.
  */
@@ -52,17 +63,7 @@ export interface ProjectConfig {
  * Contains the project registry and workspace-level defaults.
  */
 export interface WorkspaceConfig extends ProjectConfig {
-  projects: Array<{ id: string; name: string }>;
-}
-
-/**
- * Per-project config stored in project.config.json.
- * Sparse — only contains fields that differ from the workspace.
- */
-export interface PerProjectConfig {
-  name: string;
-  llmSettings?: LLMSettings;
-  maxConcurrency?: number;
+  projects: ProjectEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -151,27 +152,19 @@ export function updateWorkspaceConfig(
 }
 
 // ---------------------------------------------------------------------------
-// Per-project config
-// ---------------------------------------------------------------------------
-
-/**
- * Reads the per-project config from project.config.json.
- */
-export function readPerProjectConfig(ctx: ProjectContext): PerProjectConfig {
-  const data = readFileSync(ctx.configPath, "utf-8");
-  return JSON.parse(data) as PerProjectConfig;
-}
-
-/**
- * Writes the per-project config to project.config.json.
- */
-function writePerProjectConfig(ctx: ProjectContext, config: PerProjectConfig): void {
-  writeFileSync(ctx.configPath, JSON.stringify(config, null, 2) + "\n");
-}
-
-// ---------------------------------------------------------------------------
 // Effective config (merged)
 // ---------------------------------------------------------------------------
+
+/**
+ * Finds the project entry in the workspace config's projects[] array.
+ */
+function findProjectEntry(wsConfig: WorkspaceConfig, projectId: string): ProjectEntry {
+  const entry = wsConfig.projects.find((p) => p.id === projectId);
+  if (!entry) {
+    throw new Error(`Project "${projectId}" not found in workspace config`);
+  }
+  return entry;
+}
 
 /**
  * Reads the effective project config: workspace defaults merged with per-project overrides.
@@ -179,17 +172,17 @@ function writePerProjectConfig(ctx: ProjectContext, config: PerProjectConfig): v
  * Merge rules:
  * - Scalar fields: project value wins if present
  * - Objects (llmSettings): project replaces entire object if present
- * - version, projects: workspace-only, not in per-project config
+ * - version, projects: workspace-only, not in per-project entries
  */
 export function getProjectConfig(ctx: ProjectContext): ProjectConfig {
   const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
-  const projConfig = readPerProjectConfig(ctx);
+  const entry = findProjectEntry(wsConfig, ctx.id);
 
   return {
     version: wsConfig.version,
-    name: projConfig.name,
-    llmSettings: projConfig.llmSettings ?? wsConfig.llmSettings,
-    maxConcurrency: projConfig.maxConcurrency ?? wsConfig.maxConcurrency,
+    name: entry.name,
+    llmSettings: entry.llmSettings ?? wsConfig.llmSettings,
+    maxConcurrency: entry.maxConcurrency ?? wsConfig.maxConcurrency,
   };
 }
 
@@ -202,14 +195,15 @@ export interface UpdateProjectConfigInput {
 }
 
 /**
- * Updates the per-project config (writes only to project.config.json).
+ * Updates the per-project config in the workspace config's projects[] array.
  * Returns the new effective config (merged with workspace defaults).
  */
 export function updateProjectConfig(
   ctx: ProjectContext,
   input: UpdateProjectConfigInput,
 ): ProjectConfig {
-  const projConfig = readPerProjectConfig(ctx);
+  const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
+  const entry = findProjectEntry(wsConfig, ctx.id);
 
   if (input.llmSettings) {
     if (!input.llmSettings.provider) {
@@ -218,8 +212,8 @@ export function updateProjectConfig(
     // apiKey is optional on update — if not provided, keep existing
     if (!input.llmSettings.apiKey) {
       const existingKey =
-        projConfig.llmSettings?.apiKey ||
-        readWorkspaceConfig(ctx.workspaceDir).llmSettings?.apiKey;
+        entry.llmSettings?.apiKey ||
+        wsConfig.llmSettings?.apiKey;
       if (!existingKey) {
         throw new Error("LLM provider API key is required");
       }
@@ -237,7 +231,7 @@ export function updateProjectConfig(
   } else if (input.llmSettings !== undefined) {
     newLLMSettings = input.llmSettings;
   } else {
-    newLLMSettings = projConfig.llmSettings;
+    newLLMSettings = entry.llmSettings;
   }
 
   // Handle maxConcurrency
@@ -250,28 +244,22 @@ export function updateProjectConfig(
     }
     newMaxConcurrency = input.maxConcurrency;
   } else {
-    newMaxConcurrency = projConfig.maxConcurrency;
+    newMaxConcurrency = entry.maxConcurrency;
   }
 
-  // Update project name in workspace config registry if changed
-  const newName = input.name ?? projConfig.name;
-  if (input.name && input.name !== projConfig.name) {
-    const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
-    const projEntry = wsConfig.projects.find((p) => p.id === ctx.id);
-    if (projEntry) {
-      projEntry.name = input.name;
-      writeWorkspaceConfig(ctx.workspaceDir, wsConfig);
-    }
-  }
+  // Update the project entry in workspace config
+  const newName = input.name ?? entry.name;
+  entry.name = newName;
+  entry.llmSettings = newLLMSettings;
+  entry.maxConcurrency = newMaxConcurrency;
 
-  const updated: PerProjectConfig = {
-    name: newName,
-    llmSettings: newLLMSettings,
-    maxConcurrency: newMaxConcurrency,
-  };
-
-  writePerProjectConfig(ctx, updated);
+  writeWorkspaceConfig(ctx.workspaceDir, wsConfig);
 
   // Return the effective (merged) config
-  return getProjectConfig(ctx);
+  return {
+    version: wsConfig.version,
+    name: newName,
+    llmSettings: newLLMSettings ?? wsConfig.llmSettings,
+    maxConcurrency: newMaxConcurrency ?? wsConfig.maxConcurrency,
+  };
 }

@@ -3,7 +3,7 @@
 ## Glossary
 
 - **Workspace** - A directory containing `evalstudio.config.json` with a project registry and shared defaults. Contains multiple projects under `projects/`.
-- **Project** - A UUID-identified directory under `projects/` with its own `project.config.json` and `data/` folder. Entities are isolated per project.
+- **Project** - A UUID-identified directory under `projects/` with its own `data/` folder and configuration in the workspace config's `projects[]` array. Entities are isolated per project.
 - **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (e.g., HTTP, LangGraph)
 - **Eval** - A test collection combining one or more scenarios, input data, and connectors. Each scenario can have its own personas and criteria.
 - **Eval Group** - A category/tag for organizing evals (many-to-many relationship)

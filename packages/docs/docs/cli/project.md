@@ -17,8 +17,7 @@ evalstudio init [directory]
 ```
 
 Creates a workspace directory with:
-- `evalstudio.config.json` — workspace configuration with project registry
-- `projects/<uuid>/project.config.json` — first project configuration
+- `evalstudio.config.json` — workspace configuration with project registry and per-project settings
 - `projects/<uuid>/data/` — entity data storage
 
 If no directory is specified, the current directory is initialized.
@@ -98,7 +97,7 @@ Supported keys: `name`, `maxConcurrency`.
 
 EvalStudio resolves the project context in this order:
 
-1. **Inside a project directory** — walks up from `cwd` looking for `project.config.json`, derives workspace from parent structure
+1. **Inside a project directory** — walks up from `cwd` looking for `projects/{uuid}/` structure, verifies project is registered in workspace config
 2. **At workspace root with one project** — auto-selects the single project
 3. **At workspace root with multiple projects** — prompts to use `evalstudio use <project>` to switch
 4. `EVALSTUDIO_PROJECT_DIR` — environment variable override
@@ -117,10 +116,9 @@ evalstudio status
 
 ```
 my-evals/
-  evalstudio.config.json          # Workspace config + project registry
+  evalstudio.config.json          # Workspace config + project registry + per-project settings
   projects/
     a1b2c3d4-.../
-      project.config.json         # Per-project config (overrides workspace defaults)
       data/
         personas.json
         scenarios.json
@@ -129,7 +127,6 @@ my-evals/
         executions.json
         connectors.json
     f9e8d7c6-.../
-      project.config.json
       data/
         ...
 ```

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Consolidated project config** - Removed `project.config.json` in favor of storing all per-project settings in `evalstudio.config.json`
+  - Core: Per-project settings (`name`, `llmSettings`, `maxConcurrency`) now stored in `projects[]` array entries in the workspace config
+  - Core: Removed `PROJECT_CONFIG_FILENAME` constant, `PerProjectConfig` interface, and `readPerProjectConfig()` function
+  - Core: Removed `configPath` field from `ProjectContext` interface
+  - Core: Added `ProjectEntry` interface for expanded project entries in workspace config
+  - Core: Project directory discovery now uses structural convention (`projects/{uuid}/`) instead of a sentinel file
+  - Core: `listProjects()` now strips config fields from project entries to prevent API key leakage
+
 ### Security
 
 - **API key redaction** - LLM provider API keys are no longer exposed in API responses or CLI output
@@ -20,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Multi-project workspaces** - Support multiple isolated projects within a single workspace
   - Core: Workspace config (`evalstudio.config.json`) now contains a `projects` registry with UUID-based project entries
-  - Core: Per-project config (`project.config.json`) with project-specific LLM and concurrency settings
+  - Core: Per-project config in `projects[]` entries with project-specific LLM and concurrency settings
   - Core: `ProjectContext` passed explicitly to all entity modules (persona, scenario, eval, connector, run, execution)
   - Core: Workspace-level defaults merged with per-project overrides for effective config
   - Core: `resolveProjectFromCwd()` auto-discovers project from current directory or falls back to single-project workspace

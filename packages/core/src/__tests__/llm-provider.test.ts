@@ -20,10 +20,11 @@ function setupWorkspace(
   const dataDir = join(projectDir, "data");
   mkdirSync(dataDir, { recursive: true });
 
+  const projectEntry = { id: projectId, name: "Test Project", ...projOverrides };
   const wsConfig = {
     version: 3,
     name: "test-workspace",
-    projects: [{ id: projectId, name: "Test Project" }],
+    projects: [projectEntry],
     ...wsOverrides,
   };
   writeFileSync(
@@ -31,20 +32,10 @@ function setupWorkspace(
     JSON.stringify(wsConfig, null, 2),
   );
 
-  const projConfig = {
-    name: "Test Project",
-    ...projOverrides,
-  };
-  writeFileSync(
-    join(projectDir, "project.config.json"),
-    JSON.stringify(projConfig, null, 2),
-  );
-
   ctx = {
     id: projectId,
     name: "Test Project",
     dataDir,
-    configPath: join(projectDir, "project.config.json"),
     workspaceDir: tempDir,
   };
 }

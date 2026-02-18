@@ -1,9 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 export const CONFIG_FILENAME = "evalstudio.config.json";
-export const PROJECT_CONFIG_FILENAME = "project.config.json";
 const LOCAL_STORAGE_DIRNAME = "data";
 const PROJECTS_DIRNAME = "projects";
 
@@ -20,8 +19,6 @@ export interface ProjectContext {
   name: string;
   /** Absolute path to projects/{uuid}/data/ */
   dataDir: string;
-  /** Absolute path to projects/{uuid}/project.config.json */
-  configPath: string;
   /** Absolute path to workspace root */
   workspaceDir: string;
 }
@@ -35,11 +32,6 @@ interface WorkspaceConfigFile {
   version: number;
   name: string;
   projects: ProjectInfo[];
-  [key: string]: unknown;
-}
-
-interface ProjectConfigFile {
-  name: string;
   [key: string]: unknown;
 }
 
@@ -93,21 +85,25 @@ function discoverWorkspaceDir(startDir: string): string | null {
 }
 
 function discoverProjectDir(startDir: string): { workspaceDir: string; projectId: string } | null {
-  // Check if we're inside a projects/{uuid}/ directory
-  // Walk up looking for a project.config.json
+  // Walk up looking for a directory whose parent is "projects" and grandparent
+  // contains evalstudio.config.json with this project ID registered.
   let current = startDir;
   while (true) {
-    if (existsSync(join(current, PROJECT_CONFIG_FILENAME))) {
-      // Found project dir — workspace should be two levels up (projects/{uuid}/)
-      const projectsDir = dirname(current);
-      const workspaceDir = dirname(projectsDir);
-      const projectId = current.split("/").pop() || "";
+    const parentDir = dirname(current);
+    const grandparentDir = dirname(parentDir);
+    const dirName = basename(current);
 
-      // Verify workspace config exists
-      if (existsSync(join(workspaceDir, CONFIG_FILENAME))) {
-        return { workspaceDir, projectId };
+    if (basename(parentDir) === PROJECTS_DIRNAME && existsSync(join(grandparentDir, CONFIG_FILENAME))) {
+      try {
+        const data = JSON.parse(readFileSync(join(grandparentDir, CONFIG_FILENAME), "utf-8"));
+        if (Array.isArray(data.projects) && data.projects.some((p: ProjectInfo) => p.id === dirName)) {
+          return { workspaceDir: grandparentDir, projectId: dirName };
+        }
+      } catch {
+        // Not a valid config, keep searching
       }
     }
+
     const parent = dirname(current);
     if (parent === current) return null;
     current = parent;
@@ -148,7 +144,7 @@ export function resolveWorkspace(startDir?: string): string {
  */
 export function listProjects(workspaceDir: string): ProjectInfo[] {
   const config = readWorkspaceConfigFile(workspaceDir);
-  return config.projects;
+  return config.projects.map((p) => ({ id: p.id, name: p.name }));
 }
 
 /**
@@ -159,15 +155,10 @@ export function createProject(workspaceDir: string, name: string): ProjectContex
   const id = randomUUID();
   const projectDir = getProjectDir(workspaceDir, id);
   const dataDir = join(projectDir, LOCAL_STORAGE_DIRNAME);
-  const configPath = join(projectDir, PROJECT_CONFIG_FILENAME);
 
   // Create directories
   ensureDir(projectDir);
   ensureDir(dataDir);
-
-  // Write project config
-  const projectConfig: ProjectConfigFile = { name };
-  writeFileSync(configPath, JSON.stringify(projectConfig, null, 2) + "\n");
 
   // Update workspace config
   const wsConfig = readWorkspaceConfigFile(workspaceDir);
@@ -177,7 +168,7 @@ export function createProject(workspaceDir: string, name: string): ProjectContex
     JSON.stringify(wsConfig, null, 2) + "\n",
   );
 
-  return { id, name, dataDir, configPath, workspaceDir };
+  return { id, name, dataDir, workspaceDir };
 }
 
 /**
@@ -231,7 +222,6 @@ export function resolveProject(workspaceDir: string, projectId: string): Project
   const project = matches[0];
   const projectDir = getProjectDir(workspaceDir, project.id);
   const dataDir = join(projectDir, LOCAL_STORAGE_DIRNAME);
-  const configPath = join(projectDir, PROJECT_CONFIG_FILENAME);
 
   // Ensure data dir exists
   ensureDir(dataDir);
@@ -240,7 +230,6 @@ export function resolveProject(workspaceDir: string, projectId: string): Project
     id: project.id,
     name: project.name,
     dataDir,
-    configPath,
     workspaceDir,
   };
 }
@@ -250,7 +239,7 @@ export function resolveProject(workspaceDir: string, projectId: string): Project
  * Used by the CLI (user is cd'd into a project dir or workspace root).
  *
  * Resolution order:
- * 1. If inside projects/{uuid}/ (has project.config.json), use that project
+ * 1. If inside projects/{uuid}/ (registered in workspace config), use that project
  * 2. If at workspace root and there's exactly one project, use it
  * 3. Otherwise, throw
  */
@@ -308,16 +297,11 @@ export function initWorkspace(dir: string, workspaceName: string, projectName: s
   const projectId = randomUUID();
   const projectDir = getProjectDir(workspaceDir, projectId);
   const dataDir = join(projectDir, LOCAL_STORAGE_DIRNAME);
-  const projectConfigPath = join(projectDir, PROJECT_CONFIG_FILENAME);
 
   ensureDir(projectDir);
   ensureDir(dataDir);
 
-  // Write project config
-  const projectConfig: ProjectConfigFile = { name: projectName };
-  writeFileSync(projectConfigPath, JSON.stringify(projectConfig, null, 2) + "\n");
-
-  // Write workspace config
+  // Write workspace config (includes project registry)
   const wsConfig: WorkspaceConfigFile = {
     version: 3,
     name: workspaceName,
@@ -329,7 +313,6 @@ export function initWorkspace(dir: string, workspaceName: string, projectName: s
     id: projectId,
     name: projectName,
     dataDir,
-    configPath: projectConfigPath,
     workspaceDir,
   };
 
@@ -379,7 +362,7 @@ export function getStorageDir(): string {
 }
 
 /**
- * @deprecated Use ctx.configPath from ProjectContext instead.
+ * @deprecated Use resolveWorkspace() instead.
  * Returns the path to the config file.
  */
 export function getConfigPath(): string {
