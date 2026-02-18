@@ -20,7 +20,6 @@ my-evals/
     runs.json
     executions.json
     connectors.json
-    llm-providers.json
 ```
 
 ## Configuration File
@@ -31,15 +30,13 @@ The `evalstudio.config.json` file defines the project settings:
 {
   "name": "my-product-evals",
   "maxConcurrency": 5,
+  "llmProvider": {
+    "provider": "openai",
+    "apiKey": "sk-your-api-key"
+  },
   "llmSettings": {
-    "evaluation": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o"
-    },
-    "persona": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o-mini"
-    }
+    "evaluation": { "model": "gpt-4o" },
+    "persona": { "model": "gpt-4o-mini" }
   }
 }
 ```
@@ -48,84 +45,100 @@ The `evalstudio.config.json` file defines the project settings:
 
 ```typescript
 import {
-  getProject,
-  updateProject,
-  type Project,
-  type UpdateProjectInput,
+  getProjectConfig,
+  updateProjectConfig,
+  type ProjectConfig,
+  type UpdateProjectConfigInput,
+  type LLMProviderSettings,
+  type ProjectLLMSettings,
 } from "@evalstudio/core";
 ```
 
 ## Types
 
-### Project
+### ProjectConfig
 
 ```typescript
-interface Project {
-  name: string;                      // Project name
-  maxConcurrency?: number;           // Max concurrent run executions (default: 3)
-  llmSettings?: ProjectLLMSettings;  // LLM configuration
+interface ProjectConfig {
+  version: number;
+  name: string;                          // Project name
+  maxConcurrency?: number;               // Max concurrent run executions (default: 3)
+  llmProvider?: LLMProviderSettings;     // LLM provider credentials
+  llmSettings?: ProjectLLMSettings;      // Model selection per use-case
+}
+```
+
+### LLMProviderSettings
+
+The single LLM provider configuration, stored inline in the config file.
+
+```typescript
+interface LLMProviderSettings {
+  provider: ProviderType;  // "openai" or "anthropic"
+  apiKey: string;          // API key for the provider
 }
 ```
 
 ### ProjectLLMSettings
 
-Configure which LLM providers and models to use for different use-cases within the project.
+Configure which models to use for different use-cases. The provider is shared — only the model varies.
 
 ```typescript
 interface ProjectLLMSettings {
-  /** LLM settings for evaluation/judging conversations */
+  /** Model for evaluation/judging conversations */
   evaluation?: {
-    providerId: string;  // LLM provider ID
-    model?: string;      // Specific model (optional, uses provider default)
+    model?: string;  // Specific model (optional, uses provider default)
   };
-  /** LLM settings for persona response generation */
+  /** Model for persona response generation */
   persona?: {
-    providerId: string;  // LLM provider ID (falls back to evaluation if not set)
-    model?: string;      // Specific model (optional)
+    model?: string;  // Specific model (falls back to evaluation model if not set)
   };
 }
 ```
 
-### UpdateProjectInput
+### UpdateProjectConfigInput
 
 ```typescript
-interface UpdateProjectInput {
+interface UpdateProjectConfigInput {
   name?: string;
-  maxConcurrency?: number | null;            // null to clear (reverts to default: 3)
-  llmSettings?: ProjectLLMSettings | null;   // null to clear settings
+  maxConcurrency?: number | null;                // null to clear (reverts to default: 3)
+  llmProvider?: LLMProviderSettings | null;      // null to remove provider
+  llmSettings?: ProjectLLMSettings | null;       // null to clear settings
 }
 ```
 
 ## Functions
 
-### getProject()
+### getProjectConfig()
 
 Reads the current project configuration from `evalstudio.config.json`.
 
 ```typescript
-function getProject(): Project;
+function getProjectConfig(): ProjectConfig;
 ```
 
 ```typescript
-const project = getProject();
-console.log(project.name);  // "my-product-evals"
+const config = getProjectConfig();
+console.log(config.name);  // "my-product-evals"
+console.log(config.llmProvider?.provider);  // "openai"
 ```
 
-### updateProject()
+### updateProjectConfig()
 
 Updates the project configuration in `evalstudio.config.json`.
 
 ```typescript
-function updateProject(input: UpdateProjectInput): Project;
+function updateProjectConfig(input: UpdateProjectConfigInput): ProjectConfig;
 ```
 
 ```typescript
-const updated = updateProject({
+const updated = updateProjectConfig({
+  llmProvider: {
+    provider: "openai",
+    apiKey: "sk-your-api-key",
+  },
   llmSettings: {
-    evaluation: {
-      providerId: "provider-uuid",
-      model: "gpt-4o",
-    },
+    evaluation: { model: "gpt-4o" },
   },
 });
 ```

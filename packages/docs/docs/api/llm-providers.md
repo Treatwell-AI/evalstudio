@@ -4,52 +4,20 @@ sidebar_position: 6
 
 # LLM Providers API
 
-REST endpoints for managing LLM provider configurations. LLM providers define the provider credentials used during eval execution.
+REST endpoints for querying available LLM models. The LLM provider itself is configured via the project config (`PUT /api/project` with `llmProvider` field) — there are no separate CRUD endpoints.
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/llm-providers` | List LLM providers |
 | GET | `/api/llm-providers/models` | List default models per provider type |
-| GET | `/api/llm-providers/:id/models` | Fetch models dynamically from provider API |
-| POST | `/api/llm-providers` | Create an LLM provider |
-| GET | `/api/llm-providers/:id` | Get an LLM provider by ID |
-| PUT | `/api/llm-providers/:id` | Update an LLM provider |
-| DELETE | `/api/llm-providers/:id` | Delete an LLM provider |
-
----
-
-## GET /api/llm-providers
-
-List all LLM providers.
-
-### Response (200 OK)
-
-```json
-[
-  {
-    "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-    "name": "Production OpenAI",
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "createdAt": "2026-01-28T10:00:00.000Z",
-    "updatedAt": "2026-01-28T10:00:00.000Z"
-  }
-]
-```
-
-### Example
-
-```bash
-curl http://localhost:3000/api/llm-providers
-```
+| GET | `/api/llm-providers/:providerType/models` | Fetch models dynamically from provider API |
 
 ---
 
 ## GET /api/llm-providers/models
 
-Get available models for each provider.
+Get available models for each provider type (static defaults).
 
 ### Response (200 OK)
 
@@ -78,9 +46,15 @@ curl http://localhost:3000/api/llm-providers/models
 
 ---
 
-## GET /api/llm-providers/:id/models
+## GET /api/llm-providers/:providerType/models
 
-Fetch available models dynamically from the provider's API. For OpenAI providers, this queries the `/v1/models` endpoint. For Anthropic, returns the default model list (no public models endpoint available).
+Fetch available models dynamically from the provider's API using the API key from the project config. For OpenAI, this queries the `/v1/models` endpoint. For Anthropic, returns the default model list.
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `providerType` | string | Provider type: `openai` or `anthropic` |
 
 ### Response (200 OK)
 
@@ -101,166 +75,34 @@ Fetch available models dynamically from the provider's API. For OpenAI providers
 
 | Status | Description |
 |--------|-------------|
-| 404 | LLM provider not found |
+| 400 | No LLM provider configured in project |
 | 500 | Failed to fetch models from provider API |
 
 ### Example
 
 ```bash
-curl http://localhost:3000/api/llm-providers/987fcdeb-51a2-3bc4-d567-890123456789/models
+curl http://localhost:3000/api/llm-providers/openai/models
 ```
 
 ---
 
-## POST /api/llm-providers
+## Configuring the LLM Provider
 
-Create a new LLM provider.
-
-### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Provider name |
-| `provider` | string | Yes | Provider type: "openai" or "anthropic" |
-| `apiKey` | string | Yes | API key for the provider |
-
-```json
-{
-  "name": "Production OpenAI",
-  "provider": "openai",
-  "apiKey": "sk-your-api-key"
-}
-```
-
-### Response (201 Created)
-
-```json
-{
-  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "name": "Production OpenAI",
-  "provider": "openai",
-  "apiKey": "sk-your-api-key",
-  "createdAt": "2026-01-28T10:00:00.000Z",
-  "updatedAt": "2026-01-28T10:00:00.000Z"
-}
-```
-
-### Errors
-
-| Status | Description |
-|--------|-------------|
-| 400 | Missing required field (name, provider, or apiKey) |
-| 409 | LLM provider with name already exists |
-
-### Example
+The LLM provider is set via the project config endpoint:
 
 ```bash
-curl -X POST http://localhost:3000/api/llm-providers \
+curl -X PUT http://localhost:3000/api/project \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Production OpenAI",
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
+    "llmProvider": {
+      "provider": "openai",
+      "apiKey": "sk-your-api-key"
+    },
+    "llmSettings": {
+      "evaluation": { "model": "gpt-4o" },
+      "persona": { "model": "gpt-4o-mini" }
+    }
   }'
 ```
 
----
-
-## GET /api/llm-providers/:id
-
-Get an LLM provider by its ID.
-
-### Response (200 OK)
-
-```json
-{
-  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "name": "Production OpenAI",
-  "provider": "openai",
-  "apiKey": "sk-your-api-key",
-  "createdAt": "2026-01-28T10:00:00.000Z",
-  "updatedAt": "2026-01-28T10:00:00.000Z"
-}
-```
-
-### Errors
-
-| Status | Description |
-|--------|-------------|
-| 404 | LLM provider not found |
-
-### Example
-
-```bash
-curl http://localhost:3000/api/llm-providers/987fcdeb-51a2-3bc4-d567-890123456789
-```
-
----
-
-## PUT /api/llm-providers/:id
-
-Update an existing LLM provider.
-
-### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | No | New provider name |
-| `provider` | string | No | New provider type |
-| `apiKey` | string | No | New API key |
-
-```json
-{
-  "name": "Updated Provider Name"
-}
-```
-
-### Response (200 OK)
-
-```json
-{
-  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
-  "name": "Updated Provider Name",
-  "provider": "openai",
-  "apiKey": "sk-your-api-key",
-  "createdAt": "2026-01-28T10:00:00.000Z",
-  "updatedAt": "2026-01-28T10:30:00.000Z"
-}
-```
-
-### Errors
-
-| Status | Description |
-|--------|-------------|
-| 404 | LLM provider not found |
-| 409 | LLM provider with name already exists |
-
-### Example
-
-```bash
-curl -X PUT http://localhost:3000/api/llm-providers/987fcdeb-51a2-3bc4-d567-890123456789 \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Updated Provider Name"}'
-```
-
----
-
-## DELETE /api/llm-providers/:id
-
-Delete an LLM provider.
-
-### Response (204 No Content)
-
-Empty response on success.
-
-### Errors
-
-| Status | Description |
-|--------|-------------|
-| 404 | LLM provider not found |
-
-### Example
-
-```bash
-curl -X DELETE http://localhost:3000/api/llm-providers/987fcdeb-51a2-3bc4-d567-890123456789
-```
+See [Project API](./projects.md) for full details.

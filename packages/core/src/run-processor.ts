@@ -3,7 +3,7 @@ import {
   invokeConnector,
   type ConnectorInvokeResult,
 } from "./connector.js";
-import { getLLMProvider } from "./llm-provider.js";
+import { getLLMProviderFromConfig, type LLMProvider } from "./llm-provider.js";
 import { getPersona, type Persona } from "./persona.js";
 import { getScenario, type Scenario } from "./scenario.js";
 import {
@@ -25,9 +25,8 @@ import { generatePersonaMessage } from "./persona-generator.js";
  * Resolved LLM configuration for evaluation and persona generation
  */
 interface ResolvedLLMConfig {
-  evaluationProviderId: string;
+  llmProvider: LLMProvider;
   evaluationModel?: string;
-  personaProviderId: string;
   personaModel?: string;
 }
 
@@ -289,38 +288,14 @@ export class RunProcessor {
 
       // Get project config for LLM settings
       const config = readProjectConfig();
+      const llmProvider = getLLMProviderFromConfig();
       const projectSettings = config.llmSettings;
-      const evaluationProviderId = projectSettings?.evaluation?.providerId;
       const evaluationModel = projectSettings?.evaluation?.model;
-
-      if (!evaluationProviderId) {
-        throw new Error(
-          "LLM Provider for evaluation is required. Configure in project Settings > LLM Defaults."
-        );
-      }
-
-      // Validate evaluation provider exists
-      const evaluationProvider = getLLMProvider(evaluationProviderId);
-      if (!evaluationProvider) {
-        throw new Error(`LLM Provider "${evaluationProviderId}" not found`);
-      }
-
-      // Persona: use project persona settings, fallback to evaluation settings
-      const personaProviderId =
-        projectSettings?.persona?.providerId || evaluationProviderId;
-      const personaModel =
-        projectSettings?.persona?.model || evaluationModel;
-
-      // Validate persona provider exists
-      const personaProvider = getLLMProvider(personaProviderId);
-      if (!personaProvider) {
-        throw new Error(`LLM Provider "${personaProviderId}" not found`);
-      }
+      const personaModel = projectSettings?.persona?.model || evaluationModel;
 
       const llmConfig: ResolvedLLMConfig = {
-        evaluationProviderId,
+        llmProvider,
         evaluationModel,
-        personaProviderId,
         personaModel,
       };
 
@@ -435,7 +410,7 @@ export class RunProcessor {
         messages,
         persona,
         scenario,
-        llmProviderId: llmConfig.personaProviderId,
+        llmProvider: llmConfig.llmProvider,
         model: llmConfig.personaModel,
       });
 
@@ -482,7 +457,7 @@ export class RunProcessor {
         messages,
         successCriteria: scenario.successCriteria,
         failureCriteria: scenario.failureCriteria,
-        llmProviderId: llmConfig.evaluationProviderId,
+        llmProvider: llmConfig.llmProvider,
         model: llmConfig.evaluationModel,
       });
       finalEvaluation = evaluation;
@@ -536,7 +511,7 @@ export class RunProcessor {
         messages,
         persona,
         scenario,
-        llmProviderId: llmConfig.personaProviderId,
+        llmProvider: llmConfig.llmProvider,
         model: llmConfig.personaModel,
       });
 

@@ -1,10 +1,19 @@
 const API_BASE = "/api";
 
+export type ProviderType = "openai" | "anthropic";
+
+/**
+ * Inline LLM provider configuration
+ */
+export interface LLMProviderSettings {
+  provider: ProviderType;
+  apiKey: string;
+}
+
 /**
  * LLM settings for a specific use-case (evaluation or persona generation)
  */
 export interface LLMUseCaseSettings {
-  providerId: string;
   model?: string;
 }
 
@@ -21,12 +30,14 @@ export interface ProjectLLMSettings {
 export interface ProjectConfig {
   version: number;
   name: string;
+  llmProvider?: LLMProviderSettings;
   llmSettings?: ProjectLLMSettings;
   maxConcurrency?: number;
 }
 
 export interface UpdateProjectConfigInput {
   name?: string;
+  llmProvider?: LLMProviderSettings | null;
   llmSettings?: ProjectLLMSettings | null;
   maxConcurrency?: number | null;
 }
@@ -218,36 +229,6 @@ export interface UpdateEvalInput {
   scenarioIds?: string[];
   /** The connector to use for running this eval */
   connectorId?: string;
-}
-
-export type ProviderType = "openai" | "anthropic";
-
-export interface LLMProviderConfig {
-  [key: string]: unknown;
-}
-
-export interface LLMProvider {
-  id: string;
-  name: string;
-  provider: ProviderType;
-  apiKey: string;
-  config?: LLMProviderConfig;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateLLMProviderInput {
-  name: string;
-  provider: ProviderType;
-  apiKey: string;
-  config?: LLMProviderConfig;
-}
-
-export interface UpdateLLMProviderInput {
-  name?: string;
-  provider?: ProviderType;
-  apiKey?: string;
-  config?: LLMProviderConfig;
 }
 
 export interface DefaultModels {
@@ -554,50 +535,15 @@ export const api = {
   },
 
   llmProviders: {
-    list: async (): Promise<LLMProvider[]> => {
-      const response = await fetch(`${API_BASE}/llm-providers`);
-      return handleResponse(response);
-    },
-
-    get: async (id: string): Promise<LLMProvider> => {
-      const response = await fetch(`${API_BASE}/llm-providers/${id}`);
-      return handleResponse(response);
-    },
-
     getModels: async (): Promise<DefaultModels> => {
       const response = await fetch(`${API_BASE}/llm-providers/models`);
       return handleResponse(response);
     },
 
-    getProviderModels: async (providerId: string): Promise<string[]> => {
-      const response = await fetch(`${API_BASE}/llm-providers/${providerId}/models`);
+    getProviderModels: async (providerType: ProviderType): Promise<string[]> => {
+      const response = await fetch(`${API_BASE}/llm-providers/${providerType}/models`);
       const data = await handleResponse<{ models: string[] }>(response);
       return data.models;
-    },
-
-    create: async (input: CreateLLMProviderInput): Promise<LLMProvider> => {
-      const response = await fetch(`${API_BASE}/llm-providers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    update: async (id: string, input: UpdateLLMProviderInput): Promise<LLMProvider> => {
-      const response = await fetch(`${API_BASE}/llm-providers/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/llm-providers/${id}`, {
-        method: "DELETE",
-      });
-      return handleResponse(response);
     },
   },
 

@@ -23,17 +23,16 @@ Get the current project configuration.
 
 ```json
 {
+  "version": 2,
   "name": "my-product-evals",
   "maxConcurrency": 5,
+  "llmProvider": {
+    "provider": "openai",
+    "apiKey": "sk-your-api-key"
+  },
   "llmSettings": {
-    "evaluation": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o"
-    },
-    "persona": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o-mini"
-    }
+    "evaluation": { "model": "gpt-4o" },
+    "persona": { "model": "gpt-4o-mini" }
   }
 }
 ```
@@ -56,17 +55,17 @@ Update the project configuration.
 |-------|------|----------|-------------|
 | `name` | string | No | Project name |
 | `maxConcurrency` | number \| null | No | Max concurrent runs (null to clear, min: 1) |
-| `llmSettings` | object \| null | No | LLM configuration (null to clear) |
+| `llmProvider` | object \| null | No | LLM provider config (null to remove) |
+| `llmSettings` | object \| null | No | Model configuration (null to clear) |
 
 ```json
 {
-  "name": "updated-project-name",
-  "maxConcurrency": 5,
+  "llmProvider": {
+    "provider": "openai",
+    "apiKey": "sk-your-api-key"
+  },
   "llmSettings": {
-    "evaluation": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o"
-    }
+    "evaluation": { "model": "gpt-4o" }
   }
 }
 ```
@@ -75,13 +74,14 @@ Update the project configuration.
 
 ```json
 {
-  "name": "updated-project-name",
-  "maxConcurrency": 5,
+  "version": 2,
+  "name": "my-product-evals",
+  "llmProvider": {
+    "provider": "openai",
+    "apiKey": "sk-your-api-key"
+  },
   "llmSettings": {
-    "evaluation": {
-      "providerId": "provider-uuid",
-      "model": "gpt-4o"
-    }
+    "evaluation": { "model": "gpt-4o" }
   }
 }
 ```
@@ -91,5 +91,10 @@ Update the project configuration.
 ```bash
 curl -X PUT http://localhost:3000/api/project \
   -H "Content-Type: application/json" \
-  -d '{"name": "updated-project-name"}'
+  -d '{
+    "llmProvider": {
+      "provider": "openai",
+      "apiKey": "sk-your-api-key"
+    }
+  }'
 ```

@@ -22,6 +22,7 @@ export {
   type InitLocalProjectResult,
   type UpdateProjectConfigInput,
   type ProjectConfig,
+  type LLMProviderSettings,
   type ProjectLLMSettings,
   type LLMUseCaseSettings,
 } from "./project.js";
@@ -62,19 +63,12 @@ export {
   type UpdateEvalInput,
 } from "./eval.js";
 export {
-  createLLMProvider,
-  deleteLLMProvider,
   fetchProviderModels,
   getDefaultModels,
-  getLLMProvider,
-  getLLMProviderByName,
-  listLLMProviders,
-  updateLLMProvider,
-  type CreateLLMProviderInput,
+  getLLMProviderFromConfig,
   type LLMProvider,
   type LLMProviderConfig,
   type ProviderType,
-  type UpdateLLMProviderInput,
 } from "./llm-provider.js";
 export {
   createConnector,

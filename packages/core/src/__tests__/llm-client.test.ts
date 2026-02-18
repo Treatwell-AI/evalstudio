@@ -6,13 +6,8 @@ const mockFetch = vi.fn();
 
 function makeProvider(provider: "openai" | "anthropic"): LLMProvider {
   return {
-    id: "test-id",
-    projectId: "test-project",
-    name: "Test Provider",
     provider,
     apiKey: "test-api-key",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
   };
 }
 

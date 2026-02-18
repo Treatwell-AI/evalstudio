@@ -1,7 +1,7 @@
 import type { Message } from "./types.js";
 import type { Persona } from "./persona.js";
 import type { Scenario } from "./scenario.js";
-import { getLLMProvider } from "./llm-provider.js";
+import type { LLMProvider } from "./llm-provider.js";
 import { chatCompletion, type ChatCompletionMessage } from "./llm-client.js";
 
 /**
@@ -14,8 +14,8 @@ export interface GeneratePersonaMessageInput {
   persona?: Persona;
   /** The scenario context */
   scenario: Scenario;
-  /** LLM provider ID to use for generation */
-  llmProviderId: string;
+  /** LLM provider to use for generation */
+  llmProvider: LLMProvider;
   /** Model to use (optional, defaults based on provider) */
   model?: string;
 }
@@ -100,13 +100,7 @@ ${scenario.successCriteria}
 export async function generatePersonaMessage(
   input: GeneratePersonaMessageInput
 ): Promise<GeneratePersonaMessageResult> {
-  const { messages, persona, scenario, llmProviderId, model } = input;
-
-  // Get the LLM provider
-  const llmProvider = getLLMProvider(llmProviderId);
-  if (!llmProvider) {
-    throw new Error(`LLM Provider with id "${llmProviderId}" not found`);
-  }
+  const { messages, persona, scenario, llmProvider, model } = input;
 
   // Build system prompt
   const systemPrompt = buildPersonaSystemPrompt(persona, scenario);

@@ -9,11 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Inline LLM provider** - LLM provider config is now stored directly in `evalstudio.config.json` instead of a separate `llm-providers.json` file
+  - Single provider configured via `llmProvider: { provider, apiKey }` in project config
+  - `llmSettings` simplified to model selection only (`{ model }`) — no more `providerId` indirection
+  - Removed all LLM provider CRUD operations (create, list, update, delete) from core, API, CLI, and web
+  - CLI: replaced provider CRUD commands with `evalstudio llm-provider set/show/models`
+  - Web: settings page shows unified form — provider + API key section, model configuration appears after provider is saved
+  - API: removed CRUD endpoints, kept `GET /llm-providers/models` and `GET /llm-providers/:providerType/models`
 - **Storage abstraction** - Introduced `Repository<T>` interface and `createJsonRepository<T>()` factory to decouple entity storage from the filesystem
   - All entity modules now use the repository pattern: persona, scenario, connector, llm-provider, execution, eval, and run
   - Removed direct `node:fs` / `node:path` / `storage.js` imports from entity modules — storage I/O is fully centralized in `repository.ts`
   - All entity-specific business logic (validation, uniqueness, cascading deletes, filtering) remains unchanged
   - Foundation for future support of alternative storage backends (database, cloud, etc.)
+
+### Removed
+
+- **LLM provider entity** — removed `data/llm-providers.json` storage file and all CRUD functions
+- **LLM provider components** — deleted `LLMProviderForm.tsx` and `LLMProviderList.tsx` from web UI
 
 ## [0.3.5] - 2026-02-16
 

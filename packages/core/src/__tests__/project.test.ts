@@ -6,7 +6,6 @@ import {
   getProjectConfig,
   updateProjectConfig,
 } from "../project.js";
-import { createLLMProvider } from "../llm-provider.js";
 import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
 
 let testDir: string;
@@ -16,7 +15,6 @@ describe("project config", () => {
     testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
     setStorageDir(testDir);
     setConfigDir(testDir);
-    // Write initial config
     writeFileSync(
       join(testDir, "evalstudio.config.json"),
       JSON.stringify({ version: 2, name: "test-project" }, null, 2)
@@ -31,7 +29,6 @@ describe("project config", () => {
   });
 
   beforeEach(() => {
-    // Reset config before each test
     writeFileSync(
       join(testDir, "evalstudio.config.json"),
       JSON.stringify({ version: 2, name: "test-project" }, null, 2)
@@ -46,6 +43,22 @@ describe("project config", () => {
       expect(config.name).toBe("test-project");
     });
 
+    it("returns config with llmProvider when set", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          llmProvider: { provider: "openai", apiKey: "sk-test" },
+        }, null, 2)
+      );
+
+      const config = getProjectConfig();
+
+      expect(config.llmProvider?.provider).toBe("openai");
+      expect(config.llmProvider?.apiKey).toBe("sk-test");
+    });
+
     it("returns config with llmSettings when set", () => {
       writeFileSync(
         join(testDir, "evalstudio.config.json"),
@@ -53,14 +66,13 @@ describe("project config", () => {
           version: 2,
           name: "test-project",
           llmSettings: {
-            evaluation: { providerId: "provider-1", model: "gpt-4o" },
+            evaluation: { model: "gpt-4o" },
           },
         }, null, 2)
       );
 
       const config = getProjectConfig();
 
-      expect(config.llmSettings?.evaluation?.providerId).toBe("provider-1");
       expect(config.llmSettings?.evaluation?.model).toBe("gpt-4o");
     });
   });
@@ -73,20 +85,38 @@ describe("project config", () => {
       expect(updated.version).toBe(2);
     });
 
-    it("updates llmSettings", () => {
-      const provider = createLLMProvider({
-        name: "test-provider",
-        provider: "openai",
-        apiKey: "test-key",
+    it("updates llmProvider", () => {
+      const updated = updateProjectConfig({
+        llmProvider: { provider: "openai", apiKey: "sk-test" },
       });
 
+      expect(updated.llmProvider?.provider).toBe("openai");
+      expect(updated.llmProvider?.apiKey).toBe("sk-test");
+    });
+
+    it("clears llmProvider when set to null", () => {
+      writeFileSync(
+        join(testDir, "evalstudio.config.json"),
+        JSON.stringify({
+          version: 2,
+          name: "test-project",
+          llmProvider: { provider: "openai", apiKey: "sk-test" },
+        }, null, 2)
+      );
+
+      const updated = updateProjectConfig({ llmProvider: null });
+
+      expect(updated.llmProvider).toBeUndefined();
+    });
+
+    it("updates llmSettings", () => {
       const updated = updateProjectConfig({
         llmSettings: {
-          evaluation: { providerId: provider.id },
+          evaluation: { model: "gpt-4o" },
         },
       });
 
-      expect(updated.llmSettings?.evaluation?.providerId).toBe(provider.id);
+      expect(updated.llmSettings?.evaluation?.model).toBe("gpt-4o");
     });
 
     it("preserves existing fields when updating partially", () => {
@@ -95,8 +125,9 @@ describe("project config", () => {
         JSON.stringify({
           version: 2,
           name: "original-name",
+          llmProvider: { provider: "openai", apiKey: "sk-test" },
           llmSettings: {
-            evaluation: { providerId: "provider-1" },
+            evaluation: { model: "gpt-4o" },
           },
         }, null, 2)
       );
@@ -104,7 +135,24 @@ describe("project config", () => {
       const updated = updateProjectConfig({ name: "updated-name" });
 
       expect(updated.name).toBe("updated-name");
-      expect(updated.llmSettings?.evaluation?.providerId).toBe("provider-1");
+      expect(updated.llmProvider?.provider).toBe("openai");
+      expect(updated.llmSettings?.evaluation?.model).toBe("gpt-4o");
+    });
+
+    it("validates llmProvider requires provider type", () => {
+      expect(() =>
+        updateProjectConfig({
+          llmProvider: { provider: "" as "openai", apiKey: "sk-test" },
+        })
+      ).toThrow("LLM provider type is required");
+    });
+
+    it("validates llmProvider requires apiKey", () => {
+      expect(() =>
+        updateProjectConfig({
+          llmProvider: { provider: "openai", apiKey: "" },
+        })
+      ).toThrow("LLM provider API key is required");
     });
   });
 

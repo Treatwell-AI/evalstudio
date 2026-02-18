@@ -18,17 +18,14 @@ export const configCommand = new Command("config")
           console.log(`  Name:            ${config.name}`);
           console.log(`  Version:         ${config.version}`);
           console.log(`  Max Concurrency: ${config.maxConcurrency ?? "3 (default)"}`);
-          if (config.llmSettings?.evaluation) {
-            console.log(`  Eval Provider:   ${config.llmSettings.evaluation.providerId}`);
-            if (config.llmSettings.evaluation.model) {
-              console.log(`  Eval Model:      ${config.llmSettings.evaluation.model}`);
-            }
+          if (config.llmProvider) {
+            console.log(`  LLM Provider:    ${config.llmProvider.provider}`);
           }
-          if (config.llmSettings?.persona) {
-            console.log(`  Persona Provider: ${config.llmSettings.persona.providerId}`);
-            if (config.llmSettings.persona.model) {
-              console.log(`  Persona Model:    ${config.llmSettings.persona.model}`);
-            }
+          if (config.llmSettings?.evaluation?.model) {
+            console.log(`  Eval Model:      ${config.llmSettings.evaluation.model}`);
+          }
+          if (config.llmSettings?.persona?.model) {
+            console.log(`  Persona Model:   ${config.llmSettings.persona.model}`);
           }
         }
       })

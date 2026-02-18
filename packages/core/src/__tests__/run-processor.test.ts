@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConnector } from "../connector.js";
 import { createEval } from "../eval.js";
-import { createLLMProvider } from "../llm-provider.js";
 import { createPersona } from "../persona.js";
 import { createRun, getRun, listRuns, updateRun } from "../run.js";
 import { RunProcessor } from "../run-processor.js";
@@ -27,7 +26,6 @@ describe("RunProcessor", () => {
   let scenarioId: string;
   let evalId: string;
   let connectorId: string;
-  let llmProviderId: string;
 
   const mockFetch = vi.fn();
 
@@ -36,22 +34,15 @@ describe("RunProcessor", () => {
     setStorageDir(testDir);
     setConfigDir(testDir);
 
-    // Create LLM provider first (needed for config)
-    const llmProvider = createLLMProvider({
-      name: "Test LLM Provider",
-      provider: "openai",
-      apiKey: "test-api-key",
-    });
-    llmProviderId = llmProvider.id;
-
-    // Write project config with LLM settings
+    // Write project config with inline LLM provider
     writeFileSync(
       join(testDir, "evalstudio.config.json"),
       JSON.stringify({
         version: 2,
         name: "processor-test",
-        llmSettings: {
-          evaluation: { providerId: llmProviderId },
+        llmProvider: {
+          provider: "openai",
+          apiKey: "test-api-key",
         },
       }, null, 2)
     );
@@ -128,9 +119,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 2,
           name: "processor-test",
-          llmSettings: {
-            evaluation: { providerId: llmProviderId },
-          },
+          llmProvider: { provider: "openai", apiKey: "test-api-key" },
           maxConcurrency: 7,
         }, null, 2)
       );
@@ -160,9 +149,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 2,
             name: "processor-test",
-            llmSettings: {
-              evaluation: { providerId: llmProviderId },
-            },
+            llmProvider: { provider: "openai", apiKey: "test-api-key" },
           }, null, 2)
         );
       });
@@ -175,9 +162,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 2,
           name: "processor-test",
-          llmSettings: {
-            evaluation: { providerId: llmProviderId },
-          },
+          llmProvider: { provider: "openai", apiKey: "test-api-key" },
           maxConcurrency: 10,
         }, null, 2)
       );
@@ -207,9 +192,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 2,
             name: "processor-test",
-            llmSettings: {
-              evaluation: { providerId: llmProviderId },
-            },
+            llmProvider: { provider: "openai", apiKey: "test-api-key" },
           }, null, 2)
         );
       });

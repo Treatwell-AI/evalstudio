@@ -40,6 +40,7 @@
 
 [x] As a user, I want to define an LLM Provider between multiple providers (initially OpenAI and Anthropic) to be used to generate "tester" messages and to assess success/failure criteria
 [x] As a user, I want to configure project-level LLM settings for evaluation and persona generation so that I don't need to configure LLM providers for each eval individually
+[x] As a user, I want to set up a single LLM provider via the settings page and have it stored in evalstudio.config.json so that configuration is simple and doesn't require managing separate provider entities
 [x] As a user, I want to define connectors that bridge EvalStudio to my LangGraph Dev API endpoint so that I can test my langgraph-backed chatbot
 [x] As a user, I want to quickly test the connector just created by clicking a button somewhere on the connector itself, it should send an "hello" msg to the connected chatbot and check the response
 [x] As a user, I want connectors to be global and reusable so that I can reference them across multiple runs and evals

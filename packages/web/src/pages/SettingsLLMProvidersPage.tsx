@@ -1,64 +1,59 @@
 import { useState, useEffect } from "react";
-import { LLMProviderList } from "../components/LLMProviderList";
-import { LLMProviderForm } from "../components/LLMProviderForm";
-import { useLLMProviders, useProviderModels } from "../hooks/useLLMProviders";
+import { useProviderModels } from "../hooks/useLLMProviders";
 import { useProjectConfig, useUpdateProjectConfig } from "../hooks/useProjects";
-import { ProjectLLMSettings } from "../lib/api";
+import type { ProviderType, ProjectLLMSettings, LLMProviderSettings } from "../lib/api";
 
 export function SettingsLLMProvidersPage() {
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
-
-  const { data: providers = [] } = useLLMProviders();
   const { data: projectConfig } = useProjectConfig();
   const updateProjectConfig = useUpdateProjectConfig();
 
-  // LLM defaults form state
-  const [evaluationProviderId, setEvaluationProviderId] = useState("");
+  // Provider form state
+  const [providerType, setProviderType] = useState<ProviderType>("openai");
+  const [apiKey, setApiKey] = useState("");
+
+  // Model selection state
   const [evaluationModel, setEvaluationModel] = useState("");
-  const [personaProviderId, setPersonaProviderId] = useState("");
   const [personaModel, setPersonaModel] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Fetch models dynamically based on selected providers
-  const { data: evaluationModels = [], isLoading: loadingEvalModels } = useProviderModels(
-    evaluationProviderId || undefined
-  );
-  const { data: personaModels = [], isLoading: loadingPersonaModels } = useProviderModels(
-    personaProviderId || undefined
+  // Only show LLM settings after provider has been saved to config
+  const hasProvider = !!projectConfig?.llmProvider;
+
+  // Fetch models dynamically based on saved provider
+  const { data: models = [], isLoading: loadingModels } = useProviderModels(
+    hasProvider ? projectConfig.llmProvider!.provider : undefined
   );
 
-  // Initialize from project config settings
+  // Initialize from project config
   useEffect(() => {
-    if (projectConfig?.llmSettings) {
-      setEvaluationProviderId(projectConfig.llmSettings.evaluation?.providerId || "");
-      setEvaluationModel(projectConfig.llmSettings.evaluation?.model || "");
-      setPersonaProviderId(projectConfig.llmSettings.persona?.providerId || "");
-      setPersonaModel(projectConfig.llmSettings.persona?.model || "");
+    if (projectConfig) {
+      if (projectConfig.llmProvider) {
+        setProviderType(projectConfig.llmProvider.provider);
+        setApiKey(projectConfig.llmProvider.apiKey);
+      }
+      setEvaluationModel(projectConfig.llmSettings?.evaluation?.model || "");
+      setPersonaModel(projectConfig.llmSettings?.persona?.model || "");
     }
   }, [projectConfig]);
 
-  const handleSaveDefaults = async () => {
+  const handleSave = async () => {
     setSaveSuccess(false);
 
+    const llmProvider: LLMProviderSettings | null = apiKey
+      ? { provider: providerType, apiKey }
+      : null;
+
     const llmSettings: ProjectLLMSettings = {};
-
-    if (evaluationProviderId) {
-      llmSettings.evaluation = {
-        providerId: evaluationProviderId,
-        model: evaluationModel || undefined,
-      };
+    if (evaluationModel) {
+      llmSettings.evaluation = { model: evaluationModel };
     }
-
-    if (personaProviderId) {
-      llmSettings.persona = {
-        providerId: personaProviderId,
-        model: personaModel || undefined,
-      };
+    if (personaModel) {
+      llmSettings.persona = { model: personaModel };
     }
 
     try {
       await updateProjectConfig.mutateAsync({
+        llmProvider,
         llmSettings: Object.keys(llmSettings).length > 0 ? llmSettings : null,
       });
       setSaveSuccess(true);
@@ -71,34 +66,66 @@ export function SettingsLLMProvidersPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>LLM Providers</h1>
-        <button
-          className="btn btn-primary"
-          onClick={() => setShowCreateForm(true)}
-        >
-          + Add Provider
-        </button>
+        <h1>LLM Provider</h1>
       </div>
 
-      {(showCreateForm || editingProviderId) && (
-        <LLMProviderForm
-          providerId={editingProviderId}
-          onClose={() => {
-            setShowCreateForm(false);
-            setEditingProviderId(null);
-          }}
-        />
-      )}
+      <div className="llm-config-section">
+        <h2>Provider</h2>
+        <p>
+          Configure the LLM provider used for evaluation judging and persona generation.
+        </p>
 
-      <LLMProviderList
-        onEdit={(id) => setEditingProviderId(id)}
-      />
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="provider-type">Provider</label>
+            <select
+              id="provider-type"
+              value={providerType}
+              onChange={(e) => {
+                setProviderType(e.target.value as ProviderType);
+                setEvaluationModel("");
+                setPersonaModel("");
+              }}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+          </div>
 
-      {providers.length > 0 && (
+          <div className="form-group">
+            <label htmlFor="api-key">API Key</label>
+            <input
+              id="api-key"
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="sk-..."
+            />
+          </div>
+        </div>
+
+        <div className="form-actions">
+          <button
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={updateProjectConfig.isPending || !apiKey}
+          >
+            {updateProjectConfig.isPending ? "Saving..." : "Save"}
+          </button>
+          {saveSuccess && <span className="save-success">Settings saved!</span>}
+          {updateProjectConfig.isError && (
+            <span className="save-error">
+              Error: {(updateProjectConfig.error as Error)?.message}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {hasProvider && (
         <div className="llm-config-section">
-          <h2>Configuration</h2>
+          <h2>Model Configuration</h2>
           <p>
-            Select which providers and models to use for evaluation and persona response generation.
+            Select which models to use for evaluation and persona response generation.
           </p>
 
           <div className="settings-subsection">
@@ -109,36 +136,17 @@ export function SettingsLLMProvidersPage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="evaluation-provider">Provider</label>
-                <select
-                  id="evaluation-provider"
-                  value={evaluationProviderId}
-                  onChange={(e) => {
-                    setEvaluationProviderId(e.target.value);
-                    setEvaluationModel("");
-                  }}
-                >
-                  <option value="">-- Select Provider --</option>
-                  {providers.map((provider) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.provider})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label htmlFor="evaluation-model">Model</label>
                 <select
                   id="evaluation-model"
                   value={evaluationModel}
                   onChange={(e) => setEvaluationModel(e.target.value)}
-                  disabled={!evaluationProviderId || loadingEvalModels}
+                  disabled={loadingModels}
                 >
                   <option value="">
-                    {loadingEvalModels ? "Loading models..." : "Provider default"}
+                    {loadingModels ? "Loading models..." : "Provider default"}
                   </option>
-                  {evaluationModels.map((model) => (
+                  {models.map((model) => (
                     <option key={model} value={model}>
                       {model}
                     </option>
@@ -156,40 +164,17 @@ export function SettingsLLMProvidersPage() {
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="persona-provider">Provider</label>
-                <select
-                  id="persona-provider"
-                  value={personaProviderId}
-                  onChange={(e) => {
-                    setPersonaProviderId(e.target.value);
-                    setPersonaModel("");
-                  }}
-                >
-                  <option value="">Same as Evaluation</option>
-                  {providers.map((provider) => (
-                    <option key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.provider})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label htmlFor="persona-model">Model</label>
                 <select
                   id="persona-model"
                   value={personaModel}
                   onChange={(e) => setPersonaModel(e.target.value)}
-                  disabled={!personaProviderId || loadingPersonaModels}
+                  disabled={loadingModels}
                 >
                   <option value="">
-                    {loadingPersonaModels
-                      ? "Loading models..."
-                      : personaProviderId
-                        ? "Provider default"
-                        : "Same as Evaluation"}
+                    {loadingModels ? "Loading models..." : "Same as Evaluation"}
                   </option>
-                  {personaModels.map((model) => (
+                  {models.map((model) => (
                     <option key={model} value={model}>
                       {model}
                     </option>
@@ -202,7 +187,7 @@ export function SettingsLLMProvidersPage() {
           <div className="form-actions">
             <button
               className="btn btn-primary"
-              onClick={handleSaveDefaults}
+              onClick={handleSave}
               disabled={updateProjectConfig.isPending}
             >
               {updateProjectConfig.isPending ? "Saving..." : "Save"}

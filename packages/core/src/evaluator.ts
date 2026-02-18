@@ -1,5 +1,5 @@
 import type { Message } from "./types.js";
-import { getLLMProvider } from "./llm-provider.js";
+import type { LLMProvider } from "./llm-provider.js";
 import { chatCompletion, type ChatCompletionMessage } from "./llm-client.js";
 
 /**
@@ -28,8 +28,8 @@ export interface EvaluateCriteriaInput {
   successCriteria?: string;
   /** Failure criteria to check against */
   failureCriteria?: string;
-  /** LLM provider ID to use for evaluation */
-  llmProviderId: string;
+  /** LLM provider to use for evaluation */
+  llmProvider: LLMProvider;
   /** Model to use (optional, defaults based on provider) */
   model?: string;
 }
@@ -106,7 +106,7 @@ function parseEvaluationResponse(response: string): Omit<CriteriaEvaluationResul
 export async function evaluateCriteria(
   input: EvaluateCriteriaInput
 ): Promise<CriteriaEvaluationResult> {
-  const { messages, successCriteria, failureCriteria, llmProviderId, model } = input;
+  const { messages, successCriteria, failureCriteria, llmProvider, model } = input;
 
   // If no criteria defined, return inconclusive
   if (!successCriteria && !failureCriteria) {
@@ -116,12 +116,6 @@ export async function evaluateCriteria(
       confidence: 1,
       reasoning: "No evaluation criteria defined",
     };
-  }
-
-  // Get the LLM provider
-  const llmProvider = getLLMProvider(llmProviderId);
-  if (!llmProvider) {
-    throw new Error(`LLM Provider with id "${llmProviderId}" not found`);
   }
 
   // Format conversation and build messages

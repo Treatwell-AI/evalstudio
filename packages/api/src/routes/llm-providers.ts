@@ -1,158 +1,48 @@
 import type { FastifyInstance } from "fastify";
 import {
-  createLLMProvider,
-  deleteLLMProvider,
   fetchProviderModels,
   getDefaultModels,
-  getLLMProvider,
-  listLLMProviders,
-  updateLLMProvider,
-  type LLMProviderConfig,
+  getLLMProviderFromConfig,
   type ProviderType,
 } from "@evalstudio/core";
 
-interface CreateLLMProviderBody {
-  name: string;
-  provider: ProviderType;
-  apiKey: string;
-  config?: LLMProviderConfig;
+interface ProviderTypeParams {
+  providerType: string;
 }
 
-interface UpdateLLMProviderBody {
-  name?: string;
-  provider?: ProviderType;
-  apiKey?: string;
-  config?: LLMProviderConfig;
-}
-
-interface LLMProviderParams {
-  id: string;
-}
+const validProviderTypes: ProviderType[] = ["openai", "anthropic"];
 
 export async function llmProvidersRoute(fastify: FastifyInstance) {
-  fastify.get("/llm-providers", async () => {
-    return listLLMProviders();
-  });
-
+  // Get default models for all provider types
   fastify.get("/llm-providers/models", async () => {
     return getDefaultModels();
   });
 
-  // Fetch models dynamically from provider's API
-  fastify.get<{ Params: LLMProviderParams }>(
-    "/llm-providers/:id/models",
+  // Fetch models dynamically from the configured provider's API
+  fastify.get<{ Params: ProviderTypeParams }>(
+    "/llm-providers/:providerType/models",
     async (request, reply) => {
+      const { providerType } = request.params;
+
+      if (!validProviderTypes.includes(providerType as ProviderType)) {
+        reply.code(400);
+        return { error: `Invalid provider type "${providerType}". Must be one of: ${validProviderTypes.join(", ")}` };
+      }
+
       try {
-        const models = await fetchProviderModels(request.params.id);
+        const provider = getLLMProviderFromConfig();
+        const models = await fetchProviderModels(
+          providerType as ProviderType,
+          provider.apiKey,
+        );
         return { models };
       } catch (error) {
         if (error instanceof Error) {
-          if (error.message.includes("not found")) {
-            reply.code(404);
-            return { error: error.message };
-          }
           reply.code(500);
           return { error: error.message };
         }
         throw error;
       }
-    }
-  );
-
-  fastify.get<{ Params: LLMProviderParams }>(
-    "/llm-providers/:id",
-    async (request, reply) => {
-      const provider = getLLMProvider(request.params.id);
-
-      if (!provider) {
-        reply.code(404);
-        return { error: "LLM Provider not found" };
-      }
-
-      return provider;
-    }
-  );
-
-  fastify.post<{ Body: CreateLLMProviderBody }>(
-    "/llm-providers",
-    async (request, reply) => {
-      const { name, provider, apiKey, config } = request.body;
-
-      if (!name) {
-        reply.code(400);
-        return { error: "Name is required" };
-      }
-
-      if (!provider) {
-        reply.code(400);
-        return { error: "Provider is required" };
-      }
-
-      if (!apiKey) {
-        reply.code(400);
-        return { error: "API key is required" };
-      }
-
-      try {
-        const llmProvider = createLLMProvider({
-          name,
-          provider,
-          apiKey,
-          config,
-        });
-        reply.code(201);
-        return llmProvider;
-      } catch (error) {
-        if (error instanceof Error) {
-          reply.code(409);
-          return { error: error.message };
-        }
-        throw error;
-      }
-    }
-  );
-
-  fastify.put<{ Params: LLMProviderParams; Body: UpdateLLMProviderBody }>(
-    "/llm-providers/:id",
-    async (request, reply) => {
-      const { name, provider, apiKey, config } = request.body;
-
-      try {
-        const llmProvider = updateLLMProvider(request.params.id, {
-          name,
-          provider,
-          apiKey,
-          config,
-        });
-
-        if (!llmProvider) {
-          reply.code(404);
-          return { error: "LLM Provider not found" };
-        }
-
-        return llmProvider;
-      } catch (error) {
-        if (error instanceof Error) {
-          reply.code(409);
-          return { error: error.message };
-        }
-        throw error;
-      }
-    }
-  );
-
-  fastify.delete<{ Params: LLMProviderParams }>(
-    "/llm-providers/:id",
-    async (request, reply) => {
-      const deleted = deleteLLMProvider(request.params.id);
-
-      if (!deleted) {
-        reply.code(404);
-        return { error: "LLM Provider not found" };
-      }
-
-      reply.code(204);
-      return;
     }
   );
 }

@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { createJsonRepository, type Repository } from "./repository.js";
+import { readProjectConfig } from "./project.js";
 
 export type ProviderType = "openai" | "anthropic";
 
@@ -7,121 +6,33 @@ export interface LLMProviderConfig {
   [key: string]: unknown;
 }
 
+/**
+ * LLM provider object used by llm-client.ts for API calls.
+ * Constructed from the inline config in evalstudio.config.json.
+ */
 export interface LLMProvider {
-  id: string;
-  name: string;
-  provider: ProviderType;
-  apiKey: string;
-  config?: LLMProviderConfig;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateLLMProviderInput {
-  name: string;
   provider: ProviderType;
   apiKey: string;
   config?: LLMProviderConfig;
 }
 
-export interface UpdateLLMProviderInput {
-  name?: string;
-  provider?: ProviderType;
-  apiKey?: string;
-  config?: LLMProviderConfig;
-}
+/**
+ * Reads the project config and returns an LLMProvider object.
+ * Throws if no provider is configured.
+ */
+export function getLLMProviderFromConfig(): LLMProvider {
+  const config = readProjectConfig();
 
-const repo: Repository<LLMProvider> = createJsonRepository<LLMProvider>("llm-providers.json");
-
-export function createLLMProvider(input: CreateLLMProviderInput): LLMProvider {
-  const providers = repo.findAll();
-
-  if (providers.some((p) => p.name === input.name)) {
+  if (!config.llmProvider) {
     throw new Error(
-      `LLM Provider with name "${input.name}" already exists`
+      "No LLM provider configured. Configure one in project Settings > LLM Providers."
     );
   }
 
-  const now = new Date().toISOString();
-  const provider: LLMProvider = {
-    id: randomUUID(),
-    name: input.name,
-    provider: input.provider,
-    apiKey: input.apiKey,
-    config: input.config,
-    createdAt: now,
-    updatedAt: now,
+  return {
+    provider: config.llmProvider.provider,
+    apiKey: config.llmProvider.apiKey,
   };
-
-  providers.push(provider);
-  repo.saveAll(providers);
-
-  return provider;
-}
-
-export function getLLMProvider(id: string): LLMProvider | undefined {
-  const providers = repo.findAll();
-  return providers.find((p) => p.id === id);
-}
-
-export function getLLMProviderByName(name: string): LLMProvider | undefined {
-  const providers = repo.findAll();
-  return providers.find((p) => p.name === name);
-}
-
-export function listLLMProviders(): LLMProvider[] {
-  return repo.findAll();
-}
-
-export function updateLLMProvider(
-  id: string,
-  input: UpdateLLMProviderInput
-): LLMProvider | undefined {
-  const providers = repo.findAll();
-  const index = providers.findIndex((p) => p.id === id);
-
-  if (index === -1) {
-    return undefined;
-  }
-
-  const provider = providers[index];
-
-  if (
-    input.name &&
-    providers.some((p) => p.name === input.name && p.id !== id)
-  ) {
-    throw new Error(
-      `LLM Provider with name "${input.name}" already exists`
-    );
-  }
-
-  const updated: LLMProvider = {
-    ...provider,
-    name: input.name ?? provider.name,
-    provider: input.provider ?? provider.provider,
-    apiKey: input.apiKey ?? provider.apiKey,
-    config: input.config ?? provider.config,
-    updatedAt: new Date().toISOString(),
-  };
-
-  providers[index] = updated;
-  repo.saveAll(providers);
-
-  return updated;
-}
-
-export function deleteLLMProvider(id: string): boolean {
-  const providers = repo.findAll();
-  const index = providers.findIndex((p) => p.id === id);
-
-  if (index === -1) {
-    return false;
-  }
-
-  providers.splice(index, 1);
-  repo.saveAll(providers);
-
-  return true;
 }
 
 /**
@@ -154,20 +65,17 @@ export function getDefaultModels(): Record<ProviderType, string[]> {
 }
 
 /**
- * Fetches available models from the provider's API
+ * Fetches available models from the provider's API.
+ * Uses the project's configured provider credentials.
  * For OpenAI: uses /v1/models endpoint
  * For Anthropic: returns default list (no public models endpoint)
  */
 export async function fetchProviderModels(
-  providerId: string
+  providerType: ProviderType,
+  apiKey: string,
 ): Promise<string[]> {
-  const provider = getLLMProvider(providerId);
-  if (!provider) {
-    throw new Error(`LLM Provider "${providerId}" not found`);
-  }
-
-  if (provider.provider === "openai") {
-    return fetchOpenAIModels(provider.apiKey);
+  if (providerType === "openai") {
+    return fetchOpenAIModels(apiKey);
   }
 
   // Anthropic doesn't have a public models endpoint, use defaults
