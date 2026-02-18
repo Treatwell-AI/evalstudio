@@ -30,13 +30,13 @@ The `evalstudio.config.json` file defines the project settings:
 {
   "name": "my-product-evals",
   "maxConcurrency": 5,
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" },
-    "persona": { "model": "gpt-4o-mini" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o",
+      "persona": "gpt-4o-mini"
+    }
   }
 }
 ```
@@ -49,8 +49,8 @@ import {
   updateProjectConfig,
   type ProjectConfig,
   type UpdateProjectConfigInput,
-  type LLMProviderSettings,
-  type ProjectLLMSettings,
+  type LLMSettings,
+  type LLMModelSettings,
 } from "@evalstudio/core";
 ```
 
@@ -61,38 +61,34 @@ import {
 ```typescript
 interface ProjectConfig {
   version: number;
-  name: string;                          // Project name
-  maxConcurrency?: number;               // Max concurrent run executions (default: 3)
-  llmProvider?: LLMProviderSettings;     // LLM provider credentials
-  llmSettings?: ProjectLLMSettings;      // Model selection per use-case
+  name: string;                   // Project name
+  maxConcurrency?: number;        // Max concurrent run executions (default: 3)
+  llmSettings?: LLMSettings;     // LLM provider, credentials, and model selection
 }
 ```
 
-### LLMProviderSettings
+### LLMSettings
 
-The single LLM provider configuration, stored inline in the config file.
+Unified LLM configuration: provider credentials and model selection in a single object.
 
 ```typescript
-interface LLMProviderSettings {
-  provider: ProviderType;  // "openai" or "anthropic"
-  apiKey: string;          // API key for the provider
+interface LLMSettings {
+  provider: ProviderType;          // "openai" or "anthropic"
+  apiKey: string;                  // API key for the provider
+  models?: LLMModelSettings;      // Model selection per use-case
 }
 ```
 
-### ProjectLLMSettings
+### LLMModelSettings
 
 Configure which models to use for different use-cases. The provider is shared — only the model varies.
 
 ```typescript
-interface ProjectLLMSettings {
-  /** Model for evaluation/judging conversations */
-  evaluation?: {
-    model?: string;  // Specific model (optional, uses provider default)
-  };
-  /** Model for persona response generation */
-  persona?: {
-    model?: string;  // Specific model (falls back to evaluation model if not set)
-  };
+interface LLMModelSettings {
+  /** Model for evaluation/judging conversations (optional, uses provider default) */
+  evaluation?: string;
+  /** Model for persona response generation (optional, falls back to evaluation model) */
+  persona?: string;
 }
 ```
 
@@ -101,9 +97,8 @@ interface ProjectLLMSettings {
 ```typescript
 interface UpdateProjectConfigInput {
   name?: string;
-  maxConcurrency?: number | null;                // null to clear (reverts to default: 3)
-  llmProvider?: LLMProviderSettings | null;      // null to remove provider
-  llmSettings?: ProjectLLMSettings | null;       // null to clear settings
+  maxConcurrency?: number | null;        // null to clear (reverts to default: 3)
+  llmSettings?: LLMSettings | null;      // null to remove LLM configuration
 }
 ```
 
@@ -120,7 +115,7 @@ function getProjectConfig(): ProjectConfig;
 ```typescript
 const config = getProjectConfig();
 console.log(config.name);  // "my-product-evals"
-console.log(config.llmProvider?.provider);  // "openai"
+console.log(config.llmSettings?.provider);  // "openai"
 ```
 
 ### updateProjectConfig()
@@ -133,12 +128,12 @@ function updateProjectConfig(input: UpdateProjectConfigInput): ProjectConfig;
 
 ```typescript
 const updated = updateProjectConfig({
-  llmProvider: {
+  llmSettings: {
     provider: "openai",
     apiKey: "sk-your-api-key",
-  },
-  llmSettings: {
-    evaluation: { model: "gpt-4o" },
+    models: {
+      evaluation: "gpt-4o",
+    },
   },
 });
 ```

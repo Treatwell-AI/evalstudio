@@ -4,29 +4,23 @@ import type { ProviderType } from "./llm-provider.js";
 import { CONFIG_FILENAME, getConfigPath } from "./project-resolver.js";
 
 /**
- * Inline LLM provider configuration stored in evalstudio.config.json
+ * Model selection per use-case
  */
-export interface LLMProviderSettings {
+export interface LLMModelSettings {
+  /** Model for evaluation/judging conversations */
+  evaluation?: string;
+  /** Model for persona response generation */
+  persona?: string;
+}
+
+/**
+ * Unified LLM configuration: provider, credentials, and model selection
+ */
+export interface LLMSettings {
   provider: ProviderType;
   apiKey: string;
-}
-
-/**
- * LLM settings for a specific use-case (evaluation or persona generation).
- * The provider is defined once at the project level via llmProvider.
- */
-export interface LLMUseCaseSettings {
-  model?: string;
-}
-
-/**
- * Project-level LLM configuration for different use-cases
- */
-export interface ProjectLLMSettings {
-  /** LLM settings for evaluation/judging conversations */
-  evaluation?: LLMUseCaseSettings;
-  /** LLM settings for persona response generation */
-  persona?: LLMUseCaseSettings;
+  /** Model selection per use-case */
+  models?: LLMModelSettings;
 }
 
 /**
@@ -35,10 +29,8 @@ export interface ProjectLLMSettings {
 export interface ProjectConfig {
   version: number;
   name: string;
-  /** Single LLM provider for the project (provider type + API key) */
-  llmProvider?: LLMProviderSettings;
-  /** Model selection per use-case */
-  llmSettings?: ProjectLLMSettings;
+  /** LLM provider configuration and model selection */
+  llmSettings?: LLMSettings;
   /** Maximum concurrent run executions (default: 3) */
   maxConcurrency?: number;
 }
@@ -62,10 +54,8 @@ export function writeProjectConfig(config: ProjectConfig): void {
 
 export interface UpdateProjectConfigInput {
   name?: string;
-  /** Set to null to clear LLM provider */
-  llmProvider?: LLMProviderSettings | null;
   /** Set to null to clear LLM settings */
-  llmSettings?: ProjectLLMSettings | null;
+  llmSettings?: LLMSettings | null;
   /** Maximum concurrent run executions. Set to null to clear (revert to default). */
   maxConcurrency?: number | null;
 }
@@ -85,28 +75,18 @@ export function updateProjectConfig(
 ): ProjectConfig {
   const config = readProjectConfig();
 
-  // Validate llmProvider if provided
-  if (input.llmProvider) {
-    if (!input.llmProvider.provider) {
+  // Validate llmSettings if provided
+  if (input.llmSettings) {
+    if (!input.llmSettings.provider) {
       throw new Error("LLM provider type is required");
     }
-    if (!input.llmProvider.apiKey) {
+    if (!input.llmSettings.apiKey) {
       throw new Error("LLM provider API key is required");
     }
   }
 
-  // Handle llmProvider: null clears, undefined keeps existing, object updates
-  let newLLMProvider: LLMProviderSettings | undefined;
-  if (input.llmProvider === null) {
-    newLLMProvider = undefined;
-  } else if (input.llmProvider !== undefined) {
-    newLLMProvider = input.llmProvider;
-  } else {
-    newLLMProvider = config.llmProvider;
-  }
-
   // Handle llmSettings: null clears, undefined keeps existing, object updates
-  let newLLMSettings: ProjectLLMSettings | undefined;
+  let newLLMSettings: LLMSettings | undefined;
   if (input.llmSettings === null) {
     newLLMSettings = undefined;
   } else if (input.llmSettings !== undefined) {
@@ -131,7 +111,6 @@ export function updateProjectConfig(
   const updated: ProjectConfig = {
     ...config,
     name: input.name ?? config.name,
-    llmProvider: newLLMProvider,
     llmSettings: newLLMSettings,
     maxConcurrency: newMaxConcurrency,
   };

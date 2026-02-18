@@ -3,42 +3,35 @@ const API_BASE = "/api";
 export type ProviderType = "openai" | "anthropic";
 
 /**
- * Inline LLM provider configuration
+ * Model selection per use-case
  */
-export interface LLMProviderSettings {
+export interface LLMModelSettings {
+  /** Model for evaluation/judging conversations */
+  evaluation?: string;
+  /** Model for persona response generation */
+  persona?: string;
+}
+
+/**
+ * Unified LLM configuration: provider, credentials, and model selection
+ */
+export interface LLMSettings {
   provider: ProviderType;
   apiKey: string;
-}
-
-/**
- * LLM settings for a specific use-case (evaluation or persona generation)
- */
-export interface LLMUseCaseSettings {
-  model?: string;
-}
-
-/**
- * Project-level LLM configuration for different use-cases
- */
-export interface ProjectLLMSettings {
-  /** LLM settings for evaluation/judging conversations */
-  evaluation?: LLMUseCaseSettings;
-  /** LLM settings for persona response generation */
-  persona?: LLMUseCaseSettings;
+  /** Model selection per use-case */
+  models?: LLMModelSettings;
 }
 
 export interface ProjectConfig {
   version: number;
   name: string;
-  llmProvider?: LLMProviderSettings;
-  llmSettings?: ProjectLLMSettings;
+  llmSettings?: LLMSettings;
   maxConcurrency?: number;
 }
 
 export interface UpdateProjectConfigInput {
   name?: string;
-  llmProvider?: LLMProviderSettings | null;
-  llmSettings?: ProjectLLMSettings | null;
+  llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
 }
 
@@ -231,9 +224,14 @@ export interface UpdateEvalInput {
   connectorId?: string;
 }
 
+export interface ModelGroup {
+  label: string;
+  models: string[];
+}
+
 export interface DefaultModels {
-  openai: string[];
-  anthropic: string[];
+  openai: ModelGroup[];
+  anthropic: ModelGroup[];
 }
 
 export type ConnectorType = "http" | "langgraph";
@@ -540,10 +538,10 @@ export const api = {
       return handleResponse(response);
     },
 
-    getProviderModels: async (providerType: ProviderType): Promise<string[]> => {
+    getProviderModels: async (providerType: ProviderType): Promise<ModelGroup[]> => {
       const response = await fetch(`${API_BASE}/llm-providers/${providerType}/models`);
-      const data = await handleResponse<{ models: string[] }>(response);
-      return data.models;
+      const data = await handleResponse<{ groups: ModelGroup[] }>(response);
+      return data.groups;
     },
   },
 

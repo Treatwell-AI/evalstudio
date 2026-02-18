@@ -17,7 +17,7 @@ describe("llm-providers routes", () => {
       JSON.stringify({
         version: 2,
         name: "test-project",
-        llmProvider: { provider: "openai", apiKey: "sk-test-key" },
+        llmSettings: { provider: "openai", apiKey: "sk-test-key" },
       })
     );
     setStorageDir(storageDir);
@@ -32,7 +32,7 @@ describe("llm-providers routes", () => {
   });
 
   describe("GET /llm-providers/models", () => {
-    it("returns available models for all providers", async () => {
+    it("returns grouped models for all providers", async () => {
       const server = await createServer();
 
       const response = await server.inject({
@@ -44,8 +44,15 @@ describe("llm-providers routes", () => {
       const body = JSON.parse(response.body);
       expect(body.openai).toBeDefined();
       expect(body.anthropic).toBeDefined();
-      expect(body.openai).toContain("gpt-4o");
-      expect(body.anthropic).toContain("claude-sonnet-4-20250514");
+      expect(Array.isArray(body.openai)).toBe(true);
+      expect(body.openai[0]).toHaveProperty("label");
+      expect(body.openai[0]).toHaveProperty("models");
+
+      const openaiModels = body.openai.flatMap((g: { models: string[] }) => g.models);
+      expect(openaiModels).toContain("gpt-4o");
+
+      const anthropicModels = body.anthropic.flatMap((g: { models: string[] }) => g.models);
+      expect(anthropicModels).toContain("claude-sonnet-4-20250514");
 
       await server.close();
     });

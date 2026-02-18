@@ -1,7 +1,43 @@
 import { useState, useEffect } from "react";
 import { useProviderModels } from "../hooks/useLLMProviders";
 import { useProjectConfig, useUpdateProjectConfig } from "../hooks/useProjects";
-import type { ProviderType, ProjectLLMSettings, LLMProviderSettings } from "../lib/api";
+import type { ProviderType, LLMSettings, LLMModelSettings, ModelGroup } from "../lib/api";
+
+function ModelSelect({
+  id,
+  value,
+  onChange,
+  disabled,
+  groups,
+  placeholder,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  groups: ModelGroup[];
+  placeholder: string;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+    >
+      <option value="">
+        {disabled ? "Loading models..." : placeholder}
+      </option>
+      {groups.map((group) => (
+        <optgroup key={group.label} label={group.label}>
+          {group.models.map((model) => (
+            <option key={model} value={model}>{model}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
 
 export function SettingsLLMProvidersPage() {
   const { data: projectConfig } = useProjectConfig();
@@ -16,52 +52,56 @@ export function SettingsLLMProvidersPage() {
   const [personaModel, setPersonaModel] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Only show LLM settings after provider has been saved to config
-  const hasProvider = !!projectConfig?.llmProvider;
+  // Only show model settings after provider has been saved to config
+  const hasProvider = !!projectConfig?.llmSettings;
 
-  // Fetch models dynamically based on saved provider
-  const { data: models = [], isLoading: loadingModels } = useProviderModels(
-    hasProvider ? projectConfig.llmProvider!.provider : undefined
+  // Fetch model groups dynamically based on saved provider
+  const { data: modelGroups = [], isLoading: loadingModels } = useProviderModels(
+    hasProvider ? projectConfig.llmSettings!.provider : undefined
   );
 
   // Initialize from project config
   useEffect(() => {
     if (projectConfig) {
-      if (projectConfig.llmProvider) {
-        setProviderType(projectConfig.llmProvider.provider);
-        setApiKey(projectConfig.llmProvider.apiKey);
+      if (projectConfig.llmSettings) {
+        setProviderType(projectConfig.llmSettings.provider);
+        setApiKey(projectConfig.llmSettings.apiKey);
       }
-      setEvaluationModel(projectConfig.llmSettings?.evaluation?.model || "");
-      setPersonaModel(projectConfig.llmSettings?.persona?.model || "");
+      setEvaluationModel(projectConfig.llmSettings?.models?.evaluation || "");
+      setPersonaModel(projectConfig.llmSettings?.models?.persona || "");
     }
   }, [projectConfig]);
 
   const handleSave = async () => {
     setSaveSuccess(false);
 
-    const llmProvider: LLMProviderSettings | null = apiKey
-      ? { provider: providerType, apiKey }
+    const llmSettings: LLMSettings | null = apiKey
+      ? {
+          provider: providerType,
+          apiKey,
+          models: buildModelSettings(),
+        }
       : null;
 
-    const llmSettings: ProjectLLMSettings = {};
-    if (evaluationModel) {
-      llmSettings.evaluation = { model: evaluationModel };
-    }
-    if (personaModel) {
-      llmSettings.persona = { model: personaModel };
-    }
-
     try {
-      await updateProjectConfig.mutateAsync({
-        llmProvider,
-        llmSettings: Object.keys(llmSettings).length > 0 ? llmSettings : null,
-      });
+      await updateProjectConfig.mutateAsync({ llmSettings });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save LLM settings:", error);
     }
   };
+
+  function buildModelSettings(): LLMModelSettings | undefined {
+    const models: LLMModelSettings = {};
+    if (evaluationModel) {
+      models.evaluation = evaluationModel;
+    }
+    if (personaModel) {
+      models.persona = personaModel;
+    }
+    return Object.keys(models).length > 0 ? models : undefined;
+  }
 
   return (
     <div className="page">
@@ -137,21 +177,14 @@ export function SettingsLLMProvidersPage() {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="evaluation-model">Model</label>
-                <select
+                <ModelSelect
                   id="evaluation-model"
                   value={evaluationModel}
-                  onChange={(e) => setEvaluationModel(e.target.value)}
+                  onChange={setEvaluationModel}
                   disabled={loadingModels}
-                >
-                  <option value="">
-                    {loadingModels ? "Loading models..." : "Provider default"}
-                  </option>
-                  {models.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
+                  groups={modelGroups}
+                  placeholder="Provider default"
+                />
               </div>
             </div>
           </div>
@@ -165,21 +198,14 @@ export function SettingsLLMProvidersPage() {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="persona-model">Model</label>
-                <select
+                <ModelSelect
                   id="persona-model"
                   value={personaModel}
-                  onChange={(e) => setPersonaModel(e.target.value)}
+                  onChange={setPersonaModel}
                   disabled={loadingModels}
-                >
-                  <option value="">
-                    {loadingModels ? "Loading models..." : "Same as Evaluation"}
-                  </option>
-                  {models.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
+                  groups={modelGroups}
+                  placeholder="Same as Evaluation"
+                />
               </div>
             </div>
           </div>

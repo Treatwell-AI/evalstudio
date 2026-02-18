@@ -40,7 +40,7 @@ describe("RunProcessor", () => {
       JSON.stringify({
         version: 2,
         name: "processor-test",
-        llmProvider: {
+        llmSettings: {
           provider: "openai",
           apiKey: "test-api-key",
         },
@@ -119,7 +119,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 2,
           name: "processor-test",
-          llmProvider: { provider: "openai", apiKey: "test-api-key" },
+          llmSettings: { provider: "openai", apiKey: "test-api-key" },
           maxConcurrency: 7,
         }, null, 2)
       );
@@ -149,7 +149,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 2,
             name: "processor-test",
-            llmProvider: { provider: "openai", apiKey: "test-api-key" },
+            llmSettings: { provider: "openai", apiKey: "test-api-key" },
           }, null, 2)
         );
       });
@@ -162,7 +162,7 @@ describe("RunProcessor", () => {
         JSON.stringify({
           version: 2,
           name: "processor-test",
-          llmProvider: { provider: "openai", apiKey: "test-api-key" },
+          llmSettings: { provider: "openai", apiKey: "test-api-key" },
           maxConcurrency: 10,
         }, null, 2)
       );
@@ -192,7 +192,7 @@ describe("RunProcessor", () => {
           JSON.stringify({
             version: 2,
             name: "processor-test",
-            llmProvider: { provider: "openai", apiKey: "test-api-key" },
+            llmSettings: { provider: "openai", apiKey: "test-api-key" },
           }, null, 2)
         );
       });

@@ -29,7 +29,7 @@ describe("llm-provider", () => {
         JSON.stringify({
           version: 2,
           name: "test-project",
-          llmProvider: {
+          llmSettings: {
             provider: "openai",
             apiKey: "sk-test-key",
           },
@@ -55,16 +55,22 @@ describe("llm-provider", () => {
   });
 
   describe("getDefaultModels", () => {
-    it("returns models for OpenAI and Anthropic", () => {
+    it("returns grouped models for OpenAI and Anthropic", () => {
       const models = getDefaultModels();
 
       expect(models.openai).toBeDefined();
       expect(models.openai.length).toBeGreaterThan(0);
-      expect(models.openai).toContain("gpt-4o");
+      expect(models.openai[0]).toHaveProperty("label");
+      expect(models.openai[0]).toHaveProperty("models");
+
+      const openaiModels = models.openai.flatMap((g) => g.models);
+      expect(openaiModels).toContain("gpt-4o");
 
       expect(models.anthropic).toBeDefined();
       expect(models.anthropic.length).toBeGreaterThan(0);
-      expect(models.anthropic).toContain("claude-sonnet-4-20250514");
+
+      const anthropicModels = models.anthropic.flatMap((g) => g.models);
+      expect(anthropicModels).toContain("claude-sonnet-4-20250514");
     });
   });
 });

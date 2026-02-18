@@ -40,13 +40,13 @@ The project is defined by the `evalstudio.config.json` file. You can edit it dir
 {
   "name": "my-product-evals",
   "maxConcurrency": 5,
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" },
-    "persona": { "model": "gpt-4o-mini" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o",
+      "persona": "gpt-4o-mini"
+    }
   }
 }
 ```

@@ -9,13 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Inline LLM provider** - LLM provider config is now stored directly in `evalstudio.config.json` instead of a separate `llm-providers.json` file
-  - Single provider configured via `llmProvider: { provider, apiKey }` in project config
-  - `llmSettings` simplified to model selection only (`{ model }`) — no more `providerId` indirection
-  - Removed all LLM provider CRUD operations (create, list, update, delete) from core, API, CLI, and web
-  - CLI: replaced provider CRUD commands with `evalstudio llm-provider set/show/models`
+- **Unified LLM settings** - Flattened `llmProvider` and `llmSettings` into a single `llmSettings` object in `evalstudio.config.json`
+  - Single config: `llmSettings: { provider, apiKey, models?: { evaluation?, persona? } }`
+  - Removed separate `llmProvider` and nested `llmSettings` fields — one object for all LLM configuration
+  - CLI: `evalstudio llm-provider set/show/models` reads and writes the unified structure
   - Web: settings page shows unified form — provider + API key section, model configuration appears after provider is saved
   - API: removed CRUD endpoints, kept `GET /llm-providers/models` and `GET /llm-providers/:providerType/models`
+- **Model tier grouping** - `getDefaultModels()` now returns `ModelGroup[]` per provider with Standard/Premium tiers
+  - New `ModelGroup` type: `{ label: string; models: string[] }` exported from core
+  - Web: model select dropdowns render `<optgroup>` sections from API data (no local categorization)
+  - CLI: `models` subcommand displays grouped output with tier labels
+  - Updated model lists with latest OpenAI (gpt-5.x, o3/o4 series) and Anthropic models
+  - Removed `fetchOpenAIModels()` / `fetchProviderModels()` — uses local curated list only
 - **Storage abstraction** - Introduced `Repository<T>` interface and `createJsonRepository<T>()` factory to decouple entity storage from the filesystem
   - All entity modules now use the repository pattern: persona, scenario, connector, llm-provider, execution, eval, and run
   - Removed direct `node:fs` / `node:path` / `storage.js` imports from entity modules — storage I/O is fully centralized in `repository.ts`

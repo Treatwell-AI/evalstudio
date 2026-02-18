@@ -26,13 +26,13 @@ Get the current project configuration.
   "version": 2,
   "name": "my-product-evals",
   "maxConcurrency": 5,
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" },
-    "persona": { "model": "gpt-4o-mini" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o",
+      "persona": "gpt-4o-mini"
+    }
   }
 }
 ```
@@ -55,17 +55,16 @@ Update the project configuration.
 |-------|------|----------|-------------|
 | `name` | string | No | Project name |
 | `maxConcurrency` | number \| null | No | Max concurrent runs (null to clear, min: 1) |
-| `llmProvider` | object \| null | No | LLM provider config (null to remove) |
-| `llmSettings` | object \| null | No | Model configuration (null to clear) |
+| `llmSettings` | object \| null | No | LLM provider config and model selection (null to remove) |
 
 ```json
 {
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o"
+    }
   }
 }
 ```
@@ -76,12 +75,12 @@ Update the project configuration.
 {
   "version": 2,
   "name": "my-product-evals",
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o"
+    }
   }
 }
 ```
@@ -92,7 +91,7 @@ Update the project configuration.
 curl -X PUT http://localhost:3000/api/project \
   -H "Content-Type: application/json" \
   -d '{
-    "llmProvider": {
+    "llmSettings": {
       "provider": "openai",
       "apiKey": "sk-your-api-key"
     }

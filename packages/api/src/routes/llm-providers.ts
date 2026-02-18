@@ -1,8 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
-  fetchProviderModels,
   getDefaultModels,
-  getLLMProviderFromConfig,
   type ProviderType,
 } from "@evalstudio/core";
 
@@ -18,7 +16,7 @@ export async function llmProvidersRoute(fastify: FastifyInstance) {
     return getDefaultModels();
   });
 
-  // Fetch models dynamically from the configured provider's API
+  // Get model groups for a specific provider type
   fastify.get<{ Params: ProviderTypeParams }>(
     "/llm-providers/:providerType/models",
     async (request, reply) => {
@@ -29,20 +27,8 @@ export async function llmProvidersRoute(fastify: FastifyInstance) {
         return { error: `Invalid provider type "${providerType}". Must be one of: ${validProviderTypes.join(", ")}` };
       }
 
-      try {
-        const provider = getLLMProviderFromConfig();
-        const models = await fetchProviderModels(
-          providerType as ProviderType,
-          provider.apiKey,
-        );
-        return { models };
-      } catch (error) {
-        if (error instanceof Error) {
-          reply.code(500);
-          return { error: error.message };
-        }
-        throw error;
-      }
+      const models = getDefaultModels();
+      return { groups: models[providerType as ProviderType] };
     }
   );
 }

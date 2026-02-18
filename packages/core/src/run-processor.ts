@@ -289,9 +289,9 @@ export class RunProcessor {
       // Get project config for LLM settings
       const config = readProjectConfig();
       const llmProvider = getLLMProviderFromConfig();
-      const projectSettings = config.llmSettings;
-      const evaluationModel = projectSettings?.evaluation?.model;
-      const personaModel = projectSettings?.persona?.model || evaluationModel;
+      const models = config.llmSettings?.models;
+      const evaluationModel = models?.evaluation;
+      const personaModel = models?.persona || evaluationModel;
 
       const llmConfig: ResolvedLLMConfig = {
         llmProvider,

@@ -22,9 +22,8 @@ export {
   type InitLocalProjectResult,
   type UpdateProjectConfigInput,
   type ProjectConfig,
-  type LLMProviderSettings,
-  type ProjectLLMSettings,
-  type LLMUseCaseSettings,
+  type LLMSettings,
+  type LLMModelSettings,
 } from "./project.js";
 export {
   createPersona,
@@ -63,11 +62,11 @@ export {
   type UpdateEvalInput,
 } from "./eval.js";
 export {
-  fetchProviderModels,
   getDefaultModels,
   getLLMProviderFromConfig,
   type LLMProvider,
   type LLMProviderConfig,
+  type ModelGroup,
   type ProviderType,
 } from "./llm-provider.js";
 export {

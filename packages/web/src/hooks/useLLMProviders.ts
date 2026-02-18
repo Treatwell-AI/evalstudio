@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api, type ProviderType } from "../lib/api";
+import { api, type ModelGroup, type ProviderType } from "../lib/api";
 
 export function useDefaultModels() {
   return useQuery({
@@ -10,7 +10,7 @@ export function useDefaultModels() {
 }
 
 export function useProviderModels(providerType: ProviderType | undefined) {
-  return useQuery({
+  return useQuery<ModelGroup[]>({
     queryKey: ["llmProviders", "providerModels", providerType],
     queryFn: () => api.llmProviders.getProviderModels(providerType!),
     enabled: !!providerType,

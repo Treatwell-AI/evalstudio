@@ -4,7 +4,7 @@ sidebar_position: 6
 
 # LLM Providers
 
-The LLM provider configuration defines the credentials used for evaluation judging and persona generation. The provider is stored inline in `evalstudio.config.json` — there is no separate entity or storage file.
+The LLM provider configuration defines the credentials used for evaluation judging and persona generation. The provider is stored inline in `evalstudio.config.json` under the `llmSettings` key — there is no separate entity or storage file.
 
 ## Import
 
@@ -12,11 +12,11 @@ The LLM provider configuration defines the credentials used for evaluation judgi
 import {
   getLLMProviderFromConfig,
   getDefaultModels,
-  fetchProviderModels,
   type LLMProvider,
-  type LLMProviderSettings,
+  type LLMSettings,
+  type LLMModelSettings,
+  type ModelGroup,
   type ProviderType,
-  type LLMProviderConfig,
 } from "@evalstudio/core";
 ```
 
@@ -28,14 +28,35 @@ import {
 type ProviderType = "openai" | "anthropic";
 ```
 
-### LLMProviderSettings
+### LLMSettings
 
-Stored in `evalstudio.config.json` under the `llmProvider` key.
+Unified LLM configuration stored in `evalstudio.config.json`.
 
 ```typescript
-interface LLMProviderSettings {
-  provider: ProviderType;  // Provider type (openai or anthropic)
-  apiKey: string;          // API key for the provider
+interface LLMSettings {
+  provider: ProviderType;          // Provider type (openai or anthropic)
+  apiKey: string;                  // API key for the provider
+  models?: LLMModelSettings;      // Model selection per use-case
+}
+```
+
+### LLMModelSettings
+
+```typescript
+interface LLMModelSettings {
+  evaluation?: string;  // Model for evaluation/judging (optional, uses provider default)
+  persona?: string;     // Model for persona generation (optional, falls back to evaluation)
+}
+```
+
+### ModelGroup
+
+Models are organized into groups (e.g., Standard, Premium) per provider.
+
+```typescript
+interface ModelGroup {
+  label: string;     // Group name (e.g., "Standard", "Premium")
+  models: string[];  // Model IDs in this group
 }
 ```
 
@@ -48,14 +69,6 @@ interface LLMProvider {
   provider: ProviderType;
   apiKey: string;
   config?: LLMProviderConfig;
-}
-```
-
-### LLMProviderConfig
-
-```typescript
-interface LLMProviderConfig {
-  [key: string]: unknown;
 }
 ```
 
@@ -78,31 +91,20 @@ console.log(provider.provider);  // "openai"
 
 ### getDefaultModels()
 
-Returns the list of default/fallback models for each provider type.
+Returns grouped model lists for each provider type, organized by tier (Standard, Premium).
 
 ```typescript
-function getDefaultModels(): { openai: string[]; anthropic: string[] };
+function getDefaultModels(): Record<ProviderType, ModelGroup[]>;
 ```
 
 ```typescript
 const models = getDefaultModels();
-console.log(models.openai);     // ["gpt-4.1", "gpt-4o", ...]
-console.log(models.anthropic);  // ["claude-opus-4-5-20251101", ...]
-```
 
-### fetchProviderModels()
-
-Fetches available models dynamically from the provider's API. For OpenAI providers, this queries the `/v1/models` endpoint and filters for chat-capable models. For Anthropic, returns the default model list (no public models endpoint available).
-
-```typescript
-async function fetchProviderModels(providerType: ProviderType, apiKey: string): Promise<string[]>;
-```
-
-**Throws**: Error if the API request fails.
-
-```typescript
-const models = await fetchProviderModels("openai", "sk-your-api-key");
-console.log(models);  // ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", ...]
+// Each provider returns an array of ModelGroup
+for (const group of models.openai) {
+  console.log(group.label);   // "Standard" or "Premium"
+  console.log(group.models);  // ["gpt-4o", "gpt-4o-mini", ...]
+}
 ```
 
 ## Configuration
@@ -112,13 +114,13 @@ The LLM provider is configured in `evalstudio.config.json`:
 ```json
 {
   "name": "my-project",
-  "llmProvider": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key"
-  },
   "llmSettings": {
-    "evaluation": { "model": "gpt-4o" },
-    "persona": { "model": "gpt-4o-mini" }
+    "provider": "openai",
+    "apiKey": "sk-your-api-key",
+    "models": {
+      "evaluation": "gpt-4o",
+      "persona": "gpt-4o-mini"
+    }
   }
 }
 ```

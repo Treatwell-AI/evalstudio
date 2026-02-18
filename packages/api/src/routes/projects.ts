@@ -2,14 +2,12 @@ import type { FastifyInstance } from "fastify";
 import {
   getProjectConfig,
   updateProjectConfig,
-  type LLMProviderSettings,
-  type ProjectLLMSettings,
+  type LLMSettings,
 } from "@evalstudio/core";
 
 interface UpdateProjectConfigBody {
   name?: string;
-  llmProvider?: LLMProviderSettings | null;
-  llmSettings?: ProjectLLMSettings | null;
+  llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
 }
 
@@ -21,12 +19,11 @@ export async function projectsRoute(fastify: FastifyInstance) {
   fastify.put<{ Body: UpdateProjectConfigBody }>(
     "/project",
     async (request, reply) => {
-      const { name, llmProvider, llmSettings, maxConcurrency } = request.body;
+      const { name, llmSettings, maxConcurrency } = request.body;
 
       try {
         const config = updateProjectConfig({
           name,
-          llmProvider,
           llmSettings,
           maxConcurrency,
         });

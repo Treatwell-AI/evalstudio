@@ -40,19 +40,22 @@ export const llmProviderCommand = new Command("llm-provider")
               process.exit(1);
             }
 
+            // Preserve existing models when updating provider
+            const existing = getProjectConfig();
             const config = updateProjectConfig({
-              llmProvider: {
+              llmSettings: {
                 provider: options.provider as ProviderType,
                 apiKey: options.apiKey,
+                models: existing.llmSettings?.models,
               },
             });
 
             if (options.json) {
-              console.log(JSON.stringify(config.llmProvider, null, 2));
+              console.log(JSON.stringify(config.llmSettings, null, 2));
             } else {
               console.log(`LLM Provider configured successfully`);
-              console.log(`  Provider: ${config.llmProvider!.provider}`);
-              console.log(`  API Key:  ${maskApiKey(config.llmProvider!.apiKey)}`);
+              console.log(`  Provider: ${config.llmSettings!.provider}`);
+              console.log(`  API Key:  ${maskApiKey(config.llmSettings!.apiKey)}`);
             }
           } catch (error) {
             if (error instanceof Error) {
@@ -71,7 +74,7 @@ export const llmProviderCommand = new Command("llm-provider")
       .action((options: { json?: boolean }) => {
         const config = getProjectConfig();
 
-        if (!config.llmProvider) {
+        if (!config.llmSettings) {
           if (options.json) {
             console.log(JSON.stringify(null));
           } else {
@@ -82,12 +85,18 @@ export const llmProviderCommand = new Command("llm-provider")
         }
 
         if (options.json) {
-          console.log(JSON.stringify(config.llmProvider, null, 2));
+          console.log(JSON.stringify(config.llmSettings, null, 2));
         } else {
           console.log("LLM Provider:");
           console.log("--------------");
-          console.log(`  Provider: ${config.llmProvider.provider}`);
-          console.log(`  API Key:  ${maskApiKey(config.llmProvider.apiKey)}`);
+          console.log(`  Provider: ${config.llmSettings.provider}`);
+          console.log(`  API Key:  ${maskApiKey(config.llmSettings.apiKey)}`);
+          if (config.llmSettings.models?.evaluation) {
+            console.log(`  Eval Model:    ${config.llmSettings.models.evaluation}`);
+          }
+          if (config.llmSettings.models?.persona) {
+            console.log(`  Persona Model: ${config.llmSettings.models.persona}`);
+          }
         }
       })
   )
@@ -127,15 +136,21 @@ export const llmProviderCommand = new Command("llm-provider")
 
           if (!options.provider || options.provider === "openai") {
             console.log("\nOpenAI:");
-            for (const model of models.openai) {
-              console.log(`  - ${model}`);
+            for (const group of models.openai) {
+              console.log(`  ${group.label}:`);
+              for (const model of group.models) {
+                console.log(`    - ${model}`);
+              }
             }
           }
 
           if (!options.provider || options.provider === "anthropic") {
             console.log("\nAnthropic:");
-            for (const model of models.anthropic) {
-              console.log(`  - ${model}`);
+            for (const group of models.anthropic) {
+              console.log(`  ${group.label}:`);
+              for (const model of group.models) {
+                console.log(`    - ${model}`);
+              }
             }
           }
         }
