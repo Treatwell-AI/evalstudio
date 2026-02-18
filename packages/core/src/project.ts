@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ProviderType } from "./llm-provider.js";
-import { CONFIG_FILENAME, getConfigPath } from "./project-resolver.js";
+import { CONFIG_FILENAME, type ProjectContext } from "./project-resolver.js";
 
 /**
  * Model selection per use-case
@@ -24,7 +24,8 @@ export interface LLMSettings {
 }
 
 /**
- * Project configuration stored in evalstudio.config.json
+ * Effective project configuration (workspace defaults merged with per-project overrides).
+ * This is what consumers see — the merged result.
  */
 export interface ProjectConfig {
   version: number;
@@ -36,46 +37,59 @@ export interface ProjectConfig {
 }
 
 /**
- * Reads and parses the project config from evalstudio.config.json.
+ * Workspace config stored in evalstudio.config.json at the workspace root.
+ * Contains the project registry and workspace-level defaults.
  */
-export function readProjectConfig(): ProjectConfig {
-  const configPath = getConfigPath();
-  const data = readFileSync(configPath, "utf-8");
-  return JSON.parse(data) as ProjectConfig;
+export interface WorkspaceConfig extends ProjectConfig {
+  projects: Array<{ id: string; name: string }>;
 }
 
 /**
- * Writes the project config back to evalstudio.config.json.
+ * Per-project config stored in project.config.json.
+ * Sparse — only contains fields that differ from the workspace.
  */
-export function writeProjectConfig(config: ProjectConfig): void {
-  const configPath = getConfigPath();
+export interface PerProjectConfig {
+  name: string;
+  llmSettings?: LLMSettings;
+  maxConcurrency?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Workspace config
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads and parses the workspace config from evalstudio.config.json.
+ */
+export function readWorkspaceConfig(workspaceDir: string): WorkspaceConfig {
+  const configPath = join(workspaceDir, CONFIG_FILENAME);
+  const data = readFileSync(configPath, "utf-8");
+  return JSON.parse(data) as WorkspaceConfig;
+}
+
+/**
+ * Writes the workspace config back to evalstudio.config.json.
+ */
+export function writeWorkspaceConfig(workspaceDir: string, config: WorkspaceConfig): void {
+  const configPath = join(workspaceDir, CONFIG_FILENAME);
   writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
 }
 
-export interface UpdateProjectConfigInput {
+export interface UpdateWorkspaceConfigInput {
   name?: string;
-  /** Set to null to clear LLM settings */
   llmSettings?: LLMSettings | null;
-  /** Maximum concurrent run executions. Set to null to clear (revert to default). */
   maxConcurrency?: number | null;
 }
 
 /**
- * Reads the current project configuration from evalstudio.config.json.
+ * Updates the workspace config (workspace-level defaults, not per-project).
  */
-export function getProjectConfig(): ProjectConfig {
-  return readProjectConfig();
-}
+export function updateWorkspaceConfig(
+  workspaceDir: string,
+  input: UpdateWorkspaceConfigInput,
+): WorkspaceConfig {
+  const config = readWorkspaceConfig(workspaceDir);
 
-/**
- * Updates the project configuration in evalstudio.config.json.
- */
-export function updateProjectConfig(
-  input: UpdateProjectConfigInput
-): ProjectConfig {
-  const config = readProjectConfig();
-
-  // Validate llmSettings if provided
   if (input.llmSettings) {
     if (!input.llmSettings.provider) {
       throw new Error("LLM provider type is required");
@@ -85,7 +99,6 @@ export function updateProjectConfig(
     }
   }
 
-  // Handle llmSettings: null clears, undefined keeps existing, object updates
   let newLLMSettings: LLMSettings | undefined;
   if (input.llmSettings === null) {
     newLLMSettings = undefined;
@@ -95,7 +108,6 @@ export function updateProjectConfig(
     newLLMSettings = config.llmSettings;
   }
 
-  // Handle maxConcurrency: null clears, undefined keeps existing, number updates
   let newMaxConcurrency: number | undefined;
   if (input.maxConcurrency === null) {
     newMaxConcurrency = undefined;
@@ -108,42 +120,129 @@ export function updateProjectConfig(
     newMaxConcurrency = config.maxConcurrency;
   }
 
-  const updated: ProjectConfig = {
+  const updated: WorkspaceConfig = {
     ...config,
     name: input.name ?? config.name,
     llmSettings: newLLMSettings,
     maxConcurrency: newMaxConcurrency,
   };
 
-  writeProjectConfig(updated);
+  writeWorkspaceConfig(workspaceDir, updated);
   return updated;
 }
 
-export interface InitLocalProjectResult {
-  projectDir: string;
-  configPath: string;
+// ---------------------------------------------------------------------------
+// Per-project config
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the per-project config from project.config.json.
+ */
+export function readPerProjectConfig(ctx: ProjectContext): PerProjectConfig {
+  const data = readFileSync(ctx.configPath, "utf-8");
+  return JSON.parse(data) as PerProjectConfig;
 }
 
 /**
- * Initializes a new project in the given directory.
- * Creates evalstudio.config.json with version 2.
- * Storage directory (data/) is created lazily on first write.
+ * Writes the per-project config to project.config.json.
  */
-export function initLocalProject(
-  dir: string,
-  name: string,
-): InitLocalProjectResult {
-  const projectDir = dir;
-  const configPath = join(projectDir, CONFIG_FILENAME);
+function writePerProjectConfig(ctx: ProjectContext, config: PerProjectConfig): void {
+  writeFileSync(ctx.configPath, JSON.stringify(config, null, 2) + "\n");
+}
 
-  if (existsSync(configPath)) {
-    throw new Error(`Already initialized: ${configPath} already exists`);
+// ---------------------------------------------------------------------------
+// Effective config (merged)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads the effective project config: workspace defaults merged with per-project overrides.
+ *
+ * Merge rules:
+ * - Scalar fields: project value wins if present
+ * - Objects (llmSettings): project replaces entire object if present
+ * - version, projects: workspace-only, not in per-project config
+ */
+export function getProjectConfig(ctx: ProjectContext): ProjectConfig {
+  const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
+  const projConfig = readPerProjectConfig(ctx);
+
+  return {
+    version: wsConfig.version,
+    name: projConfig.name,
+    llmSettings: projConfig.llmSettings ?? wsConfig.llmSettings,
+    maxConcurrency: projConfig.maxConcurrency ?? wsConfig.maxConcurrency,
+  };
+}
+
+export interface UpdateProjectConfigInput {
+  name?: string;
+  /** Set to null to clear (inherit from workspace) */
+  llmSettings?: LLMSettings | null;
+  /** Set to null to clear (inherit from workspace) */
+  maxConcurrency?: number | null;
+}
+
+/**
+ * Updates the per-project config (writes only to project.config.json).
+ * Returns the new effective config (merged with workspace defaults).
+ */
+export function updateProjectConfig(
+  ctx: ProjectContext,
+  input: UpdateProjectConfigInput,
+): ProjectConfig {
+  const projConfig = readPerProjectConfig(ctx);
+
+  if (input.llmSettings) {
+    if (!input.llmSettings.provider) {
+      throw new Error("LLM provider type is required");
+    }
+    if (!input.llmSettings.apiKey) {
+      throw new Error("LLM provider API key is required");
+    }
   }
 
-  mkdirSync(projectDir, { recursive: true });
+  // Handle llmSettings
+  let newLLMSettings: LLMSettings | undefined;
+  if (input.llmSettings === null) {
+    newLLMSettings = undefined; // Clear → inherit from workspace
+  } else if (input.llmSettings !== undefined) {
+    newLLMSettings = input.llmSettings;
+  } else {
+    newLLMSettings = projConfig.llmSettings;
+  }
 
-  const config: ProjectConfig = { version: 2, name };
-  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
+  // Handle maxConcurrency
+  let newMaxConcurrency: number | undefined;
+  if (input.maxConcurrency === null) {
+    newMaxConcurrency = undefined; // Clear → inherit from workspace
+  } else if (input.maxConcurrency !== undefined) {
+    if (input.maxConcurrency < 1) {
+      throw new Error("maxConcurrency must be at least 1");
+    }
+    newMaxConcurrency = input.maxConcurrency;
+  } else {
+    newMaxConcurrency = projConfig.maxConcurrency;
+  }
 
-  return { projectDir, configPath };
+  // Update project name in workspace config registry if changed
+  const newName = input.name ?? projConfig.name;
+  if (input.name && input.name !== projConfig.name) {
+    const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
+    const projEntry = wsConfig.projects.find((p) => p.id === ctx.id);
+    if (projEntry) {
+      projEntry.name = input.name;
+      writeWorkspaceConfig(ctx.workspaceDir, wsConfig);
+    }
+  }
+
+  const updated: PerProjectConfig = {
+    name: newName,
+    llmSettings: newLLMSettings,
+    maxConcurrency: newMaxConcurrency,
+  };
+
+  writePerProjectConfig(ctx, updated);
+
+  // Return the effective (merged) config
+  return getProjectConfig(ctx);
 }

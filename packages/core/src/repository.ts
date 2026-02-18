@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getStorageDir } from "./project-resolver.js";
 
 /**
  * Generic repository interface for entity storage.
@@ -16,21 +15,19 @@ export interface Repository<T> {
 
 /**
  * JSON file-based repository implementation.
- *
- * getStorageDir() is called on every operation (not cached)
- * because it can change at runtime via setStorageDir().
+ * Takes an explicit dataDir — no global state.
  */
-export function createJsonRepository<T>(filename: string): Repository<T> {
+export function createJsonRepository<T>(filename: string, dataDir: string): Repository<T> {
   return {
     findAll(): T[] {
-      const path = join(getStorageDir(), filename);
+      const path = join(dataDir, filename);
       if (!existsSync(path)) return [];
       return JSON.parse(readFileSync(path, "utf-8")) as T[];
     },
 
     saveAll(items: T[]): void {
       writeFileSync(
-        join(getStorageDir(), filename),
+        join(dataDir, filename),
         JSON.stringify(items, null, 2),
       );
     },

@@ -10,15 +10,15 @@ REST endpoints for managing scenarios. Scenarios contain instructions that provi
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/scenarios` | List scenarios |
-| POST | `/api/scenarios` | Create a scenario |
-| GET | `/api/scenarios/:id` | Get a scenario by ID |
-| PUT | `/api/scenarios/:id` | Update a scenario |
-| DELETE | `/api/scenarios/:id` | Delete a scenario |
+| GET | `/api/projects/:projectId/scenarios` | List scenarios |
+| POST | `/api/projects/:projectId/scenarios` | Create a scenario |
+| GET | `/api/projects/:projectId/scenarios/:id` | Get a scenario by ID |
+| PUT | `/api/projects/:projectId/scenarios/:id` | Update a scenario |
+| DELETE | `/api/projects/:projectId/scenarios/:id` | Delete a scenario |
 
 ---
 
-## GET /api/scenarios
+## GET /api/projects/:projectId/scenarios
 
 List all scenarios.
 
@@ -43,12 +43,12 @@ List all scenarios.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/scenarios
+curl http://localhost:3000/api/projects/PROJECT_ID/scenarios
 ```
 
 ---
 
-## POST /api/scenarios
+## POST /api/projects/:projectId/scenarios
 
 Create a new scenario.
 
@@ -106,7 +106,7 @@ Create a new scenario.
 ### Example
 
 ```bash
-curl -X POST http://localhost:3000/api/scenarios \
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/scenarios \
   -H "Content-Type: application/json" \
   -d '{
     "name": "booking-cancellation",
@@ -116,7 +116,7 @@ curl -X POST http://localhost:3000/api/scenarios \
 
 ---
 
-## GET /api/scenarios/:id
+## GET /api/projects/:projectId/scenarios/:id
 
 Get a scenario by its ID.
 
@@ -145,12 +145,12 @@ Get a scenario by its ID.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/scenarios/987fcdeb-51a2-3bc4-d567-890123456789
+curl http://localhost:3000/api/projects/PROJECT_ID/scenarios/987fcdeb-51a2-3bc4-d567-890123456789
 ```
 
 ---
 
-## PUT /api/scenarios/:id
+## PUT /api/projects/:projectId/scenarios/:id
 
 Update an existing scenario.
 
@@ -203,14 +203,14 @@ Update an existing scenario.
 ### Example
 
 ```bash
-curl -X PUT http://localhost:3000/api/scenarios/987fcdeb-51a2-3bc4-d567-890123456789 \
+curl -X PUT http://localhost:3000/api/projects/PROJECT_ID/scenarios/987fcdeb-51a2-3bc4-d567-890123456789 \
   -H "Content-Type: application/json" \
   -d '{"instructions": "Customer wants to cancel appointment. VIP customer with flexible policy."}'
 ```
 
 ---
 
-## DELETE /api/scenarios/:id
+## DELETE /api/projects/:projectId/scenarios/:id
 
 Delete a scenario.
 
@@ -227,5 +227,5 @@ Empty response on success.
 ### Example
 
 ```bash
-curl -X DELETE http://localhost:3000/api/scenarios/987fcdeb-51a2-3bc4-d567-890123456789
+curl -X DELETE http://localhost:3000/api/projects/PROJECT_ID/scenarios/987fcdeb-51a2-3bc4-d567-890123456789
 ```

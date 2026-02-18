@@ -1,4 +1,5 @@
-import { readProjectConfig } from "./project.js";
+import { getProjectConfig } from "./project.js";
+import type { ProjectContext } from "./project-resolver.js";
 
 export type ProviderType = "openai" | "anthropic";
 
@@ -17,11 +18,11 @@ export interface LLMProvider {
 }
 
 /**
- * Reads the project config and returns an LLMProvider object.
+ * Reads the effective project config and returns an LLMProvider object.
  * Throws if no provider is configured.
  */
-export function getLLMProviderFromConfig(): LLMProvider {
-  const config = readProjectConfig();
+export function getLLMProviderFromProjectConfig(ctx: ProjectContext): LLMProvider {
+  const config = getProjectConfig(ctx);
 
   if (!config.llmSettings) {
     throw new Error(

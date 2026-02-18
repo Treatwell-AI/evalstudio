@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createJsonRepository, type Repository } from "./repository.js";
+import type { ProjectContext } from "./project-resolver.js";
 import type { Message } from "./types.js";
 
 export type { Message };
@@ -16,15 +17,10 @@ export interface Scenario {
   name: string;
   instructions?: string;
   messages?: Message[];
-  /** Maximum number of messages in a conversation before stopping */
   maxMessages?: number;
-  /** Criteria for determining if the agent passed (used by evaluator) */
   successCriteria?: string;
-  /** Criteria for determining if the agent failed (used by evaluator) */
   failureCriteria?: string;
-  /** When to check failureCriteria: "on_max_messages" (default) or "every_turn" */
   failureCriteriaMode?: FailureCriteriaMode;
-  /** IDs of personas associated with this scenario (optional, can be empty) */
   personaIds?: string[];
   createdAt: string;
   updatedAt: string;
@@ -34,15 +30,10 @@ export interface CreateScenarioInput {
   name: string;
   instructions?: string;
   messages?: Message[];
-  /** Maximum number of messages in a conversation before stopping */
   maxMessages?: number;
-  /** Criteria for determining if the agent passed */
   successCriteria?: string;
-  /** Criteria for determining if the agent failed */
   failureCriteria?: string;
-  /** When to check failureCriteria: "on_max_messages" (default) or "every_turn" */
   failureCriteriaMode?: FailureCriteriaMode;
-  /** IDs of personas associated with this scenario */
   personaIds?: string[];
 }
 
@@ -50,115 +41,107 @@ export interface UpdateScenarioInput {
   name?: string;
   instructions?: string;
   messages?: Message[];
-  /** Maximum number of messages in a conversation before stopping */
   maxMessages?: number;
-  /** Criteria for determining if the agent passed */
   successCriteria?: string;
-  /** Criteria for determining if the agent failed */
   failureCriteria?: string;
-  /** When to check failureCriteria: "on_max_messages" (default) or "every_turn" */
   failureCriteriaMode?: FailureCriteriaMode;
-  /** IDs of personas associated with this scenario */
   personaIds?: string[];
 }
 
-const repo: Repository<Scenario> = createJsonRepository<Scenario>("scenarios.json");
+export function createScenarioModule(ctx: ProjectContext) {
+  const repo: Repository<Scenario> = createJsonRepository<Scenario>("scenarios.json", ctx.dataDir);
 
-export function createScenario(input: CreateScenarioInput): Scenario {
-  const scenarios = repo.findAll();
+  return {
+    create(input: CreateScenarioInput): Scenario {
+      const scenarios = repo.findAll();
 
-  if (scenarios.some((s) => s.name === input.name)) {
-    throw new Error(
-      `Scenario with name "${input.name}" already exists`
-    );
-  }
+      if (scenarios.some((s) => s.name === input.name)) {
+        throw new Error(`Scenario with name "${input.name}" already exists`);
+      }
 
-  const now = new Date().toISOString();
-  const scenario: Scenario = {
-    id: randomUUID(),
-    name: input.name,
-    instructions: input.instructions,
-    messages: input.messages,
-    maxMessages: input.maxMessages,
-    successCriteria: input.successCriteria,
-    failureCriteria: input.failureCriteria,
-    failureCriteriaMode: input.failureCriteriaMode,
-    personaIds: input.personaIds,
-    createdAt: now,
-    updatedAt: now,
+      const now = new Date().toISOString();
+      const scenario: Scenario = {
+        id: randomUUID(),
+        name: input.name,
+        instructions: input.instructions,
+        messages: input.messages,
+        maxMessages: input.maxMessages,
+        successCriteria: input.successCriteria,
+        failureCriteria: input.failureCriteria,
+        failureCriteriaMode: input.failureCriteriaMode,
+        personaIds: input.personaIds,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      scenarios.push(scenario);
+      repo.saveAll(scenarios);
+
+      return scenario;
+    },
+
+    get(id: string): Scenario | undefined {
+      return repo.findAll().find((s) => s.id === id);
+    },
+
+    getByName(name: string): Scenario | undefined {
+      return repo.findAll().find((s) => s.name === name);
+    },
+
+    list(): Scenario[] {
+      return repo.findAll();
+    },
+
+    update(id: string, input: UpdateScenarioInput): Scenario | undefined {
+      const scenarios = repo.findAll();
+      const index = scenarios.findIndex((s) => s.id === id);
+
+      if (index === -1) {
+        return undefined;
+      }
+
+      const scenario = scenarios[index];
+
+      if (
+        input.name &&
+        scenarios.some((s) => s.name === input.name && s.id !== id)
+      ) {
+        throw new Error(`Scenario with name "${input.name}" already exists`);
+      }
+
+      const updated: Scenario = {
+        ...scenario,
+        name: input.name ?? scenario.name,
+        instructions: input.instructions ?? scenario.instructions,
+        messages: input.messages ?? scenario.messages,
+        maxMessages: input.maxMessages ?? scenario.maxMessages,
+        successCriteria: input.successCriteria ?? scenario.successCriteria,
+        failureCriteria: input.failureCriteria ?? scenario.failureCriteria,
+        failureCriteriaMode: input.failureCriteriaMode ?? scenario.failureCriteriaMode,
+        personaIds: input.personaIds ?? scenario.personaIds,
+        updatedAt: new Date().toISOString(),
+      };
+
+      scenarios[index] = updated;
+      repo.saveAll(scenarios);
+
+      return updated;
+    },
+
+    delete(id: string): boolean {
+      const scenarios = repo.findAll();
+      const index = scenarios.findIndex((s) => s.id === id);
+
+      if (index === -1) {
+        return false;
+      }
+
+      scenarios.splice(index, 1);
+      repo.saveAll(scenarios);
+
+      return true;
+    },
   };
-
-  scenarios.push(scenario);
-  repo.saveAll(scenarios);
-
-  return scenario;
 }
 
-export function getScenario(id: string): Scenario | undefined {
-  const scenarios = repo.findAll();
-  return scenarios.find((s) => s.id === id);
-}
-
-export function getScenarioByName(name: string): Scenario | undefined {
-  const scenarios = repo.findAll();
-  return scenarios.find((s) => s.name === name);
-}
-
-export function listScenarios(): Scenario[] {
-  return repo.findAll();
-}
-
-export function updateScenario(
-  id: string,
-  input: UpdateScenarioInput
-): Scenario | undefined {
-  const scenarios = repo.findAll();
-  const index = scenarios.findIndex((s) => s.id === id);
-
-  if (index === -1) {
-    return undefined;
-  }
-
-  const scenario = scenarios[index];
-
-  if (
-    input.name &&
-    scenarios.some((s) => s.name === input.name && s.id !== id)
-  ) {
-    throw new Error(
-      `Scenario with name "${input.name}" already exists`
-    );
-  }
-
-  const updated: Scenario = {
-    ...scenario,
-    name: input.name ?? scenario.name,
-    instructions: input.instructions ?? scenario.instructions,
-    messages: input.messages ?? scenario.messages,
-    maxMessages: input.maxMessages ?? scenario.maxMessages,
-    successCriteria: input.successCriteria ?? scenario.successCriteria,
-    failureCriteria: input.failureCriteria ?? scenario.failureCriteria,
-    failureCriteriaMode: input.failureCriteriaMode ?? scenario.failureCriteriaMode,
-    personaIds: input.personaIds ?? scenario.personaIds,
-    updatedAt: new Date().toISOString(),
-  };
-
-  scenarios[index] = updated;
-  repo.saveAll(scenarios);
-
-  return updated;
-}
-
-export function deleteScenario(id: string): boolean {
-  const scenarios = repo.findAll();
-  const index = scenarios.findIndex((s) => s.id === id);
-
-  if (index === -1) {
-    return false;
-  }
-
-  scenarios.splice(index, 1);
-  repo.saveAll(scenarios);
-
-  return true;
-}
+export type ScenarioModule = ReturnType<typeof createScenarioModule>;

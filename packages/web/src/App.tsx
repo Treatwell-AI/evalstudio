@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProjectLayout } from "./components/ProjectLayout";
+import { ProjectRedirect } from "./components/ProjectRedirect";
 import { StatusBar } from "./components/StatusBar";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EvalsPage } from "./pages/EvalsPage";
@@ -17,7 +18,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<ProjectLayout />}>
+        {/* Root redirects to the first project */}
+        <Route index element={<ProjectRedirect />} />
+
+        {/* Project-scoped routes */}
+        <Route path="projects/:projectId" element={<ProjectLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="evals" element={<EvalsPage />} />
           <Route path="evals/:evalId" element={<EvalDetailPage />} />
@@ -30,6 +35,9 @@ export default function App() {
           <Route path="settings/llm-providers" element={<SettingsLLMProvidersPage />} />
           <Route path="settings/users" element={<SettingsUsersPage />} />
         </Route>
+
+        {/* Catch-all redirect */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <StatusBar />
     </BrowserRouter>

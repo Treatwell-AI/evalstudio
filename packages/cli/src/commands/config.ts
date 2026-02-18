@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { getProjectConfig, updateProjectConfig } from "@evalstudio/core";
+import { resolveProjectFromCwd, getProjectConfig, updateProjectConfig } from "@evalstudio/core";
 
 export const configCommand = new Command("config")
   .description("View or update project configuration")
@@ -8,7 +8,8 @@ export const configCommand = new Command("config")
       .description("Show current project configuration")
       .option("--json", "Output as JSON")
       .action((options: { json?: boolean }) => {
-        const config = getProjectConfig();
+        const ctx = resolveProjectFromCwd();
+        const config = getProjectConfig(ctx);
 
         if (options.json) {
           console.log(JSON.stringify(config, null, 2));
@@ -38,6 +39,7 @@ export const configCommand = new Command("config")
       .option("--json", "Output as JSON")
       .action((key: string, value: string, options: { json?: boolean }) => {
         try {
+          const ctx = resolveProjectFromCwd();
           let input: Record<string, unknown> = {};
 
           switch (key) {
@@ -59,7 +61,7 @@ export const configCommand = new Command("config")
               process.exit(1);
           }
 
-          const config = updateProjectConfig(input);
+          const config = updateProjectConfig(ctx, input);
 
           if (options.json) {
             console.log(JSON.stringify(config, null, 2));

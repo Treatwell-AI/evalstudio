@@ -25,7 +25,7 @@ export function PersonasPage() {
       });
       setShowCreateModal(false);
       setName("");
-      navigate(`/personas/${persona.id}`);
+      navigate(persona.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }

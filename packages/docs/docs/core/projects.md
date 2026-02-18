@@ -4,148 +4,174 @@ sidebar_position: 2
 
 # Projects
 
-A project in EvalStudio is defined by a directory containing an `evalstudio.config.json` file. One directory = one project. There is no separate project entity to create or manage -- the config file **is** the project.
+EvalStudio supports multiple projects within a single workspace. Each project has isolated data and optional configuration overrides.
 
-## Project Structure
-
-When you run `evalstudio init`, a project directory is created with this structure:
+## Workspace Structure
 
 ```
 my-evals/
-  evalstudio.config.json   # Project configuration (commit to git)
-  data/                    # Entity data storage
-    personas.json
-    scenarios.json
-    evals.json
-    runs.json
-    executions.json
-    connectors.json
+  evalstudio.config.json          # Workspace config + project registry + defaults
+  projects/
+    <uuid>/
+      project.config.json         # Per-project overrides
+      data/                       # Entity data (personas, scenarios, etc.)
 ```
 
-## Configuration File
+## Configuration Hierarchy
 
-The `evalstudio.config.json` file defines the project settings:
+Workspace defaults are merged with per-project overrides:
 
-```json
-{
-  "name": "my-product-evals",
-  "maxConcurrency": 5,
-  "llmSettings": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "models": {
-      "evaluation": "gpt-4o",
-      "persona": "gpt-4o-mini"
-    }
-  }
-}
-```
+- **Workspace config** (`evalstudio.config.json`) — shared defaults for LLM settings, max concurrency
+- **Per-project config** (`project.config.json`) — project-specific overrides; unset fields inherit from workspace
 
 ## Import
 
 ```typescript
 import {
+  // Workspace operations
+  resolveWorkspace,
+  initWorkspace,
+  readWorkspaceConfig,
+  updateWorkspaceConfig,
+  // Project operations
+  listProjects,
+  createProject,
+  resolveProject,
+  resolveProjectFromCwd,
+  deleteProject,
+  // Project config
   getProjectConfig,
   updateProjectConfig,
+  // Types
+  type ProjectContext,
   type ProjectConfig,
-  type UpdateProjectConfigInput,
+  type WorkspaceConfig,
   type LLMSettings,
-  type LLMModelSettings,
 } from "@evalstudio/core";
 ```
 
 ## Types
 
+### ProjectContext
+
+Immutable context for a specific project, passed to all entity functions.
+
+```typescript
+interface ProjectContext {
+  id: string;           // UUID
+  name: string;         // Display name
+  dataDir: string;      // Absolute path to projects/{uuid}/data/
+  configPath: string;   // Absolute path to projects/{uuid}/project.config.json
+  workspaceDir: string; // Absolute path to workspace root
+}
+```
+
 ### ProjectConfig
+
+Effective project configuration (workspace defaults merged with project overrides).
 
 ```typescript
 interface ProjectConfig {
   version: number;
-  name: string;                   // Project name
-  maxConcurrency?: number;        // Max concurrent run executions (default: 3)
-  llmSettings?: LLMSettings;     // LLM provider, credentials, and model selection
+  name: string;
+  llmSettings?: LLMSettings;
+  maxConcurrency?: number;
+}
+```
+
+### WorkspaceConfig
+
+```typescript
+interface WorkspaceConfig extends ProjectConfig {
+  projects: Array<{ id: string; name: string }>;
 }
 ```
 
 ### LLMSettings
 
-Unified LLM configuration: provider credentials and model selection in a single object.
-
 ```typescript
 interface LLMSettings {
-  provider: ProviderType;          // "openai" or "anthropic"
-  apiKey: string;                  // API key for the provider
-  models?: LLMModelSettings;      // Model selection per use-case
+  provider: ProviderType;     // "openai" or "anthropic"
+  apiKey: string;
+  models?: LLMModelSettings;
 }
-```
 
-### LLMModelSettings
-
-Configure which models to use for different use-cases. The provider is shared — only the model varies.
-
-```typescript
 interface LLMModelSettings {
-  /** Model for evaluation/judging conversations (optional, uses provider default) */
-  evaluation?: string;
-  /** Model for persona response generation (optional, falls back to evaluation model) */
-  persona?: string;
-}
-```
-
-### UpdateProjectConfigInput
-
-```typescript
-interface UpdateProjectConfigInput {
-  name?: string;
-  maxConcurrency?: number | null;        // null to clear (reverts to default: 3)
-  llmSettings?: LLMSettings | null;      // null to remove LLM configuration
+  evaluation?: string;  // Model for evaluation/judging
+  persona?: string;     // Model for persona generation
 }
 ```
 
 ## Functions
 
-### getProjectConfig()
+### resolveProjectFromCwd()
 
-Reads the current project configuration from `evalstudio.config.json`.
+Resolve a ProjectContext from the current working directory.
 
 ```typescript
-function getProjectConfig(): ProjectConfig;
+function resolveProjectFromCwd(startDir?: string): ProjectContext;
 ```
 
+Resolution order:
+1. If inside `projects/{uuid}/` (has `project.config.json`), use that project
+2. If at workspace root with exactly one project, use it
+3. Otherwise, throw
+
+### createProject()
+
+Create a new project in a workspace.
+
 ```typescript
-const config = getProjectConfig();
-console.log(config.name);  // "my-product-evals"
-console.log(config.llmSettings?.provider);  // "openai"
+function createProject(workspaceDir: string, name: string): ProjectContext;
+```
+
+### resolveProject()
+
+Resolve a project by ID (supports prefix matching).
+
+```typescript
+function resolveProject(workspaceDir: string, projectId: string): ProjectContext;
+```
+
+### getProjectConfig()
+
+Get the effective (merged) configuration for a project.
+
+```typescript
+function getProjectConfig(ctx: ProjectContext): ProjectConfig;
 ```
 
 ### updateProjectConfig()
 
-Updates the project configuration in `evalstudio.config.json`.
+Update a project's configuration.
 
 ```typescript
-function updateProjectConfig(input: UpdateProjectConfigInput): ProjectConfig;
+function updateProjectConfig(
+  ctx: ProjectContext,
+  input: UpdateProjectConfigInput,
+): ProjectConfig;
 ```
+
+### initWorkspace()
+
+Initialize a new workspace with its first project.
 
 ```typescript
-const updated = updateProjectConfig({
-  llmSettings: {
-    provider: "openai",
-    apiKey: "sk-your-api-key",
-    models: {
-      evaluation: "gpt-4o",
-    },
-  },
-});
+function initWorkspace(
+  dir: string,
+  workspaceName: string,
+  projectName: string,
+): InitWorkspaceResult;
 ```
 
-## Project Directory Resolution
+## Entity Functions
 
-EvalStudio resolves the project directory in this order:
+All entity modules (persona, scenario, eval, connector, run, execution) accept a `ProjectContext` parameter:
 
-1. `setProjectDir()` -- programmatic override (for tests or embedding)
-2. `EVALSTUDIO_PROJECT_DIR` -- environment variable
-3. **Local project** -- walks up from `cwd` looking for `evalstudio.config.json`
+```typescript
+import { listPersonas, createPersona, type ProjectContext } from "@evalstudio/core";
 
-## Storage
-
-All entity data (personas, scenarios, evals, runs, etc.) is stored as JSON files in the `data/` subdirectory of the project.
+const ctx: ProjectContext = resolveProjectFromCwd();
+const personas = listPersonas(ctx);
+const persona = createPersona(ctx, { name: "frustrated-customer" });
+```

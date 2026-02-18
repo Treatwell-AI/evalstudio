@@ -1,11 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
-  createEval,
-  deleteEval,
-  getEval,
-  getEvalWithRelations,
-  listEvals,
-  updateEval,
+  createEvalModule,
   type Message,
 } from "@evalstudio/core";
 
@@ -38,18 +33,20 @@ interface EvalQuerystring {
 }
 
 export async function evalsRoute(fastify: FastifyInstance) {
-  fastify.get("/evals", async () => {
-    return listEvals();
+  fastify.get("/evals", async (request) => {
+    const evals = createEvalModule(request.projectCtx!);
+    return evals.list();
   });
 
   fastify.get<{ Params: EvalParams; Querystring: EvalQuerystring }>(
     "/evals/:id",
     async (request, reply) => {
+      const evals = createEvalModule(request.projectCtx!);
       const expand = request.query.expand === "true";
 
       const evalItem = expand
-        ? getEvalWithRelations(request.params.id)
-        : getEval(request.params.id);
+        ? evals.getWithRelations(request.params.id)
+        : evals.get(request.params.id);
 
       if (!evalItem) {
         reply.code(404);
@@ -86,7 +83,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const evalItem = createEval({
+        const evals = createEvalModule(request.projectCtx!);
+        const evalItem = evals.create({
           name,
           input,
           scenarioIds,
@@ -119,7 +117,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
       } = request.body;
 
       try {
-        const evalItem = updateEval(request.params.id, {
+        const evals = createEvalModule(request.projectCtx!);
+        const evalItem = evals.update(request.params.id, {
           name,
           input,
           scenarioIds,
@@ -149,7 +148,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: EvalParams }>(
     "/evals/:id",
     async (request, reply) => {
-      const deleted = deleteEval(request.params.id);
+      const evals = createEvalModule(request.projectCtx!);
+      const deleted = evals.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

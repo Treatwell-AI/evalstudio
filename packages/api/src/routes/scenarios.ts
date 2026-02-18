@@ -2,12 +2,8 @@ import type { FastifyInstance } from "fastify";
 import {
   buildTestAgentMessages,
   buildTestAgentSystemPrompt,
-  createScenario,
-  deleteScenario,
-  getPersona,
-  getScenario,
-  listScenarios,
-  updateScenario,
+  createScenarioModule,
+  createPersonaModule,
   type FailureCriteriaMode,
   type Message,
 } from "@evalstudio/core";
@@ -43,14 +39,16 @@ interface ScenarioPromptQuerystring {
 }
 
 export async function scenariosRoute(fastify: FastifyInstance) {
-  fastify.get("/scenarios", async () => {
-    return listScenarios();
+  fastify.get("/scenarios", async (request) => {
+    const scenarios = createScenarioModule(request.projectCtx!);
+    return scenarios.list();
   });
 
   fastify.get<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const scenario = getScenario(request.params.id);
+      const scenarios = createScenarioModule(request.projectCtx!);
+      const scenario = scenarios.get(request.params.id);
 
       if (!scenario) {
         reply.code(404);
@@ -65,7 +63,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.get<{ Params: ScenarioParams; Querystring: ScenarioPromptQuerystring }>(
     "/scenarios/:id/prompt",
     async (request, reply) => {
-      const scenario = getScenario(request.params.id);
+      const scenarios = createScenarioModule(request.projectCtx!);
+      const scenario = scenarios.get(request.params.id);
 
       if (!scenario) {
         reply.code(404);
@@ -75,7 +74,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       // Get persona if provided
       let persona = null;
       if (request.query.personaId) {
-        persona = getPersona(request.query.personaId);
+        const personaMod = createPersonaModule(request.projectCtx!);
+        persona = personaMod.get(request.query.personaId);
         if (!persona) {
           reply.code(404);
           return { error: "Persona not found" };
@@ -105,7 +105,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const scenario = createScenario({
+        const scenarios = createScenarioModule(request.projectCtx!);
+        const scenario = scenarios.create({
           name,
           instructions,
           messages,
@@ -133,7 +134,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
 
       try {
-        const scenario = updateScenario(request.params.id, {
+        const scenarios = createScenarioModule(request.projectCtx!);
+        const scenario = scenarios.update(request.params.id, {
           name,
           instructions,
           messages,
@@ -163,7 +165,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const deleted = deleteScenario(request.params.id);
+      const scenarios = createScenarioModule(request.projectCtx!);
+      const deleted = scenarios.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

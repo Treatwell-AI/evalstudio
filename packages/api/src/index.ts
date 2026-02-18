@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
-import { ERR_NO_PROJECT, RunProcessor } from "@evalstudio/core";
+import {
+  ERR_NO_PROJECT,
+  RunProcessor,
+  resolveWorkspace,
+  resolveProject,
+  type ProjectContext,
+} from "@evalstudio/core";
 import { connectorsRoute } from "./routes/connectors.js";
 import { evalsRoute } from "./routes/evals.js";
 import { llmProvidersRoute } from "./routes/llm-providers.js";
@@ -12,8 +18,17 @@ import { runsRoute } from "./routes/runs.js";
 import { scenariosRoute } from "./routes/scenarios.js";
 import { statusRoute } from "./routes/status.js";
 
+// Extend Fastify request with project context
+declare module "fastify" {
+  interface FastifyRequest {
+    projectCtx: ProjectContext | null;
+  }
+}
+
 export interface ServerOptions {
   logger?: boolean;
+  /** Workspace root directory (defaults to resolving from cwd) */
+  workspaceDir?: string;
   /** Enable background run processing (default: true) */
   runProcessor?: boolean;
   /** Run processor polling interval in ms (default: 5000) */
@@ -27,10 +42,19 @@ export interface ServerOptions {
 // Global processor instance for graceful shutdown
 let runProcessor: RunProcessor | null = null;
 
+interface ProjectIdParams {
+  projectId: string;
+}
+
 export async function createServer(options: ServerOptions = {}) {
+  const workspaceDir = options.workspaceDir ?? resolveWorkspace();
+
   const fastify = Fastify({
     logger: options.logger ?? false,
   });
+
+  // Decorate request with projectCtx (null initial value required by Fastify)
+  fastify.decorateRequest("projectCtx", null);
 
   // Handle "no project found" errors with a helpful message
   fastify.setErrorHandler((error: Error & { statusCode?: number; code?: string }, _request, reply) => {
@@ -44,14 +68,28 @@ export async function createServer(options: ServerOptions = {}) {
   // Register all API routes under /api prefix
   await fastify.register(
     async (api) => {
-      await api.register(connectorsRoute);
-      await api.register(evalsRoute);
-      await api.register(llmProvidersRoute);
-      await api.register(personasRoute);
-      await api.register(projectsRoute);
-      await api.register(runsRoute);
-      await api.register(scenariosRoute);
+      // Workspace-level routes (no project context needed)
       await api.register(statusRoute);
+      await api.register(llmProvidersRoute);
+      await api.register(projectsRoute, { workspaceDir });
+
+      // Project-scoped routes under /projects/:projectId/
+      await api.register(
+        async (scoped) => {
+          // Resolve project context from URL param
+          scoped.addHook("preHandler", async (request) => {
+            const { projectId } = request.params as ProjectIdParams;
+            request.projectCtx = resolveProject(workspaceDir, projectId);
+          });
+
+          await scoped.register(connectorsRoute);
+          await scoped.register(evalsRoute);
+          await scoped.register(personasRoute);
+          await scoped.register(runsRoute);
+          await scoped.register(scenariosRoute);
+        },
+        { prefix: "/projects/:projectId" },
+      );
     },
     { prefix: "/api" }
   );
@@ -82,6 +120,7 @@ export async function createServer(options: ServerOptions = {}) {
     const maxConcurrent = options.runProcessorMaxConcurrent;
 
     runProcessor = new RunProcessor({
+      workspaceDir,
       pollIntervalMs: pollMs,
       ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
       onRunStart: (run) => {

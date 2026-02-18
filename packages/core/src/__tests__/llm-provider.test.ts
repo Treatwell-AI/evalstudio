@@ -1,54 +1,94 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getDefaultModels,
-  getLLMProviderFromConfig,
+  getLLMProviderFromProjectConfig,
 } from "../llm-provider.js";
-import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
+import type { ProjectContext } from "../project-resolver.js";
 
-let testDir: string;
+let tempDir: string;
+let ctx: ProjectContext;
+
+function setupWorkspace(
+  wsOverrides: Record<string, unknown> = {},
+  projOverrides: Record<string, unknown> = {},
+) {
+  const projectId = "proj1";
+  const projectDir = join(tempDir, "projects", projectId);
+  const dataDir = join(projectDir, "data");
+  mkdirSync(dataDir, { recursive: true });
+
+  const wsConfig = {
+    version: 3,
+    name: "test-workspace",
+    projects: [{ id: projectId, name: "Test Project" }],
+    ...wsOverrides,
+  };
+  writeFileSync(
+    join(tempDir, "evalstudio.config.json"),
+    JSON.stringify(wsConfig, null, 2),
+  );
+
+  const projConfig = {
+    name: "Test Project",
+    ...projOverrides,
+  };
+  writeFileSync(
+    join(projectDir, "project.config.json"),
+    JSON.stringify(projConfig, null, 2),
+  );
+
+  ctx = {
+    id: projectId,
+    name: "Test Project",
+    dataDir,
+    configPath: join(projectDir, "project.config.json"),
+    workspaceDir: tempDir,
+  };
+}
 
 describe("llm-provider", () => {
-  beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    setStorageDir(testDir);
-    setConfigDir(testDir);
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
   });
 
-  afterAll(() => {
-    resetStorageDir();
-    rmSync(testDir, { recursive: true, force: true });
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe("getLLMProviderFromConfig", () => {
-    it("returns provider from config", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          llmSettings: {
-            provider: "openai",
-            apiKey: "sk-test-key",
-          },
-        }, null, 2)
-      );
+  describe("getLLMProviderFromProjectConfig", () => {
+    it("returns provider from project config", () => {
+      setupWorkspace({}, {
+        llmSettings: {
+          provider: "openai",
+          apiKey: "sk-test-key",
+        },
+      });
 
-      const provider = getLLMProviderFromConfig();
+      const provider = getLLMProviderFromProjectConfig(ctx);
 
       expect(provider.provider).toBe("openai");
       expect(provider.apiKey).toBe("sk-test-key");
     });
 
-    it("throws when no provider configured", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({ version: 2, name: "test-project" }, null, 2)
+    it("returns provider inherited from workspace config", () => {
+      setupWorkspace(
+        { llmSettings: { provider: "anthropic", apiKey: "sk-ws-key" } },
+        {},
       );
 
-      expect(() => getLLMProviderFromConfig()).toThrow(
+      const provider = getLLMProviderFromProjectConfig(ctx);
+
+      expect(provider.provider).toBe("anthropic");
+      expect(provider.apiKey).toBe("sk-ws-key");
+    });
+
+    it("throws when no provider configured", () => {
+      setupWorkspace({}, {});
+
+      expect(() => getLLMProviderFromProjectConfig(ctx)).toThrow(
         "No LLM provider configured"
       );
     });

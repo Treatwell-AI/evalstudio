@@ -2,19 +2,24 @@
 sidebar_position: 2
 ---
 
-# evalstudio init
+# evalstudio init & projects
 
-Initialize a new EvalStudio project directory.
+Commands for initializing workspaces and managing projects.
 
-## Usage
+## evalstudio init
+
+Initialize a new EvalStudio workspace with a first project.
+
+### Usage
 
 ```bash
 evalstudio init [directory]
 ```
 
-Creates a project directory with:
-- `evalstudio.config.json` — project configuration (commit to git)
-- `data/` — entity data storage
+Creates a workspace directory with:
+- `evalstudio.config.json` — workspace configuration with project registry
+- `projects/<uuid>/project.config.json` — first project configuration
+- `projects/<uuid>/data/` — entity data storage
 
 If no directory is specified, the current directory is initialized.
 
@@ -27,33 +32,51 @@ cd my-evals
 
 Output:
 ```
-Project initialized in ./my-evals
+Workspace initialized in ./my-evals
   Config: my-evals/evalstudio.config.json
-  Data:   my-evals/data/
+  Project: my-product-evals (a1b2c3d4)
 ```
 
-## Project Configuration
+## evalstudio projects
 
-The project is defined by the `evalstudio.config.json` file. You can edit it directly, update it via the API (`PUT /api/project`), or use the CLI `config` command.
+Manage projects within a workspace.
 
-```json
-{
-  "name": "my-product-evals",
-  "maxConcurrency": 5,
-  "llmSettings": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "models": {
-      "evaluation": "gpt-4o",
-      "persona": "gpt-4o-mini"
-    }
-  }
-}
+### List Projects
+
+```bash
+evalstudio projects list
+evalstudio projects list --json
+```
+
+### Create Project
+
+```bash
+evalstudio projects create -n "staging-tests"
+```
+
+### Show Project
+
+```bash
+evalstudio projects show <identifier>
+```
+
+The identifier can be a project ID, ID prefix, or name.
+
+### Update Project
+
+```bash
+evalstudio projects update <identifier> -n "new-name"
+```
+
+### Delete Project
+
+```bash
+evalstudio projects delete <identifier>
 ```
 
 ## evalstudio config
 
-View or update project configuration values from the CLI.
+View or update the current project's configuration.
 
 ### Show Configuration
 
@@ -73,13 +96,40 @@ Supported keys: `name`, `maxConcurrency`.
 
 ## Project Directory Resolution
 
-EvalStudio resolves the project directory in this order:
+EvalStudio resolves the project context in this order:
 
-1. `EVALSTUDIO_PROJECT_DIR` — environment variable override
-2. **Local project** — walks up from `cwd` looking for `evalstudio.config.json`
+1. **Inside a project directory** — walks up from `cwd` looking for `project.config.json`, derives workspace from parent structure
+2. **At workspace root with one project** — auto-selects the single project
+3. **At workspace root with multiple projects** — prompts to use `evalstudio use <project>` to switch
+4. `EVALSTUDIO_PROJECT_DIR` — environment variable override
 
 ```bash
-# Override project directory
-export EVALSTUDIO_PROJECT_DIR=/path/to/project
+# Navigate into a project directory
+cd projects/a1b2c3d4
+evalstudio status  # uses that project
+
+# Or override via environment variable
+export EVALSTUDIO_PROJECT_DIR=/path/to/workspace
 evalstudio status
+```
+
+## Workspace Structure
+
+```
+my-evals/
+  evalstudio.config.json          # Workspace config + project registry
+  projects/
+    a1b2c3d4-.../
+      project.config.json         # Per-project config (overrides workspace defaults)
+      data/
+        personas.json
+        scenarios.json
+        evals.json
+        runs.json
+        executions.json
+        connectors.json
+    f9e8d7c6-.../
+      project.config.json
+      data/
+        ...
 ```

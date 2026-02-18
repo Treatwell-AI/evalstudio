@@ -1,21 +1,16 @@
-import { getEval } from "./eval.js";
+import { createEvalModule } from "./eval.js";
+import { createConnectorModule, type ConnectorInvokeResult } from "./connector.js";
+import { getLLMProviderFromProjectConfig, type LLMProvider } from "./llm-provider.js";
+import { createPersonaModule, type Persona } from "./persona.js";
+import { createScenarioModule, type Scenario } from "./scenario.js";
+import { createRunModule, type Run, type RunStatus, type RunResult } from "./run.js";
 import {
-  invokeConnector,
-  type ConnectorInvokeResult,
-} from "./connector.js";
-import { getLLMProviderFromConfig, type LLMProvider } from "./llm-provider.js";
-import { getPersona, type Persona } from "./persona.js";
-import { getScenario, type Scenario } from "./scenario.js";
-import {
-  getRun,
-  listRuns,
-  updateRun,
-  type Run,
-  type RunStatus,
-  type RunResult,
-} from "./run.js";
-import { ERR_NO_PROJECT } from "./project-resolver.js";
-import { readProjectConfig } from "./project.js";
+  listProjects,
+  resolveProject,
+  type ProjectContext,
+} from "./project-resolver.js";
+import { getProjectConfig } from "./project.js";
+import { readWorkspaceConfig } from "./project.js";
 import type { Message } from "./types.js";
 import { buildTestAgentSystemPrompt } from "./prompt.js";
 import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";
@@ -33,9 +28,11 @@ interface ResolvedLLMConfig {
 export type { RunStatus };
 
 export interface RunProcessorOptions {
+  /** Workspace root directory */
+  workspaceDir: string;
   /** Polling interval in milliseconds (default: 5000) */
   pollIntervalMs?: number;
-  /** Maximum concurrent run executions (default: 3) */
+  /** Maximum concurrent run executions (default: from workspace config, then 3) */
   maxConcurrent?: number;
   /** Callback for status changes */
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
@@ -48,6 +45,7 @@ export interface RunProcessorOptions {
 }
 
 interface InternalOptions {
+  workspaceDir: string;
   pollIntervalMs: number;
   maxConcurrent: number;
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
@@ -59,16 +57,14 @@ interface InternalOptions {
 /**
  * Background processor for executing queued evaluation runs.
  *
- * The RunProcessor polls for runs with status "queued" and executes them
- * via the configured connector. It supports concurrent execution and provides
- * callbacks for monitoring status changes.
- *
- * Works from both CLI and API contexts - the same processor logic can be used
- * with different status update mechanisms (terminal output vs WebSocket).
+ * A single RunProcessor serves all projects in a workspace.
+ * On each poll cycle, it iterates over all projects to find queued runs
+ * and executes them using each project's effective config.
  *
  * @example
  * ```typescript
  * const processor = new RunProcessor({
+ *   workspaceDir: '/path/to/workspace',
  *   pollIntervalMs: 5000,
  *   maxConcurrent: 3,
  *   onStatusChange: (runId, status, run) => {
@@ -88,19 +84,20 @@ export class RunProcessor {
   private activeRuns = new Map<string, Promise<void>>();
   private options: InternalOptions;
 
-  constructor(options: RunProcessorOptions = {}) {
-    // Read maxConcurrency from project config as fallback
+  constructor(options: RunProcessorOptions) {
+    // Read maxConcurrency from workspace config as fallback
     let configMaxConcurrency: number | undefined;
     if (options.maxConcurrent === undefined) {
       try {
-        const config = readProjectConfig();
-        configMaxConcurrency = config.maxConcurrency;
+        const wsConfig = readWorkspaceConfig(options.workspaceDir);
+        configMaxConcurrency = wsConfig.maxConcurrency;
       } catch {
-        // No project config available, use default
+        // No workspace config available, use default
       }
     }
 
     this.options = {
+      workspaceDir: options.workspaceDir,
       pollIntervalMs: options.pollIntervalMs ?? 5000,
       maxConcurrent: options.maxConcurrent ?? configMaxConcurrency ?? 3,
       onStatusChange: options.onStatusChange,
@@ -168,7 +165,7 @@ export class RunProcessor {
   }
 
   /**
-   * Main processing tick - picks up queued runs and executes them.
+   * Main processing tick - iterates over all projects to pick up queued runs.
    * Returns the number of runs started.
    * @param oneShot If true, waits for runs to complete before returning
    */
@@ -180,40 +177,53 @@ export class RunProcessor {
     const availableSlots = this.options.maxConcurrent - this.activeRuns.size;
     if (availableSlots <= 0) return 0;
 
-    // Get queued runs (skip gracefully if no project configured yet)
-    let queuedRuns: ReturnType<typeof listRuns>;
+    // Iterate over all projects to find queued runs
+    let projects: Array<{ id: string; name: string }>;
     try {
-      queuedRuns = listRuns({
-        status: "queued",
-        limit: availableSlots,
-      });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === ERR_NO_PROJECT) return 0;
-      throw err;
+      projects = listProjects(this.options.workspaceDir);
+    } catch {
+      return 0; // No workspace config yet
     }
 
     let started = 0;
     const promises: Promise<void>[] = [];
+    let remaining = availableSlots;
 
-    for (const run of queuedRuns) {
-      if (this.activeRuns.has(run.id)) continue;
+    for (const project of projects) {
+      if (remaining <= 0) break;
 
-      // Attempt to claim the run atomically
-      if (!this.claimRun(run.id)) {
-        continue; // Already claimed by another processor
+      let ctx: ProjectContext;
+      try {
+        ctx = resolveProject(this.options.workspaceDir, project.id);
+      } catch {
+        continue; // Skip projects that can't be resolved
       }
 
-      // Start execution
-      const promise = this.executeRun(run);
-      this.activeRuns.set(run.id, promise);
-      started++;
+      const runMod = createRunModule(ctx);
+      const queuedRuns = runMod.list({ status: "queued", limit: remaining });
 
-      if (oneShot) {
-        promises.push(promise);
+      for (const run of queuedRuns) {
+        if (remaining <= 0) break;
+        if (this.activeRuns.has(run.id)) continue;
+
+        // Attempt to claim the run atomically
+        if (!this.claimRun(ctx, run.id)) {
+          continue; // Already claimed by another processor
+        }
+
+        // Start execution
+        const promise = this.executeRun(ctx, run);
+        this.activeRuns.set(run.id, promise);
+        started++;
+        remaining--;
+
+        if (oneShot) {
+          promises.push(promise);
+        }
+
+        // Clean up when done
+        promise.finally(() => this.activeRuns.delete(run.id));
       }
-
-      // Clean up when done
-      promise.finally(() => this.activeRuns.delete(run.id));
     }
 
     // In one-shot mode, wait for all runs to complete
@@ -228,14 +238,15 @@ export class RunProcessor {
    * Atomically claims a run for processing.
    * Returns true if successful, false if already claimed.
    */
-  private claimRun(runId: string): boolean {
-    const run = getRun(runId);
+  private claimRun(ctx: ProjectContext, runId: string): boolean {
+    const runMod = createRunModule(ctx);
+    const run = runMod.get(runId);
     if (!run || run.status !== "queued") {
       return false; // Already claimed or doesn't exist
     }
 
     // Update status atomically
-    const updated = updateRun(runId, {
+    const updated = runMod.update(runId, {
       status: "running",
       startedAt: new Date().toISOString(),
     });
@@ -253,9 +264,15 @@ export class RunProcessor {
    * 4. If max messages reached, finish the run
    * 5. Otherwise, generate a new persona message and continue
    */
-  private async executeRun(run: Run): Promise<void> {
+  private async executeRun(ctx: ProjectContext, run: Run): Promise<void> {
+    const runMod = createRunModule(ctx);
+    const evalMod = createEvalModule(ctx);
+    const connectorMod = createConnectorModule(ctx);
+    const scenarioMod = createScenarioModule(ctx);
+    const personaMod = createPersonaModule(ctx);
+
     // Re-fetch run to get updated state after claim
-    let currentRun = getRun(run.id);
+    let currentRun = runMod.get(run.id);
     if (!currentRun) {
       return;
     }
@@ -270,7 +287,7 @@ export class RunProcessor {
 
       if (currentRun.evalId) {
         // Eval-based run
-        const evalItem = getEval(currentRun.evalId);
+        const evalItem = evalMod.get(currentRun.evalId);
         if (!evalItem) {
           throw new Error(`Eval not found: ${currentRun.evalId}`);
         }
@@ -287,8 +304,8 @@ export class RunProcessor {
       }
 
       // Get project config for LLM settings
-      const config = readProjectConfig();
-      const llmProvider = getLLMProviderFromConfig();
+      const config = getProjectConfig(ctx);
+      const llmProvider = getLLMProviderFromProjectConfig(ctx);
       const models = config.llmSettings?.models;
       const evaluationModel = models?.evaluation;
       const personaModel = models?.persona || evaluationModel;
@@ -300,23 +317,23 @@ export class RunProcessor {
       };
 
       // Get scenario and persona from stored IDs
-      const scenario = getScenario(currentRun.scenarioId);
+      const scenario = scenarioMod.get(currentRun.scenarioId);
       if (!scenario) {
         throw new Error(`Scenario not found: ${currentRun.scenarioId}`);
       }
 
       const persona = currentRun.personaId
-        ? getPersona(currentRun.personaId)
+        ? personaMod.get(currentRun.personaId)
         : undefined;
 
       // Get eval input messages if this is an eval-based run
-      const evalInput = currentRun.evalId ? getEval(currentRun.evalId)?.input : undefined;
+      const evalInput = currentRun.evalId ? evalMod.get(currentRun.evalId)?.input : undefined;
 
       // Build all messages including system prompt
       const allMessages = this.buildAllMessages(scenario, persona, evalInput);
 
       // Store all initial messages in the run (so they're visible in UI)
-      const runWithMessages = updateRun(currentRun.id, {
+      const runWithMessages = runMod.update(currentRun.id, {
         messages: allMessages,
       });
       if (runWithMessages) {
@@ -333,6 +350,8 @@ export class RunProcessor {
 
       // Run the evaluation loop
       await this.executeEvaluationLoop(
+        ctx,
+        connectorMod,
         currentRun,
         connectorId,
         llmConfig,
@@ -342,7 +361,7 @@ export class RunProcessor {
       );
     } catch (error) {
       const err = error instanceof Error ? error : new Error("Unknown error");
-      const updatedRun = updateRun(currentRun.id, {
+      const updatedRun = runMod.update(currentRun.id, {
         status: "error",
         error: err.message,
         completedAt: new Date().toISOString(),
@@ -382,6 +401,8 @@ export class RunProcessor {
    * - Max messages reached without success (run fails; default mode "on_max_messages")
    */
   private async executeEvaluationLoop(
+    ctx: ProjectContext,
+    connectorMod: ReturnType<typeof createConnectorModule>,
     currentRun: Run,
     connectorId: string,
     llmConfig: ResolvedLLMConfig,
@@ -389,6 +410,7 @@ export class RunProcessor {
     persona: Persona | undefined,
     maxMessages: number
   ): Promise<void> {
+    const runMod = createRunModule(ctx);
     let messages = [...currentRun.messages];
     let totalLatencyMs = 0;
     let connectorCallCount = 0;
@@ -421,7 +443,7 @@ export class RunProcessor {
       messages = [...messages, userMessage];
 
       // Update run with the generated persona message
-      updateRun(currentRun.id, { messages });
+      runMod.update(currentRun.id, { messages });
     }
 
     while (countConversationMessages() < maxMessages) {
@@ -430,7 +452,7 @@ export class RunProcessor {
 
       // Invoke the connector (send to tested agent, pass thread ID for LangGraph)
       // threadMessageCount tells LangGraph strategy how many messages are already in the thread
-      const result = await invokeConnector(connectorId, {
+      const result = await connectorMod.invoke(connectorId, {
         messages: conversationMessages,
         runId: this.getThreadId(currentRun),
         threadMessageCount,
@@ -450,7 +472,7 @@ export class RunProcessor {
       connectorCallCount++;
 
       // Update run with current messages
-      updateRun(currentRun.id, { messages });
+      runMod.update(currentRun.id, { messages });
 
       // Evaluate the conversation against criteria
       const evaluation = await evaluateCriteria({
@@ -475,7 +497,7 @@ export class RunProcessor {
             : `Failure criteria was triggered. ${evaluation.reasoning}`,
         };
 
-        const updatedRun = updateRun(currentRun.id, {
+        const updatedRun = runMod.update(currentRun.id, {
           status: "completed",
           messages,
           result: runResult,
@@ -523,7 +545,7 @@ export class RunProcessor {
       messages = [...messages, userMessage];
 
       // Update run with new user message
-      updateRun(currentRun.id, { messages });
+      runMod.update(currentRun.id, { messages });
     }
 
     // Max messages reached without meeting success criteria
@@ -536,7 +558,7 @@ export class RunProcessor {
         : `Max messages (${maxMessages}) reached without meeting success criteria. ${finalEvaluation?.reasoning || ""}`,
     };
 
-    const updatedRun = updateRun(currentRun.id, {
+    const updatedRun = runMod.update(currentRun.id, {
       status: "completed",
       messages,
       result: runResult,
@@ -608,20 +630,28 @@ export class RunProcessor {
 
   /**
    * Recovers runs that were interrupted by server crash.
+   * Iterates over all projects to find stuck runs.
    */
   private recoverStuckRuns(): void {
-    let stuckRuns: ReturnType<typeof listRuns>;
+    let projects: Array<{ id: string; name: string }>;
     try {
-      stuckRuns = listRuns({
-        status: "running",
-      });
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === ERR_NO_PROJECT) return;
-      throw err;
+      projects = listProjects(this.options.workspaceDir);
+    } catch {
+      return;
     }
 
-    for (const run of stuckRuns) {
-      updateRun(run.id, { status: "queued" });
+    for (const project of projects) {
+      try {
+        const ctx = resolveProject(this.options.workspaceDir, project.id);
+        const runMod = createRunModule(ctx);
+        const stuckRuns = runMod.list({ status: "running" });
+
+        for (const run of stuckRuns) {
+          runMod.update(run.id, { status: "queued" });
+        }
+      } catch {
+        // Skip projects that can't be resolved
+      }
     }
   }
 }

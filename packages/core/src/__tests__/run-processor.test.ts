@@ -1,14 +1,14 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createConnector } from "../connector.js";
-import { createEval } from "../eval.js";
-import { createPersona } from "../persona.js";
-import { createRun, getRun, listRuns, updateRun } from "../run.js";
+import { createConnectorModule } from "../connector.js";
+import { createEvalModule } from "../eval.js";
+import { createPersonaModule } from "../persona.js";
+import { createRunModule } from "../run.js";
 import { RunProcessor } from "../run-processor.js";
-import { createScenario } from "../scenario.js";
-import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
+import { createScenarioModule } from "../scenario.js";
+import type { ProjectContext } from "../project-resolver.js";
 
 // Mock the evaluator to return success on first evaluation
 vi.mock("../evaluator.js", () => ({
@@ -20,75 +20,121 @@ vi.mock("../evaluator.js", () => ({
   }),
 }));
 
-let testDir: string;
+/**
+ * Helper to set up the workspace structure required by RunProcessor:
+ *   workspaceDir/
+ *     evalstudio.config.json     (workspace config, version 3)
+ *     projects/
+ *       {projectId}/
+ *         project.config.json    (per-project config)
+ *         data/                  (entity storage)
+ */
+function setupWorkspace(
+  workspaceDir: string,
+  projectId: string,
+  wsOverrides: Record<string, unknown> = {},
+  projOverrides: Record<string, unknown> = {},
+): ProjectContext {
+  const projectDir = join(workspaceDir, "projects", projectId);
+  const dataDir = join(projectDir, "data");
+  mkdirSync(dataDir, { recursive: true });
+
+  const wsConfig = {
+    version: 3,
+    name: "test-workspace",
+    projects: [{ id: projectId, name: "Test Project" }],
+    ...wsOverrides,
+  };
+  writeFileSync(
+    join(workspaceDir, "evalstudio.config.json"),
+    JSON.stringify(wsConfig, null, 2),
+  );
+
+  const projConfig = {
+    name: "Test Project",
+    llmSettings: {
+      provider: "openai",
+      apiKey: "test-api-key",
+    },
+    ...projOverrides,
+  };
+  writeFileSync(
+    join(projectDir, "project.config.json"),
+    JSON.stringify(projConfig, null, 2),
+  );
+
+  return {
+    id: projectId,
+    name: "Test Project",
+    dataDir,
+    configPath: join(projectDir, "project.config.json"),
+    workspaceDir,
+  };
+}
+
+let workspaceDir: string;
+let ctx: ProjectContext;
 
 describe("RunProcessor", () => {
-  let scenarioId: string;
   let evalId: string;
   let connectorId: string;
 
   const mockFetch = vi.fn();
+  const projectId = "test-project-1";
 
   beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-processor-test-"));
-    setStorageDir(testDir);
-    setConfigDir(testDir);
+    workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-processor-test-"));
+    ctx = setupWorkspace(workspaceDir, projectId);
 
-    // Write project config with inline LLM provider
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({
-        version: 2,
-        name: "processor-test",
-        llmSettings: {
-          provider: "openai",
-          apiKey: "test-api-key",
-        },
-      }, null, 2)
-    );
-
-    createPersona({
+    const personaMod = createPersonaModule(ctx);
+    personaMod.create({
       name: "Test Persona",
       description: "A test persona",
       systemPrompt: "You are a helpful test user.",
     });
 
-    const scenario = createScenario({
+    const scenarioMod = createScenarioModule(ctx);
+    const scenario = scenarioMod.create({
       name: "Test Scenario",
       instructions: "Test the greeting feature",
       successCriteria: "The agent responds with a greeting",
     });
-    scenarioId = scenario.id;
 
-    const connector = createConnector({
+    const connectorMod = createConnectorModule(ctx);
+    const connector = connectorMod.create({
       name: "Test Connector",
       type: "http",
       baseUrl: "https://api.example.com",
     });
     connectorId = connector.id;
 
-    const evalItem = createEval({
+    const evalMod = createEvalModule(ctx);
+    const evalItem = evalMod.create({
       name: "Test Eval",
       connectorId,
-      scenarioIds: [scenarioId],
+      scenarioIds: [scenario.id],
       input: [{ role: "user", content: "Hello" }],
     });
     evalId = evalItem.id;
   });
 
   afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
+    if (existsSync(workspaceDir)) {
+      rmSync(workspaceDir, { recursive: true });
     }
   });
 
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
     // Clear runs before each test
-    const runsPath = join(testDir, "runs.json");
+    const runsPath = join(ctx.dataDir, "runs.json");
     if (existsSync(runsPath)) {
       rmSync(runsPath);
+    }
+    // Clear executions before each test
+    const executionsPath = join(ctx.dataDir, "executions.json");
+    if (existsSync(executionsPath)) {
+      rmSync(executionsPath);
     }
   });
 
@@ -99,34 +145,37 @@ describe("RunProcessor", () => {
 
   describe("constructor", () => {
     it("creates processor with default options", () => {
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       expect(processor.isRunning()).toBe(false);
       expect(processor.getActiveRunCount()).toBe(0);
     });
 
     it("creates processor with custom options", () => {
       const processor = new RunProcessor({
+        workspaceDir,
         pollIntervalMs: 1000,
         maxConcurrent: 5,
       });
       expect(processor.isRunning()).toBe(false);
     });
 
-    it("reads maxConcurrency from project config when not provided", () => {
-      // Write config with maxConcurrency
+    it("reads maxConcurrency from workspace config when not provided", () => {
+      // Write workspace config with maxConcurrency
       writeFileSync(
-        join(testDir, "evalstudio.config.json"),
+        join(workspaceDir, "evalstudio.config.json"),
         JSON.stringify({
-          version: 2,
-          name: "processor-test",
-          llmSettings: { provider: "openai", apiKey: "test-api-key" },
+          version: 3,
+          name: "test-workspace",
+          projects: [{ id: projectId, name: "Test Project" }],
           maxConcurrency: 7,
         }, null, 2)
       );
 
+      const runMod = createRunModule(ctx);
+
       // Create 8 queued runs
       for (let i = 0; i < 8; i++) {
-        createRun({ evalId });
+        runMod.create({ evalId });
       }
 
       mockFetch.mockImplementation(async () => ({
@@ -138,38 +187,40 @@ describe("RunProcessor", () => {
           }),
       }));
 
-      // Processor should read maxConcurrency=7 from config
-      const processor = new RunProcessor();
+      // Processor should read maxConcurrency=7 from workspace config
+      const processor = new RunProcessor({ workspaceDir });
       return processor.processOnce().then((started) => {
         expect(started).toBe(7);
 
-        // Restore config
+        // Restore workspace config
         writeFileSync(
-          join(testDir, "evalstudio.config.json"),
+          join(workspaceDir, "evalstudio.config.json"),
           JSON.stringify({
-            version: 2,
-            name: "processor-test",
-            llmSettings: { provider: "openai", apiKey: "test-api-key" },
+            version: 3,
+            name: "test-workspace",
+            projects: [{ id: projectId, name: "Test Project" }],
           }, null, 2)
         );
       });
     });
 
-    it("uses explicit maxConcurrent over project config", () => {
-      // Write config with maxConcurrency=10
+    it("uses explicit maxConcurrent over workspace config", () => {
+      // Write workspace config with maxConcurrency=10
       writeFileSync(
-        join(testDir, "evalstudio.config.json"),
+        join(workspaceDir, "evalstudio.config.json"),
         JSON.stringify({
-          version: 2,
-          name: "processor-test",
-          llmSettings: { provider: "openai", apiKey: "test-api-key" },
+          version: 3,
+          name: "test-workspace",
+          projects: [{ id: projectId, name: "Test Project" }],
           maxConcurrency: 10,
         }, null, 2)
       );
 
+      const runMod = createRunModule(ctx);
+
       // Create 5 queued runs
       for (let i = 0; i < 5; i++) {
-        createRun({ evalId });
+        runMod.create({ evalId });
       }
 
       mockFetch.mockImplementation(async () => ({
@@ -181,18 +232,18 @@ describe("RunProcessor", () => {
           }),
       }));
 
-      // Explicit maxConcurrent=2 should override config's 10
-      const processor = new RunProcessor({ maxConcurrent: 2 });
+      // Explicit maxConcurrent=2 should override workspace config's 10
+      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 2 });
       return processor.processOnce().then((started) => {
         expect(started).toBe(2);
 
-        // Restore config
+        // Restore workspace config
         writeFileSync(
-          join(testDir, "evalstudio.config.json"),
+          join(workspaceDir, "evalstudio.config.json"),
           JSON.stringify({
-            version: 2,
-            name: "processor-test",
-            llmSettings: { provider: "openai", apiKey: "test-api-key" },
+            version: 3,
+            name: "test-workspace",
+            projects: [{ id: projectId, name: "Test Project" }],
           }, null, 2)
         );
       });
@@ -201,7 +252,7 @@ describe("RunProcessor", () => {
 
   describe("start/stop", () => {
     it("starts and stops the processor", async () => {
-      const processor = new RunProcessor({ pollIntervalMs: 100 });
+      const processor = new RunProcessor({ workspaceDir, pollIntervalMs: 100 });
 
       processor.start();
       expect(processor.isRunning()).toBe(true);
@@ -211,7 +262,7 @@ describe("RunProcessor", () => {
     });
 
     it("does not start twice", () => {
-      const processor = new RunProcessor({ pollIntervalMs: 100 });
+      const processor = new RunProcessor({ workspaceDir, pollIntervalMs: 100 });
 
       processor.start();
       processor.start(); // Should be a no-op
@@ -224,9 +275,9 @@ describe("RunProcessor", () => {
 
   describe("processOnce", () => {
     it("processes queued runs", async () => {
-      const run = createRun({
+      const runMod = createRunModule(ctx);
+      const run = runMod.create({
         evalId,
-        connectorId,
       });
 
       mockFetch.mockResolvedValueOnce({
@@ -238,13 +289,13 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       const started = await processor.processOnce();
 
       expect(started).toBe(1);
 
       // processOnce waits for completion, so run should be done
-      const updatedRun = getRun(run.id);
+      const updatedRun = runMod.get(run.id);
       expect(updatedRun?.status).toBe("completed");
       // Messages include: system prompt, user input, assistant response
       expect(updatedRun?.messages).toHaveLength(3);
@@ -256,10 +307,12 @@ describe("RunProcessor", () => {
     });
 
     it("respects maxConcurrent limit", async () => {
+      const runMod = createRunModule(ctx);
+
       // Create multiple queued runs
-      createRun({ evalId });
-      createRun({ evalId });
-      createRun({ evalId });
+      runMod.create({ evalId });
+      runMod.create({ evalId });
+      runMod.create({ evalId });
 
       mockFetch.mockImplementation(async () => {
         return {
@@ -272,7 +325,7 @@ describe("RunProcessor", () => {
         };
       });
 
-      const processor = new RunProcessor({ maxConcurrent: 2 });
+      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 2 });
       const started = await processor.processOnce();
 
       // Should only start 2 due to maxConcurrent (processOnce processes one batch)
@@ -283,7 +336,8 @@ describe("RunProcessor", () => {
   describe("callbacks", () => {
     it("calls onRunStart callback", async () => {
       const onRunStart = vi.fn();
-      createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -294,7 +348,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ onRunStart });
+      const processor = new RunProcessor({ workspaceDir, onRunStart });
       await processor.processOnce();
 
       expect(onRunStart).toHaveBeenCalledTimes(1);
@@ -303,7 +357,8 @@ describe("RunProcessor", () => {
 
     it("calls onRunComplete callback on success", async () => {
       const onRunComplete = vi.fn();
-      createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -314,7 +369,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ onRunComplete });
+      const processor = new RunProcessor({ workspaceDir, onRunComplete });
       await processor.processOnce();
 
       expect(onRunComplete).toHaveBeenCalledTimes(1);
@@ -326,11 +381,12 @@ describe("RunProcessor", () => {
 
     it("calls onRunError callback on failure", async () => {
       const onRunError = vi.fn();
-      createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      runMod.create({ evalId });
 
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const processor = new RunProcessor({ onRunError });
+      const processor = new RunProcessor({ workspaceDir, onRunError });
       await processor.processOnce();
 
       expect(onRunError).toHaveBeenCalledTimes(1);
@@ -342,7 +398,8 @@ describe("RunProcessor", () => {
 
     it("calls onStatusChange callback", async () => {
       const onStatusChange = vi.fn();
-      createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -353,7 +410,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ onStatusChange });
+      const processor = new RunProcessor({ workspaceDir, onStatusChange });
       await processor.processOnce();
 
       expect(onStatusChange).toHaveBeenCalledTimes(2); // running + completed
@@ -374,7 +431,8 @@ describe("RunProcessor", () => {
 
   describe("error handling", () => {
     it("marks run as error when connector invocation fails", async () => {
-      const run = createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      const run = runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: false,
@@ -382,16 +440,17 @@ describe("RunProcessor", () => {
         text: async () => "Internal Server Error",
       });
 
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       await processor.processOnce();
 
-      const updatedRun = getRun(run.id);
+      const updatedRun = runMod.get(run.id);
       expect(updatedRun?.status).toBe("error");
       expect(updatedRun?.error).toContain("500");
     });
 
     it("processes run successfully when eval exists", async () => {
-      const run = createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      const run = runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -402,23 +461,24 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       await processor.processOnce();
 
       // Run should be completed since eval exists
-      const updatedRun = getRun(run.id);
+      const updatedRun = runMod.get(run.id);
       expect(updatedRun?.status).toBe("completed");
     });
   });
 
   describe("atomic claiming", () => {
     it("prevents duplicate processing of the same run", async () => {
-      const run = createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      const run = runMod.create({ evalId });
 
       // Manually set status to running (simulating another processor claimed it)
-      updateRun(run.id, { status: "running" });
+      runMod.update(run.id, { status: "running" });
 
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       const started = await processor.processOnce();
 
       // Should not claim the already-running run
@@ -428,17 +488,18 @@ describe("RunProcessor", () => {
 
   describe("crash recovery", () => {
     it("resets running runs to queued on start", async () => {
+      const runMod = createRunModule(ctx);
       // Create a run and set it to "running" (simulating crash)
-      const run = createRun({ evalId });
-      updateRun(run.id, { status: "running" });
+      const run = runMod.create({ evalId });
+      runMod.update(run.id, { status: "running" });
 
       // Use maxConcurrent: 0 to prevent tick() from claiming the run
       // This allows us to verify recovery happened before processing
-      const processor = new RunProcessor({ maxConcurrent: 0 });
+      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 0 });
       processor.start();
 
       // Check that run was reset to queued
-      const resetRun = getRun(run.id);
+      const resetRun = runMod.get(run.id);
       expect(resetRun?.status).toBe("queued");
 
       await processor.stop();
@@ -447,7 +508,8 @@ describe("RunProcessor", () => {
 
   describe("seed flow routing", () => {
     it("invokes connector when last seed message is from user", async () => {
-      const run = createRun({ evalId });
+      const runMod = createRunModule(ctx);
+      const run = runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -458,13 +520,13 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor();
+      const processor = new RunProcessor({ workspaceDir });
       await processor.processOnce();
 
       // Connector should have been called
       expect(mockFetch).toHaveBeenCalled();
 
-      const updatedRun = getRun(run.id);
+      const updatedRun = runMod.get(run.id);
       expect(updatedRun?.status).toBe("completed");
       expect(updatedRun?.messages.some((m) => m.role === "assistant")).toBe(true);
     });
@@ -472,57 +534,61 @@ describe("RunProcessor", () => {
 });
 
 describe("listRuns with options", () => {
-  let testDir: string;
+  let tempDir: string;
+  let ctx: ProjectContext;
   let evalId: string;
-  let connectorId: string;
-  let scenarioId: string;
+
+  const projectId = "listruns-project";
 
   beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-listruns-test-"));
-    setStorageDir(testDir);
+    tempDir = mkdtempSync(join(tmpdir(), "evalstudio-listruns-test-"));
+    ctx = setupWorkspace(tempDir, projectId);
 
-    const scenario = createScenario({
-      name: "List Test Scenario",
-    });
-    scenarioId = scenario.id;
+    const scenarioMod = createScenarioModule(ctx);
+    const scenario = scenarioMod.create({ name: "List Test Scenario" });
 
-    const connector = createConnector({
+    const connectorMod = createConnectorModule(ctx);
+    connectorMod.create({
       name: "List Test Connector",
       type: "http",
       baseUrl: "https://api.example.com",
     });
-    connectorId = connector.id;
 
-    const evalItem = createEval({
+    const evalMod = createEvalModule(ctx);
+    const evalItem = evalMod.create({
       name: "List Test Eval",
-      connectorId,
-      scenarioIds: [scenarioId],
+      connectorId: connectorMod.list()[0].id,
+      scenarioIds: [scenario.id],
       input: [],
     });
     evalId = evalItem.id;
   });
 
   afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
+    if (existsSync(tempDir)) {
+      rmSync(tempDir, { recursive: true });
     }
   });
 
   beforeEach(() => {
-    const runsPath = join(testDir, "runs.json");
+    const runsPath = join(ctx.dataDir, "runs.json");
     if (existsSync(runsPath)) {
       rmSync(runsPath);
+    }
+    const executionsPath = join(ctx.dataDir, "executions.json");
+    if (existsSync(executionsPath)) {
+      rmSync(executionsPath);
     }
   });
 
   it("filters by status", () => {
-    const run1 = createRun({ evalId });
-    const run2 = createRun({ evalId });
-    updateRun(run1.id, { status: "running" });
+    const runMod = createRunModule(ctx);
+    const run1 = runMod.create({ evalId });
+    const run2 = runMod.create({ evalId });
+    runMod.update(run1.id, { status: "running" });
 
-    const queued = listRuns({ status: "queued" });
-    const running = listRuns({ status: "running" });
+    const queued = runMod.list({ status: "queued" });
+    const running = runMod.list({ status: "running" });
 
     expect(queued).toHaveLength(1);
     expect(queued[0].id).toBe(run2.id);
@@ -531,22 +597,24 @@ describe("listRuns with options", () => {
   });
 
   it("applies limit", () => {
-    createRun({ evalId });
-    createRun({ evalId });
-    createRun({ evalId });
+    const runMod = createRunModule(ctx);
+    runMod.create({ evalId });
+    runMod.create({ evalId });
+    runMod.create({ evalId });
 
-    const limited = listRuns({ limit: 2 });
+    const limited = runMod.list({ limit: 2 });
 
     expect(limited).toHaveLength(2);
   });
 
   it("combines multiple filters", () => {
-    createRun({ evalId });
-    const run2 = createRun({ evalId });
-    createRun({ evalId });
-    updateRun(run2.id, { status: "running" });
+    const runMod = createRunModule(ctx);
+    runMod.create({ evalId });
+    const run2 = runMod.create({ evalId });
+    runMod.create({ evalId });
+    runMod.update(run2.id, { status: "running" });
 
-    const result = listRuns({ status: "queued", limit: 1 });
+    const result = runMod.list({ status: "queued", limit: 1 });
 
     expect(result).toHaveLength(1);
     expect(result[0].status).toBe("queued");

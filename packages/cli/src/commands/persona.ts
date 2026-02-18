@@ -1,12 +1,5 @@
 import { Command } from "commander";
-import {
-  createPersona,
-  deletePersona,
-  getPersona,
-  getPersonaByName,
-  listPersonas,
-  updatePersona,
-} from "@evalstudio/core";
+import { resolveProjectFromCwd, createPersonaModule } from "@evalstudio/core";
 
 export const personaCommand = new Command("persona")
   .description("Manage personas for testing scenarios")
@@ -27,7 +20,9 @@ export const personaCommand = new Command("persona")
           }
         ) => {
           try {
-            const persona = createPersona({
+            const ctx = resolveProjectFromCwd();
+            const personas = createPersonaModule(ctx);
+            const persona = personas.create({
               name,
               description: options.description,
               systemPrompt: options.systemPrompt,
@@ -62,19 +57,21 @@ export const personaCommand = new Command("persona")
       .description("List personas")
       .option("--json", "Output as JSON")
       .action((options: { json?: boolean }) => {
-        const personas = listPersonas();
+        const ctx = resolveProjectFromCwd();
+        const personas = createPersonaModule(ctx);
+        const list = personas.list();
 
         if (options.json) {
-          console.log(JSON.stringify(personas, null, 2));
+          console.log(JSON.stringify(list, null, 2));
         } else {
-          if (personas.length === 0) {
+          if (list.length === 0) {
             console.log("No personas found");
             return;
           }
 
           console.log("Personas:");
           console.log("---------");
-          for (const persona of personas) {
+          for (const persona of list) {
             console.log(`  ${persona.name} (${persona.id})`);
             if (persona.description) {
               console.log(`    ${persona.description}`);
@@ -93,7 +90,9 @@ export const personaCommand = new Command("persona")
           identifier: string,
           options: { json?: boolean }
         ) => {
-          const persona = getPersona(identifier) ?? getPersonaByName(identifier);
+          const ctx = resolveProjectFromCwd();
+          const personas = createPersonaModule(ctx);
+          const persona = personas.get(identifier) ?? personas.getByName(identifier);
 
           if (!persona) {
             console.error(`Error: Persona "${identifier}" not found`);
@@ -137,7 +136,9 @@ export const personaCommand = new Command("persona")
             json?: boolean;
           }
         ) => {
-          const existing = getPersona(identifier);
+          const ctx = resolveProjectFromCwd();
+          const personas = createPersonaModule(ctx);
+          const existing = personas.get(identifier);
 
           if (!existing) {
             console.error(`Error: Persona "${identifier}" not found`);
@@ -145,7 +146,7 @@ export const personaCommand = new Command("persona")
           }
 
           try {
-            const updated = updatePersona(existing.id, {
+            const updated = personas.update(existing.id, {
               name: options.name,
               description: options.description,
               systemPrompt: options.systemPrompt,
@@ -186,14 +187,16 @@ export const personaCommand = new Command("persona")
       .argument("<identifier>", "Persona ID")
       .option("--json", "Output as JSON")
       .action((identifier: string, options: { json?: boolean }) => {
-        const existing = getPersona(identifier);
+        const ctx = resolveProjectFromCwd();
+        const personas = createPersonaModule(ctx);
+        const existing = personas.get(identifier);
 
         if (!existing) {
           console.error(`Error: Persona "${identifier}" not found`);
           process.exit(1);
         }
 
-        const deleted = deletePersona(existing.id);
+        const deleted = personas.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete persona`);

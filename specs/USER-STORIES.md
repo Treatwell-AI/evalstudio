@@ -2,7 +2,8 @@
 
 ## Glossary
 
-- **Project** - A directory containing `evalstudio.config.json` and a `data/` folder with all entities (evals, scenarios, personas, settings). One folder = one project.
+- **Workspace** - A directory containing `evalstudio.config.json` with a project registry and shared defaults. Contains multiple projects under `projects/`.
+- **Project** - A UUID-identified directory under `projects/` with its own `project.config.json` and `data/` folder. Entities are isolated per project.
 - **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (e.g., HTTP, LangGraph)
 - **Eval** - A test collection combining one or more scenarios, input data, and connectors. Each scenario can have its own personas and criteria.
 - **Eval Group** - A category/tag for organizing evals (many-to-many relationship)
@@ -90,6 +91,11 @@
 [x] As a user, I want to point to a project directory via `EVALSTUDIO_PROJECT_DIR` so that I can run commands from any working directory
 [x] As a user, I want a clear error message when no project is found so that I know how to fix it (init, cd, or set env var)
 [x] As a user, I want to set the max concurrent run executions from the web UI settings page and CLI so that I can control resource usage without editing config files
+[x] As a user, I want to manage multiple projects within a single workspace so that I can organize evals for different products or environments
+[x] As a user, I want to create, list, show, update, and delete projects via CLI and API so that I can manage projects programmatically
+[x] As a user, I want to switch between projects in the web UI via a dropdown in the sidebar so that I can quickly navigate between projects
+[x] As a user, I want workspace-level defaults that projects inherit so that I don't need to configure LLM settings for every project
+[x] As a user, I want per-project configuration overrides so that individual projects can differ from workspace defaults
 
 ### Collaboration & Permissions
 

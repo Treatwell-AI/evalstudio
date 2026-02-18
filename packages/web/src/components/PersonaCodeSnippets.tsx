@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Persona } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 
 interface PersonaCodeSnippetsProps {
   persona: Persona;
@@ -8,9 +9,11 @@ interface PersonaCodeSnippetsProps {
 type SnippetTab = "cli" | "api";
 
 export function PersonaCodeSnippets({ persona }: PersonaCodeSnippetsProps) {
+  const projectId = useProjectId();
   const [activeTab, setActiveTab] = useState<SnippetTab>("cli");
   const [copiedCli, setCopiedCli] = useState(false);
   const [copiedApi, setCopiedApi] = useState(false);
+  const base = `http://localhost:3000/api/projects/${projectId}/personas`;
 
   const cliSnippet = `# List all personas
 evalstudio persona list
@@ -34,13 +37,13 @@ evalstudio persona update ${persona.id} \\
 evalstudio persona delete ${persona.id}`;
 
   const apiSnippet = `# List all personas
-curl "http://localhost:3000/api/personas"
+curl "${base}"
 
 # Get this persona
-curl "http://localhost:3000/api/personas/${persona.id}"
+curl "${base}/${persona.id}"
 
 # Create a new persona
-curl -X POST http://localhost:3000/api/personas \\
+curl -X POST ${base} \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "New Persona",
@@ -49,7 +52,7 @@ curl -X POST http://localhost:3000/api/personas \\
   }'
 
 # Update this persona
-curl -X PUT http://localhost:3000/api/personas/${persona.id} \\
+curl -X PUT ${base}/${persona.id} \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Updated Name",
@@ -58,7 +61,7 @@ curl -X PUT http://localhost:3000/api/personas/${persona.id} \\
   }'
 
 # Delete this persona
-curl -X DELETE http://localhost:3000/api/personas/${persona.id}`;
+curl -X DELETE ${base}/${persona.id}`;
 
   const handleCopy = async (text: string, tab: SnippetTab) => {
     try {

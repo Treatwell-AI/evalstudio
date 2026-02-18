@@ -57,7 +57,7 @@ export function PersonaDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Persona not found"}
         </div>
-        <Link to="/personas" className="btn btn-secondary">
+        <Link to=".." relative="path" className="btn btn-secondary">
           Back to Personas
         </Link>
       </div>
@@ -68,7 +68,7 @@ export function PersonaDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete persona "${persona.name}"?`)) {
       await deletePersona.mutateAsync(persona.id);
-      navigate("/personas");
+      navigate("..", { relative: "path" });
     }
   };
 
@@ -108,7 +108,8 @@ export function PersonaDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to="/personas"
+            to=".."
+            relative="path"
             className="back-link"
           >
             ← Back to Personas

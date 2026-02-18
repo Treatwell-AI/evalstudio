@@ -1,41 +1,37 @@
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
+import { initWorkspace } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
-let testDir: string;
+let workspaceDir: string;
+let projectId: string;
+let prefix: string;
 
 describe("connectors routes", () => {
   beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    const storageDir = join(testDir, "data");
-    mkdirSync(storageDir, { recursive: true });
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({ version: 2, name: "test-project" })
-    );
-    setStorageDir(storageDir);
-    setConfigDir(testDir);
+    workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
+    const result = initWorkspace(workspaceDir, "test-workspace", "test-project");
+    projectId = result.project.id;
+    prefix = `/api/projects/${projectId}`;
   });
 
   afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
+    if (existsSync(workspaceDir)) {
+      rmSync(workspaceDir, { recursive: true });
     }
   });
 
   beforeEach(() => {
-    const storagePath = join(testDir, "data", "connectors.json");
+    const storagePath = join(workspaceDir, "projects", projectId, "data", "connectors.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
   });
 
   afterEach(() => {
-    const storagePath = join(testDir, "data", "connectors.json");
+    const storagePath = join(workspaceDir, "projects", projectId, "data", "connectors.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
@@ -43,11 +39,11 @@ describe("connectors routes", () => {
 
   describe("GET /connectors", () => {
     it("returns empty array when no connectors", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -57,11 +53,11 @@ describe("connectors routes", () => {
     });
 
     it("returns all connectors", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "connector-1",
           type: "http",
@@ -71,7 +67,7 @@ describe("connectors routes", () => {
 
       await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "connector-2",
           type: "langgraph",
@@ -81,7 +77,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -94,11 +90,11 @@ describe("connectors routes", () => {
 
   describe("GET /connectors/types", () => {
     it("returns available connector types", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/connectors/types",
+        url: `${prefix}/connectors/types`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -112,11 +108,11 @@ describe("connectors routes", () => {
 
   describe("POST /connectors", () => {
     it("creates a connector with required fields", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           type: "http",
@@ -135,11 +131,11 @@ describe("connectors routes", () => {
     });
 
     it("creates a connector with all fields", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "langgraph-connector",
           type: "langgraph",
@@ -159,11 +155,11 @@ describe("connectors routes", () => {
     });
 
     it("creates a connector with custom headers", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "headers-connector",
           type: "http",
@@ -186,11 +182,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 400 for missing name", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           type: "http",
           baseUrl: "https://api.example.com",
@@ -204,11 +200,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 400 for missing type", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           baseUrl: "https://api.example.com",
@@ -222,11 +218,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 400 for missing baseUrl", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           type: "http",
@@ -240,11 +236,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 409 for duplicate name", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "duplicate-name",
           type: "http",
@@ -254,7 +250,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "duplicate-name",
           type: "langgraph",
@@ -270,11 +266,11 @@ describe("connectors routes", () => {
 
   describe("GET /connectors/:id", () => {
     it("returns connector by id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           type: "http",
@@ -285,7 +281,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "GET",
-        url: `/api/connectors/${created.id}`,
+        url: `${prefix}/connectors/${created.id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -295,11 +291,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/connectors/non-existent",
+        url: `${prefix}/connectors/non-existent`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -310,11 +306,11 @@ describe("connectors routes", () => {
 
   describe("PUT /connectors/:id", () => {
     it("updates connector", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "old-name",
           type: "http",
@@ -325,7 +321,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "PUT",
-        url: `/api/connectors/${created.id}`,
+        url: `${prefix}/connectors/${created.id}`,
         payload: { name: "new-name", baseUrl: "https://new.api.com" },
       });
 
@@ -338,11 +334,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "PUT",
-        url: "/api/connectors/non-existent",
+        url: `${prefix}/connectors/non-existent`,
         payload: { name: "new-name" },
       });
 
@@ -352,11 +348,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 409 for duplicate name on update", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "existing-name",
           type: "http",
@@ -366,7 +362,7 @@ describe("connectors routes", () => {
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "to-be-updated",
           type: "langgraph",
@@ -377,7 +373,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "PUT",
-        url: `/api/connectors/${created.id}`,
+        url: `${prefix}/connectors/${created.id}`,
         payload: { name: "existing-name" },
       });
 
@@ -389,11 +385,11 @@ describe("connectors routes", () => {
 
   describe("DELETE /connectors/:id", () => {
     it("deletes connector", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           type: "http",
@@ -404,14 +400,14 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "DELETE",
-        url: `/api/connectors/${created.id}`,
+        url: `${prefix}/connectors/${created.id}`,
       });
 
       expect(response.statusCode).toBe(204);
 
       const getResponse = await server.inject({
         method: "GET",
-        url: `/api/connectors/${created.id}`,
+        url: `${prefix}/connectors/${created.id}`,
       });
 
       expect(getResponse.statusCode).toBe(404);
@@ -420,11 +416,11 @@ describe("connectors routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "DELETE",
-        url: "/api/connectors/non-existent",
+        url: `${prefix}/connectors/non-existent`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -446,11 +442,11 @@ describe("connectors routes", () => {
     });
 
     it("tests connector successfully", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
           type: "http",
@@ -467,7 +463,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "POST",
-        url: `/api/connectors/${created.id}/test`,
+        url: `${prefix}/connectors/${created.id}/test`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -480,11 +476,11 @@ describe("connectors routes", () => {
     });
 
     it("returns error for non-existent connector", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/connectors/non-existent/test",
+        url: `${prefix}/connectors/non-existent/test`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -496,11 +492,11 @@ describe("connectors routes", () => {
     });
 
     it("returns error on connection failure", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/connectors",
+        url: `${prefix}/connectors`,
         payload: {
           name: "fail-connector",
           type: "http",
@@ -513,7 +509,7 @@ describe("connectors routes", () => {
 
       const response = await server.inject({
         method: "POST",
-        url: `/api/connectors/${created.id}/test`,
+        url: `${prefix}/connectors/${created.id}/test`,
       });
 
       expect(response.statusCode).toBe(200);

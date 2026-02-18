@@ -30,7 +30,7 @@ export function PersonaList() {
   }
 
   const handleRowClick = (persona: Persona) => {
-    navigate(`/personas/${persona.id}`);
+    navigate(persona.id);
   };
 
   const handleDelete = async (e: React.MouseEvent, persona: Persona) => {

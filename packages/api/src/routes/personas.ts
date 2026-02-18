@@ -1,11 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import {
-  createPersona,
-  deletePersona,
-  getPersona,
-  listPersonas,
-  updatePersona,
-} from "@evalstudio/core";
+import { createPersonaModule } from "@evalstudio/core";
 
 interface CreatePersonaBody {
   name: string;
@@ -24,14 +18,16 @@ interface PersonaParams {
 }
 
 export async function personasRoute(fastify: FastifyInstance) {
-  fastify.get("/personas", async () => {
-    return listPersonas();
+  fastify.get("/personas", async (request) => {
+    const personas = createPersonaModule(request.projectCtx!);
+    return personas.list();
   });
 
   fastify.get<{ Params: PersonaParams }>(
     "/personas/:id",
     async (request, reply) => {
-      const persona = getPersona(request.params.id);
+      const personas = createPersonaModule(request.projectCtx!);
+      const persona = personas.get(request.params.id);
 
       if (!persona) {
         reply.code(404);
@@ -53,7 +49,8 @@ export async function personasRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const persona = createPersona({
+        const personas = createPersonaModule(request.projectCtx!);
+        const persona = personas.create({
           name,
           description,
           systemPrompt,
@@ -76,7 +73,8 @@ export async function personasRoute(fastify: FastifyInstance) {
       const { name, description, systemPrompt } = request.body;
 
       try {
-        const persona = updatePersona(request.params.id, {
+        const personas = createPersonaModule(request.projectCtx!);
+        const persona = personas.update(request.params.id, {
           name,
           description,
           systemPrompt,
@@ -101,7 +99,8 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: PersonaParams }>(
     "/personas/:id",
     async (request, reply) => {
-      const deleted = deletePersona(request.params.id);
+      const personas = createPersonaModule(request.projectCtx!);
+      const deleted = personas.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

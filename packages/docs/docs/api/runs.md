@@ -10,19 +10,19 @@ REST API endpoints for managing evaluation runs. Runs track the execution of eva
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/runs` | List all runs |
-| GET | `/api/runs/:id` | Get run by ID |
-| POST | `/api/runs` | Create runs for an eval |
-| POST | `/api/runs/playground` | Create a playground run (without eval) |
-| PUT | `/api/runs/:id` | Update a run |
-| POST | `/api/runs/:id/retry` | Retry a run with system errors |
-| DELETE | `/api/runs/:id` | Delete a run |
+| GET | `/api/projects/:projectId/runs` | List all runs |
+| GET | `/api/projects/:projectId/runs/:id` | Get run by ID |
+| POST | `/api/projects/:projectId/runs` | Create runs for an eval |
+| POST | `/api/projects/:projectId/runs/playground` | Create a playground run (without eval) |
+| PUT | `/api/projects/:projectId/runs/:id` | Update a run |
+| POST | `/api/projects/:projectId/runs/:id/retry` | Retry a run with system errors |
+| DELETE | `/api/projects/:projectId/runs/:id` | Delete a run |
 
 ## List Runs
 
 ```http
-GET /api/runs
-GET /api/runs?evalId=<eval-id>
+GET /api/projects/:projectId/runs
+GET /api/projects/:projectId/runs?evalId=<eval-id>
 ```
 
 ### Query Parameters
@@ -69,7 +69,7 @@ Note: Connector and LLM provider information is configured at the Eval level. Th
 ## Get Run
 
 ```http
-GET /api/runs/:id
+GET /api/projects/:projectId/runs/:id
 ```
 
 ### Response
@@ -114,7 +114,7 @@ GET /api/runs/:id
 Creates one or more runs for an eval. If the eval's scenario has multiple personas associated with it (`personaIds`), one run is created for each persona.
 
 ```http
-POST /api/runs
+POST /api/projects/:projectId/runs
 Content-Type: application/json
 ```
 
@@ -181,7 +181,7 @@ If the scenario has no personas, a single run is created with `personaId` set to
 Creates a run directly from a scenario without requiring an eval. Useful for testing scenarios in a playground environment before setting up formal evaluations.
 
 ```http
-POST /api/runs/playground
+POST /api/projects/:projectId/runs/playground
 Content-Type: application/json
 ```
 
@@ -232,7 +232,7 @@ Note: Playground runs store `connectorId` directly on the run since there's no p
 ## Update Run
 
 ```http
-PUT /api/runs/:id
+PUT /api/projects/:projectId/runs/:id
 Content-Type: application/json
 ```
 
@@ -294,7 +294,7 @@ All fields are optional. Only provided fields will be updated.
 ## Delete Run
 
 ```http
-DELETE /api/runs/:id
+DELETE /api/projects/:projectId/runs/:id
 ```
 
 ### Response
@@ -316,7 +316,7 @@ DELETE /api/runs/:id
 Retry a run with system errors by resetting it to "queued" status. Only runs with `status: "error"` can be retried. Evaluation failures (`status: "completed"` with `result.success: false`) cannot be retried.
 
 ```http
-POST /api/runs/:id/retry
+POST /api/projects/:projectId/runs/:id/retry
 Content-Type: application/json
 ```
 

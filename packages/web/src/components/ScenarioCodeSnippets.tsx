@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Scenario } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 
 interface ScenarioCodeSnippetsProps {
   scenario: Scenario;
@@ -8,9 +9,11 @@ interface ScenarioCodeSnippetsProps {
 type SnippetTab = "cli" | "api";
 
 export function ScenarioCodeSnippets({ scenario }: ScenarioCodeSnippetsProps) {
+  const projectId = useProjectId();
   const [activeTab, setActiveTab] = useState<SnippetTab>("cli");
   const [copiedCli, setCopiedCli] = useState(false);
   const [copiedApi, setCopiedApi] = useState(false);
+  const base = `http://localhost:3000/api/projects/${projectId}/scenarios`;
 
   const cliSnippet = `# List all scenarios
 evalstudio scenario list
@@ -36,13 +39,13 @@ evalstudio scenario update ${scenario.id} \\
 evalstudio scenario delete ${scenario.id}`;
 
   const apiSnippet = `# List all scenarios
-curl "http://localhost:3000/api/scenarios"
+curl "${base}"
 
 # Get this scenario
-curl "http://localhost:3000/api/scenarios/${scenario.id}"
+curl "${base}/${scenario.id}"
 
 # Create a new scenario
-curl -X POST http://localhost:3000/api/scenarios \\
+curl -X POST ${base} \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "New Scenario",
@@ -54,7 +57,7 @@ curl -X POST http://localhost:3000/api/scenarios \\
   }'
 
 # Update this scenario
-curl -X PUT http://localhost:3000/api/scenarios/${scenario.id} \\
+curl -X PUT ${base}/${scenario.id} \\
   -H "Content-Type: application/json" \\
   -d '{
     "name": "Updated Name",
@@ -62,7 +65,7 @@ curl -X PUT http://localhost:3000/api/scenarios/${scenario.id} \\
   }'
 
 # Delete this scenario
-curl -X DELETE http://localhost:3000/api/scenarios/${scenario.id}`;
+curl -X DELETE ${base}/${scenario.id}`;
 
   const handleCopy = async (text: string, tab: SnippetTab) => {
     try {

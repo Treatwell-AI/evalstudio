@@ -1,13 +1,12 @@
 import { Command } from "commander";
 import {
-  createRuns,
-  deleteRun,
-  getConnector,
-  getEval,
-  getPersona,
-  getRun,
-  getScenario,
-  listRuns,
+  resolveProjectFromCwd,
+  resolveWorkspace,
+  createRunModule,
+  createEvalModule,
+  createConnectorModule,
+  createPersonaModule,
+  createScenarioModule,
   RunProcessor,
   type Run,
 } from "@evalstudio/core";
@@ -37,16 +36,22 @@ export const runCommand = new Command("run")
           json?: boolean;
         }) => {
           try {
-            const evalItem = getEval(options.eval);
+            const ctx = resolveProjectFromCwd();
+            const runMod = createRunModule(ctx);
+            const evalMod = createEvalModule(ctx);
+            const connectorMod = createConnectorModule(ctx);
+            const personaMod = createPersonaModule(ctx);
+
+            const evalItem = evalMod.get(options.eval);
             if (!evalItem) {
               console.error(`Error: Eval "${options.eval}" not found`);
               process.exit(1);
             }
 
-            const runs = createRuns({ evalId: evalItem.id });
+            const runs = runMod.createMany({ evalId: evalItem.id });
 
             // Get connector info from eval
-            const connector = getConnector(evalItem.connectorId);
+            const connector = connectorMod.get(evalItem.connectorId);
 
             if (options.json) {
               console.log(JSON.stringify(runs, null, 2));
@@ -54,7 +59,7 @@ export const runCommand = new Command("run")
               console.log(`${runs.length} run(s) created successfully`);
               console.log("");
               for (const run of runs) {
-                const persona = run.personaId ? getPersona(run.personaId) : null;
+                const persona = run.personaId ? personaMod.get(run.personaId) : null;
                 console.log(`  ID:        ${run.id}`);
                 console.log(`  Eval:      ${run.evalId}`);
                 if (persona) {
@@ -90,7 +95,13 @@ export const runCommand = new Command("run")
           limit?: string;
           json?: boolean;
         }) => {
-          const runs = listRuns({
+          const ctx = resolveProjectFromCwd();
+          const runMod = createRunModule(ctx);
+          const personaMod = createPersonaModule(ctx);
+          const evalMod = createEvalModule(ctx);
+          const connectorMod = createConnectorModule(ctx);
+
+          const runs = runMod.list({
             evalId: options.eval,
             status: options.status as Run["status"] | undefined,
             limit: options.limit ? parseInt(options.limit, 10) : undefined,
@@ -112,18 +123,18 @@ export const runCommand = new Command("run")
               console.log(`    Eval:    ${run.evalId ?? "Playground"}`);
               // Show persona if present
               if (run.personaId) {
-                const persona = getPersona(run.personaId);
+                const persona = personaMod.get(run.personaId);
                 console.log(`    Persona: ${persona?.name ?? run.personaId}`);
               }
               // Get connector info from eval or directly from run (playground)
               if (run.evalId) {
-                const evalItem = getEval(run.evalId);
+                const evalItem = evalMod.get(run.evalId);
                 if (evalItem) {
-                  const connector = getConnector(evalItem.connectorId);
+                  const connector = connectorMod.get(evalItem.connectorId);
                   console.log(`    Connector: ${connector?.name ?? evalItem.connectorId}`);
                 }
               } else if (run.connectorId) {
-                const connector = getConnector(run.connectorId);
+                const connector = connectorMod.get(run.connectorId);
                 console.log(`    Connector: ${connector?.name ?? run.connectorId}`);
               }
               if (run.error) {
@@ -141,7 +152,14 @@ export const runCommand = new Command("run")
       .argument("<id>", "Run ID")
       .option("--json", "Output as JSON")
       .action((id: string, options: { json?: boolean }) => {
-        const run = getRun(id);
+        const ctx = resolveProjectFromCwd();
+        const runMod = createRunModule(ctx);
+        const scenarioMod = createScenarioModule(ctx);
+        const personaMod = createPersonaModule(ctx);
+        const evalMod = createEvalModule(ctx);
+        const connectorMod = createConnectorModule(ctx);
+
+        const run = runMod.get(id);
 
         if (!run) {
           console.error(`Error: Run "${id}" not found`);
@@ -156,21 +174,21 @@ export const runCommand = new Command("run")
           console.log(`  Status:    ${formatRunStatus(run)}`);
           console.log(`  Eval:      ${run.evalId ?? "Playground"}`);
           // Show scenario and persona
-          const scenario = getScenario(run.scenarioId);
+          const scenario = scenarioMod.get(run.scenarioId);
           console.log(`  Scenario:  ${scenario?.name ?? run.scenarioId}`);
           if (run.personaId) {
-            const persona = getPersona(run.personaId);
+            const persona = personaMod.get(run.personaId);
             console.log(`  Persona:   ${persona?.name ?? run.personaId}`);
           }
           // Get connector info from eval or directly from run (playground)
           if (run.evalId) {
-            const evalItem = getEval(run.evalId);
+            const evalItem = evalMod.get(run.evalId);
             if (evalItem) {
-              const connector = getConnector(evalItem.connectorId);
+              const connector = connectorMod.get(evalItem.connectorId);
               console.log(`  Connector: ${connector?.name ?? evalItem.connectorId}`);
             }
           } else if (run.connectorId) {
-            const connector = getConnector(run.connectorId);
+            const connector = connectorMod.get(run.connectorId);
             console.log(`  Connector: ${connector?.name ?? run.connectorId}`);
           }
           if (run.startedAt) {
@@ -205,14 +223,17 @@ export const runCommand = new Command("run")
       .argument("<id>", "Run ID")
       .option("--json", "Output as JSON")
       .action((id: string, options: { json?: boolean }) => {
-        const run = getRun(id);
+        const ctx = resolveProjectFromCwd();
+        const runMod = createRunModule(ctx);
+
+        const run = runMod.get(id);
 
         if (!run) {
           console.error(`Error: Run "${id}" not found`);
           process.exit(1);
         }
 
-        const deleted = deleteRun(id);
+        const deleted = runMod.delete(id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete run`);
@@ -238,6 +259,7 @@ export const runCommand = new Command("run")
           concurrency?: string;
           poll?: string;
         }) => {
+          const workspaceDir = resolveWorkspace();
           const maxConcurrent = options.concurrency
             ? parseInt(options.concurrency, 10)
             : undefined;
@@ -246,6 +268,7 @@ export const runCommand = new Command("run")
             : 2000;
 
           const processor = new RunProcessor({
+            workspaceDir,
             pollIntervalMs,
             ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
             onRunStart: (run) => {
@@ -296,12 +319,8 @@ export const runCommand = new Command("run")
               const started = await processor.processOnce();
               totalProcessed += started;
 
-              // Check if there are more queued runs
-              const queued = listRuns({
-                status: "queued",
-                limit: 1,
-              });
-              hasMore = queued.length > 0;
+              // Check if there are more queued runs across any project
+              hasMore = started > 0;
             }
 
             if (totalProcessed === 0) {

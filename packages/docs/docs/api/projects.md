@@ -2,98 +2,201 @@
 sidebar_position: 2
 ---
 
-# Project API
+# Projects API
 
-REST endpoints for reading and updating the current project configuration. A project is defined by an `evalstudio.config.json` file in a directory — there is no multi-project management.
+REST endpoints for managing projects and workspace configuration. A workspace contains multiple projects, each with isolated data and optional configuration overrides.
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/project` | Get current project configuration |
-| PUT | `/api/project` | Update project configuration |
+| GET | `/api/projects` | List all projects |
+| POST | `/api/projects` | Create a new project |
+| GET | `/api/workspace` | Get workspace configuration |
+| PUT | `/api/workspace` | Update workspace defaults |
+| GET | `/api/projects/:projectId/config` | Get effective project config |
+| PUT | `/api/projects/:projectId/config` | Update project config |
+| DELETE | `/api/projects/:projectId` | Delete a project |
+
+All entity endpoints (personas, scenarios, evals, runs, connectors) are scoped under `/api/projects/:projectId/`. See individual entity docs for details.
 
 ---
 
-## GET /api/project
+## GET /api/projects
 
-Get the current project configuration.
+List all projects in the workspace.
 
 ### Response (200 OK)
 
 ```json
-{
-  "version": 2,
-  "name": "my-product-evals",
-  "maxConcurrency": 5,
-  "llmSettings": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "models": {
-      "evaluation": "gpt-4o",
-      "persona": "gpt-4o-mini"
-    }
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "my-product-evals"
+  },
+  {
+    "id": "f9e8d7c6-b5a4-3210-fedc-ba0987654321",
+    "name": "staging-tests"
   }
+]
+```
+
+### Example
+
+```bash
+curl http://localhost:3000/api/projects
+```
+
+---
+
+## POST /api/projects
+
+Create a new project in the workspace.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Project name |
+
+```json
+{
+  "name": "my-product-evals"
+}
+```
+
+### Response (201 Created)
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "name": "my-product-evals"
 }
 ```
 
 ### Example
 
 ```bash
-curl http://localhost:3000/api/project
+curl -X POST http://localhost:3000/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-product-evals"}'
 ```
 
 ---
 
-## PUT /api/project
+## GET /api/workspace
 
-Update the project configuration.
+Get the workspace-level configuration (defaults inherited by all projects).
+
+### Response (200 OK)
+
+```json
+{
+  "version": 3,
+  "name": "~/evalstudio",
+  "projects": [
+    { "id": "a1b2c3d4-...", "name": "my-product-evals" }
+  ],
+  "llmSettings": {
+    "provider": "openai",
+    "apiKey": "sk-...",
+    "models": { "evaluation": "gpt-4o" }
+  },
+  "maxConcurrency": 5
+}
+```
+
+---
+
+## PUT /api/workspace
+
+Update workspace-level defaults. These are inherited by projects that don't override them.
+
+### Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | No | Workspace name |
+| `llmSettings` | object \| null | No | Default LLM config (null to remove) |
+| `maxConcurrency` | number \| null | No | Default max concurrent runs (null to clear) |
+
+### Response (200 OK)
+
+Returns the updated workspace config.
+
+---
+
+## GET /api/projects/:projectId/config
+
+Get the effective configuration for a specific project (workspace defaults merged with project overrides).
+
+### Response (200 OK)
+
+```json
+{
+  "version": 3,
+  "name": "my-product-evals",
+  "llmSettings": {
+    "provider": "openai",
+    "apiKey": "sk-...",
+    "models": { "evaluation": "gpt-4o" }
+  },
+  "maxConcurrency": 5
+}
+```
+
+### Example
+
+```bash
+curl http://localhost:3000/api/projects/a1b2c3d4/config
+```
+
+---
+
+## PUT /api/projects/:projectId/config
+
+Update project-specific configuration. Fields set to `null` are cleared (inheriting workspace defaults).
 
 ### Request Body
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | No | Project name |
-| `maxConcurrency` | number \| null | No | Max concurrent runs (null to clear, min: 1) |
-| `llmSettings` | object \| null | No | LLM provider config and model selection (null to remove) |
-
-```json
-{
-  "llmSettings": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "models": {
-      "evaluation": "gpt-4o"
-    }
-  }
-}
-```
+| `llmSettings` | object \| null | No | LLM config (null to inherit from workspace) |
+| `maxConcurrency` | number \| null | No | Max concurrent runs (null to inherit) |
 
 ### Response (200 OK)
 
-```json
-{
-  "version": 2,
-  "name": "my-product-evals",
-  "llmSettings": {
-    "provider": "openai",
-    "apiKey": "sk-your-api-key",
-    "models": {
-      "evaluation": "gpt-4o"
-    }
-  }
-}
-```
+Returns the effective (merged) config after update.
+
+---
+
+## DELETE /api/projects/:projectId
+
+Delete a project and all its data.
+
+### Response (204 No Content)
+
+Empty response on success.
 
 ### Example
 
 ```bash
-curl -X PUT http://localhost:3000/api/project \
-  -H "Content-Type: application/json" \
-  -d '{
-    "llmSettings": {
-      "provider": "openai",
-      "apiKey": "sk-your-api-key"
-    }
-  }'
+curl -X DELETE http://localhost:3000/api/projects/a1b2c3d4
 ```
+
+---
+
+## Project-Scoped Entity Routes
+
+All entity endpoints are nested under a project:
+
+```
+/api/projects/:projectId/personas
+/api/projects/:projectId/scenarios
+/api/projects/:projectId/evals
+/api/projects/:projectId/runs
+/api/projects/:projectId/connectors
+```
+
+The project ID can be the full UUID or a unique prefix (first 8+ characters).

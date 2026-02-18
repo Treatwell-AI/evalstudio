@@ -1,19 +1,77 @@
-import { NavLink } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useProjectId } from "../hooks/useProjectId";
+import type { ProjectInfo } from "../lib/api";
 
 interface SidebarProps {
   projectName: string;
+  projects?: ProjectInfo[];
 }
 
-export function Sidebar({ projectName }: SidebarProps) {
+export function Sidebar({ projectName, projects }: SidebarProps) {
+  const projectId = useProjectId();
+  const navigate = useNavigate();
+  const showSwitcher = projects && projects.length > 1;
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!switcherOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (switcherRef.current && !switcherRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [switcherOpen]);
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
-        <h2 className="sidebar-project-name">{projectName}</h2>
+        {showSwitcher ? (
+          <div className="project-switcher" ref={switcherRef}>
+            <button
+              className="project-switcher-btn"
+              onClick={() => setSwitcherOpen(!switcherOpen)}
+            >
+              <span className="project-switcher-name">{projectName}</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={`project-switcher-chevron${switcherOpen ? " open" : ""}`}>
+                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            {switcherOpen && (
+              <div className="project-switcher-dropdown">
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`project-switcher-item${p.id === projectId ? " active" : ""}`}
+                    onClick={() => {
+                      if (p.id !== projectId) {
+                        navigate(`/projects/${p.id}`);
+                      }
+                      setSwitcherOpen(false);
+                    }}
+                  >
+                    <span className="project-switcher-item-name">{p.name}</span>
+                    {p.id === projectId && (
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <path d="M3 7L6 10L11 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <h2 className="sidebar-project-name">{projectName}</h2>
+        )}
       </div>
 
       <nav className="sidebar-nav">
         <NavLink
-          to="/"
+          to="."
           end
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
@@ -24,7 +82,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/evals"
+          to="evals"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -36,7 +94,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         <div className="sidebar-divider" />
 
         <NavLink
-          to="/scenarios"
+          to="scenarios"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -46,7 +104,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/personas"
+          to="personas"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
           }
@@ -60,7 +118,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         <div className="sidebar-section-title">Settings</div>
 
         <NavLink
-          to="/settings/general"
+          to="settings/general"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }
@@ -69,7 +127,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/settings/connectors"
+          to="settings/connectors"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }
@@ -78,7 +136,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/settings/llm-providers"
+          to="settings/llm-providers"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }
@@ -87,7 +145,7 @@ export function Sidebar({ projectName }: SidebarProps) {
         </NavLink>
 
         <NavLink
-          to="/settings/users"
+          to="settings/users"
           className={({ isActive }) =>
             `sidebar-link sidebar-link-nested ${isActive ? "active" : ""}`
           }

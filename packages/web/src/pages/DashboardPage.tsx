@@ -36,15 +36,15 @@ export function DashboardPage() {
             <p className="text-muted">Loading...</p>
           ) : (
             <div className="stats-grid">
-              <Link to="/evals" className="stat stat-link">
+              <Link to="evals" className="stat stat-link">
                 <span className="stat-value">{evals?.length || 0}</span>
                 <span className="stat-label">Evals</span>
               </Link>
-              <Link to="/scenarios" className="stat stat-link">
+              <Link to="scenarios" className="stat stat-link">
                 <span className="stat-value">{scenarios?.length || 0}</span>
                 <span className="stat-label">Scenarios</span>
               </Link>
-              <Link to="/personas" className="stat stat-link">
+              <Link to="personas" className="stat stat-link">
                 <span className="stat-value">{personas?.length || 0}</span>
                 <span className="stat-label">Personas</span>
               </Link>

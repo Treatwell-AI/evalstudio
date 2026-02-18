@@ -1,9 +1,27 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import {
+  listProjects,
+  createProject,
+  resolveProject,
+  deleteProject,
   getProjectConfig,
   updateProjectConfig,
+  readWorkspaceConfig,
+  updateWorkspaceConfig,
   type LLMSettings,
 } from "@evalstudio/core";
+
+interface ProjectsPluginOptions extends FastifyPluginOptions {
+  workspaceDir: string;
+}
+
+interface ProjectIdParams {
+  projectId: string;
+}
+
+interface CreateProjectBody {
+  name: string;
+}
 
 interface UpdateProjectConfigBody {
   name?: string;
@@ -11,27 +29,121 @@ interface UpdateProjectConfigBody {
   maxConcurrency?: number | null;
 }
 
-export async function projectsRoute(fastify: FastifyInstance) {
-  fastify.get("/project", async () => {
-    return getProjectConfig();
+interface UpdateWorkspaceConfigBody {
+  name?: string;
+  llmSettings?: LLMSettings | null;
+  maxConcurrency?: number | null;
+}
+
+export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPluginOptions) {
+  const { workspaceDir } = opts;
+
+  // --- Workspace-level endpoints ---
+
+  // GET /api/projects — List all projects
+  fastify.get("/projects", async () => {
+    return listProjects(workspaceDir);
   });
 
-  fastify.put<{ Body: UpdateProjectConfigBody }>(
-    "/project",
+  // POST /api/projects — Create a new project
+  fastify.post<{ Body: CreateProjectBody }>(
+    "/projects",
+    async (request, reply) => {
+      const { name } = request.body;
+
+      if (!name) {
+        reply.code(400);
+        return { error: "Name is required" };
+      }
+
+      const ctx = createProject(workspaceDir, name);
+      reply.code(201);
+      return { id: ctx.id, name: ctx.name };
+    }
+  );
+
+  // GET /api/workspace — Get workspace config
+  fastify.get("/workspace", async () => {
+    return readWorkspaceConfig(workspaceDir);
+  });
+
+  // PUT /api/workspace — Update workspace config (defaults)
+  fastify.put<{ Body: UpdateWorkspaceConfigBody }>(
+    "/workspace",
     async (request, reply) => {
       const { name, llmSettings, maxConcurrency } = request.body;
 
       try {
-        const config = updateProjectConfig({
+        const config = updateWorkspaceConfig(workspaceDir, {
           name,
           llmSettings,
           maxConcurrency,
         });
-
         return config;
       } catch (error) {
         if (error instanceof Error) {
           reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    }
+  );
+
+  // --- Project-level endpoints (under /api/projects/:projectId) ---
+
+  // GET /api/projects/:projectId/config — Get effective project config
+  fastify.get<{ Params: ProjectIdParams }>(
+    "/projects/:projectId/config",
+    async (request, reply) => {
+      try {
+        const ctx = resolveProject(workspaceDir, request.params.projectId);
+        return getProjectConfig(ctx);
+      } catch (error) {
+        if (error instanceof Error) {
+          reply.code(404);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    }
+  );
+
+  // PUT /api/projects/:projectId/config — Update per-project config
+  fastify.put<{ Params: ProjectIdParams; Body: UpdateProjectConfigBody }>(
+    "/projects/:projectId/config",
+    async (request, reply) => {
+      const { name, llmSettings, maxConcurrency } = request.body;
+
+      try {
+        const ctx = resolveProject(workspaceDir, request.params.projectId);
+        const config = updateProjectConfig(ctx, {
+          name,
+          llmSettings,
+          maxConcurrency,
+        });
+        return config;
+      } catch (error) {
+        if (error instanceof Error) {
+          reply.code(400);
+          return { error: error.message };
+        }
+        throw error;
+      }
+    }
+  );
+
+  // DELETE /api/projects/:projectId — Delete a project
+  fastify.delete<{ Params: ProjectIdParams }>(
+    "/projects/:projectId",
+    async (request, reply) => {
+      try {
+        deleteProject(workspaceDir, request.params.projectId);
+        reply.code(204);
+        return;
+      } catch (error) {
+        if (error instanceof Error) {
+          reply.code(404);
           return { error: error.message };
         }
         throw error;

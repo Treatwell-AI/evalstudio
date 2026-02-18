@@ -59,7 +59,7 @@ export function EvalDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Eval not found"}
         </div>
-        <Link to="/evals" className="btn btn-secondary">
+        <Link to=".." relative="path" className="btn btn-secondary">
           Back to Evals
         </Link>
       </div>
@@ -84,7 +84,7 @@ export function EvalDetailPage() {
     const displayName = getDisplayName();
     if (confirm(`Delete eval "${displayName}"? This will also delete all associated runs.`)) {
       await deleteEval.mutateAsync(evalWithRelations.id);
-      navigate("/evals");
+      navigate("..", { relative: "path" });
     }
   };
 
@@ -143,7 +143,8 @@ export function EvalDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to="/evals"
+            to=".."
+            relative="path"
             className="back-link"
           >
             ← Back to Evals

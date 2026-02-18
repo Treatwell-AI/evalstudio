@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-project workspaces** - Support multiple isolated projects within a single workspace
+  - Core: Workspace config (`evalstudio.config.json`) now contains a `projects` registry with UUID-based project entries
+  - Core: Per-project config (`project.config.json`) with project-specific LLM and concurrency settings
+  - Core: `ProjectContext` passed explicitly to all entity modules (persona, scenario, eval, connector, run, execution)
+  - Core: Workspace-level defaults merged with per-project overrides for effective config
+  - Core: `resolveProjectFromCwd()` auto-discovers project from current directory or falls back to single-project workspace
+  - API: All entity routes scoped under `/api/projects/:projectId/` prefix
+  - API: Project CRUD endpoints for create, list, show, update, delete
+  - CLI: `evalstudio projects create|list|show|update|delete` commands
+  - CLI: All entity commands resolve project from current directory context
+  - CLI: `evalstudio init` creates workspace with first project
+  - Web: URL-scoped routing (`/projects/:projectId/...`) for all pages
+  - Web: Project switcher dropdown in sidebar for navigating between projects
+  - Web: Auto-redirect to first project on root URL
+  - Tests: All test suites updated with `ProjectContext`-based setup
+
 ### Changed
 
 - **Unified LLM settings** - Flattened `llmProvider` and `llmSettings` into a single `llmSettings` object in `evalstudio.config.json`

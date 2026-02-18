@@ -23,7 +23,6 @@ export interface LLMSettings {
 }
 
 export interface ProjectConfig {
-  version: number;
   name: string;
   llmSettings?: LLMSettings;
   maxConcurrency?: number;
@@ -33,6 +32,11 @@ export interface UpdateProjectConfigInput {
   name?: string;
   llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
+}
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
 }
 
 export interface Status {
@@ -386,148 +390,16 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+/** Build the project-scoped API base path */
+function projectBase(projectId: string): string {
+  return `${API_BASE}/projects/${projectId}`;
+}
+
 export const api = {
+  // Workspace-level endpoints (no project scope)
   status: {
     get: async (): Promise<Status> => {
       const response = await fetch(`${API_BASE}/status`);
-      return handleResponse(response);
-    },
-  },
-
-  project: {
-    get: async (): Promise<ProjectConfig> => {
-      const response = await fetch(`${API_BASE}/project`);
-      return handleResponse(response);
-    },
-
-    update: async (input: UpdateProjectConfigInput): Promise<ProjectConfig> => {
-      const response = await fetch(`${API_BASE}/project`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-  },
-
-  personas: {
-    list: async (): Promise<Persona[]> => {
-      const response = await fetch(`${API_BASE}/personas`);
-      return handleResponse(response);
-    },
-
-    get: async (id: string): Promise<Persona> => {
-      const response = await fetch(`${API_BASE}/personas/${id}`);
-      return handleResponse(response);
-    },
-
-    create: async (input: CreatePersonaInput): Promise<Persona> => {
-      const response = await fetch(`${API_BASE}/personas`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    update: async (id: string, input: UpdatePersonaInput): Promise<Persona> => {
-      const response = await fetch(`${API_BASE}/personas/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/personas/${id}`, {
-        method: "DELETE",
-      });
-      return handleResponse(response);
-    },
-  },
-
-  scenarios: {
-    list: async (): Promise<Scenario[]> => {
-      const response = await fetch(`${API_BASE}/scenarios`);
-      return handleResponse(response);
-    },
-
-    get: async (id: string): Promise<Scenario> => {
-      const response = await fetch(`${API_BASE}/scenarios/${id}`);
-      return handleResponse(response);
-    },
-
-    create: async (input: CreateScenarioInput): Promise<Scenario> => {
-      const response = await fetch(`${API_BASE}/scenarios`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    update: async (id: string, input: UpdateScenarioInput): Promise<Scenario> => {
-      const response = await fetch(`${API_BASE}/scenarios/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/scenarios/${id}`, {
-        method: "DELETE",
-      });
-      return handleResponse(response);
-    },
-
-    getPrompt: async (id: string, personaId?: string): Promise<{ systemPrompt: string; messages: Message[] }> => {
-      const url = personaId
-        ? `${API_BASE}/scenarios/${id}/prompt?personaId=${personaId}`
-        : `${API_BASE}/scenarios/${id}/prompt`;
-      const response = await fetch(url);
-      return handleResponse(response);
-    },
-  },
-
-  evals: {
-    list: async (): Promise<Eval[]> => {
-      const response = await fetch(`${API_BASE}/evals`);
-      return handleResponse(response);
-    },
-
-    get: async (id: string, expand?: boolean): Promise<Eval | EvalWithRelations> => {
-      const url = expand
-        ? `${API_BASE}/evals/${id}?expand=true`
-        : `${API_BASE}/evals/${id}`;
-      const response = await fetch(url);
-      return handleResponse(response);
-    },
-
-    create: async (input: CreateEvalInput): Promise<Eval> => {
-      const response = await fetch(`${API_BASE}/evals`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    update: async (id: string, input: UpdateEvalInput): Promise<Eval> => {
-      const response = await fetch(`${API_BASE}/evals/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      return handleResponse(response);
-    },
-
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/evals/${id}`, {
-        method: "DELETE",
-      });
       return handleResponse(response);
     },
   },
@@ -545,24 +417,60 @@ export const api = {
     },
   },
 
-  connectors: {
-    list: async (): Promise<Connector[]> => {
-      const response = await fetch(`${API_BASE}/connectors`);
+  // Workspace-level project management
+  projects: {
+    list: async (): Promise<ProjectInfo[]> => {
+      const response = await fetch(`${API_BASE}/projects`);
       return handleResponse(response);
     },
 
-    get: async (id: string): Promise<Connector> => {
-      const response = await fetch(`${API_BASE}/connectors/${id}`);
+    create: async (name: string): Promise<ProjectInfo> => {
+      const response = await fetch(`${API_BASE}/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
       return handleResponse(response);
     },
 
-    getTypes: async (): Promise<ConnectorTypes> => {
-      const response = await fetch(`${API_BASE}/connectors/types`);
+    delete: async (projectId: string): Promise<void> => {
+      const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+        method: "DELETE",
+      });
+      return handleResponse(response);
+    },
+  },
+
+  // Project-scoped endpoints
+  project: {
+    getConfig: async (projectId: string): Promise<ProjectConfig> => {
+      const response = await fetch(`${projectBase(projectId)}/config`);
       return handleResponse(response);
     },
 
-    create: async (input: CreateConnectorInput): Promise<Connector> => {
-      const response = await fetch(`${API_BASE}/connectors`, {
+    updateConfig: async (projectId: string, input: UpdateProjectConfigInput): Promise<ProjectConfig> => {
+      const response = await fetch(`${projectBase(projectId)}/config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+  },
+
+  personas: {
+    list: async (projectId: string): Promise<Persona[]> => {
+      const response = await fetch(`${projectBase(projectId)}/personas`);
+      return handleResponse(response);
+    },
+
+    get: async (projectId: string, id: string): Promise<Persona> => {
+      const response = await fetch(`${projectBase(projectId)}/personas/${id}`);
+      return handleResponse(response);
+    },
+
+    create: async (projectId: string, input: CreatePersonaInput): Promise<Persona> => {
+      const response = await fetch(`${projectBase(projectId)}/personas`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -570,8 +478,8 @@ export const api = {
       return handleResponse(response);
     },
 
-    update: async (id: string, input: UpdateConnectorInput): Promise<Connector> => {
-      const response = await fetch(`${API_BASE}/connectors/${id}`, {
+    update: async (projectId: string, id: string, input: UpdatePersonaInput): Promise<Persona> => {
+      const response = await fetch(`${projectBase(projectId)}/personas/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -579,22 +487,149 @@ export const api = {
       return handleResponse(response);
     },
 
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/connectors/${id}`, {
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/personas/${id}`, {
+        method: "DELETE",
+      });
+      return handleResponse(response);
+    },
+  },
+
+  scenarios: {
+    list: async (projectId: string): Promise<Scenario[]> => {
+      const response = await fetch(`${projectBase(projectId)}/scenarios`);
+      return handleResponse(response);
+    },
+
+    get: async (projectId: string, id: string): Promise<Scenario> => {
+      const response = await fetch(`${projectBase(projectId)}/scenarios/${id}`);
+      return handleResponse(response);
+    },
+
+    create: async (projectId: string, input: CreateScenarioInput): Promise<Scenario> => {
+      const response = await fetch(`${projectBase(projectId)}/scenarios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    update: async (projectId: string, id: string, input: UpdateScenarioInput): Promise<Scenario> => {
+      const response = await fetch(`${projectBase(projectId)}/scenarios/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/scenarios/${id}`, {
         method: "DELETE",
       });
       return handleResponse(response);
     },
 
-    test: async (id: string): Promise<ConnectorTestResult> => {
-      const response = await fetch(`${API_BASE}/connectors/${id}/test`, {
+    getPrompt: async (projectId: string, id: string, personaId?: string): Promise<{ systemPrompt: string; messages: Message[] }> => {
+      const url = personaId
+        ? `${projectBase(projectId)}/scenarios/${id}/prompt?personaId=${personaId}`
+        : `${projectBase(projectId)}/scenarios/${id}/prompt`;
+      const response = await fetch(url);
+      return handleResponse(response);
+    },
+  },
+
+  evals: {
+    list: async (projectId: string): Promise<Eval[]> => {
+      const response = await fetch(`${projectBase(projectId)}/evals`);
+      return handleResponse(response);
+    },
+
+    get: async (projectId: string, id: string, expand?: boolean): Promise<Eval | EvalWithRelations> => {
+      const url = expand
+        ? `${projectBase(projectId)}/evals/${id}?expand=true`
+        : `${projectBase(projectId)}/evals/${id}`;
+      const response = await fetch(url);
+      return handleResponse(response);
+    },
+
+    create: async (projectId: string, input: CreateEvalInput): Promise<Eval> => {
+      const response = await fetch(`${projectBase(projectId)}/evals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    update: async (projectId: string, id: string, input: UpdateEvalInput): Promise<Eval> => {
+      const response = await fetch(`${projectBase(projectId)}/evals/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/evals/${id}`, {
+        method: "DELETE",
+      });
+      return handleResponse(response);
+    },
+  },
+
+  connectors: {
+    list: async (projectId: string): Promise<Connector[]> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors`);
+      return handleResponse(response);
+    },
+
+    get: async (projectId: string, id: string): Promise<Connector> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/${id}`);
+      return handleResponse(response);
+    },
+
+    getTypes: async (projectId: string): Promise<ConnectorTypes> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/types`);
+      return handleResponse(response);
+    },
+
+    create: async (projectId: string, input: CreateConnectorInput): Promise<Connector> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    update: async (projectId: string, id: string, input: UpdateConnectorInput): Promise<Connector> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      return handleResponse(response);
+    },
+
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/${id}`, {
+        method: "DELETE",
+      });
+      return handleResponse(response);
+    },
+
+    test: async (projectId: string, id: string): Promise<ConnectorTestResult> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/${id}/test`, {
         method: "POST",
       });
       return handleResponse(response);
     },
 
-    invoke: async (id: string, input: ConnectorInvokeInput): Promise<ConnectorInvokeResult> => {
-      const response = await fetch(`${API_BASE}/connectors/${id}/invoke`, {
+    invoke: async (projectId: string, id: string, input: ConnectorInvokeInput): Promise<ConnectorInvokeResult> => {
+      const response = await fetch(`${projectBase(projectId)}/connectors/${id}/invoke`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -604,24 +639,25 @@ export const api = {
   },
 
   runs: {
-    list: async (evalId?: string, scenarioId?: string, personaId?: string): Promise<Run[]> => {
+    list: async (projectId: string, evalId?: string, scenarioId?: string, personaId?: string): Promise<Run[]> => {
       const params = new URLSearchParams();
       if (evalId) params.set("evalId", evalId);
       if (scenarioId) params.set("scenarioId", scenarioId);
       if (personaId) params.set("personaId", personaId);
       const query = params.toString();
-      const url = query ? `${API_BASE}/runs?${query}` : `${API_BASE}/runs`;
+      const base = `${projectBase(projectId)}/runs`;
+      const url = query ? `${base}?${query}` : base;
       const response = await fetch(url);
       return handleResponse(response);
     },
 
-    get: async (id: string): Promise<Run> => {
-      const response = await fetch(`${API_BASE}/runs/${id}`);
+    get: async (projectId: string, id: string): Promise<Run> => {
+      const response = await fetch(`${projectBase(projectId)}/runs/${id}`);
       return handleResponse(response);
     },
 
-    create: async (input: CreateRunInput): Promise<Run[]> => {
-      const response = await fetch(`${API_BASE}/runs`, {
+    create: async (projectId: string, input: CreateRunInput): Promise<Run[]> => {
+      const response = await fetch(`${projectBase(projectId)}/runs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -629,8 +665,8 @@ export const api = {
       return handleResponse(response);
     },
 
-    createPlayground: async (input: CreatePlaygroundRunInput): Promise<Run> => {
-      const response = await fetch(`${API_BASE}/runs/playground`, {
+    createPlayground: async (projectId: string, input: CreatePlaygroundRunInput): Promise<Run> => {
+      const response = await fetch(`${projectBase(projectId)}/runs/playground`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -638,8 +674,8 @@ export const api = {
       return handleResponse(response);
     },
 
-    update: async (id: string, input: UpdateRunInput): Promise<Run> => {
-      const response = await fetch(`${API_BASE}/runs/${id}`, {
+    update: async (projectId: string, id: string, input: UpdateRunInput): Promise<Run> => {
+      const response = await fetch(`${projectBase(projectId)}/runs/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -647,15 +683,15 @@ export const api = {
       return handleResponse(response);
     },
 
-    delete: async (id: string): Promise<void> => {
-      const response = await fetch(`${API_BASE}/runs/${id}`, {
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/runs/${id}`, {
         method: "DELETE",
       });
       return handleResponse(response);
     },
 
-    retry: async (id: string, options?: { clearMessages?: boolean }): Promise<Run> => {
-      const response = await fetch(`${API_BASE}/runs/${id}/retry`, {
+    retry: async (projectId: string, id: string, options?: { clearMessages?: boolean }): Promise<Run> => {
+      const response = await fetch(`${projectBase(projectId)}/runs/${id}/retry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(options || {}),

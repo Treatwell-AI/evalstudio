@@ -1,9 +1,10 @@
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
-import { useProjectConfig } from "../hooks/useProjects";
+import { useProjectConfig, useProjectsList } from "../hooks/useProjects";
 
 export function ProjectLayout() {
   const { data: config, isLoading, error } = useProjectConfig();
+  const { data: projects } = useProjectsList();
 
   if (isLoading) {
     return (
@@ -26,7 +27,7 @@ export function ProjectLayout() {
 
   return (
     <div className="project-layout">
-      <Sidebar projectName={config.name} />
+      <Sidebar projectName={config.name} projects={projects} />
       <main className="project-content">
         <Outlet />
       </main>

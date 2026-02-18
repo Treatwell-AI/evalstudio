@@ -1,79 +1,116 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   getProjectConfig,
+  readWorkspaceConfig,
   updateProjectConfig,
+  updateWorkspaceConfig,
 } from "../project.js";
-import { resetStorageDir, setConfigDir, setStorageDir } from "../project-resolver.js";
+import type { ProjectContext } from "../project-resolver.js";
 
-let testDir: string;
+let tempDir: string;
+let ctx: ProjectContext;
+
+/**
+ * Helper to set up the workspace structure:
+ *   tempDir/
+ *     evalstudio.config.json    (workspace config)
+ *     projects/
+ *       proj1/
+ *         project.config.json   (per-project config)
+ *         data/
+ */
+function setupWorkspace(
+  wsOverrides: Record<string, unknown> = {},
+  projOverrides: Record<string, unknown> = {},
+) {
+  const projectId = "proj1";
+  const projectDir = join(tempDir, "projects", projectId);
+  const dataDir = join(projectDir, "data");
+  mkdirSync(dataDir, { recursive: true });
+
+  const wsConfig = {
+    version: 3,
+    name: "test-workspace",
+    projects: [{ id: projectId, name: "Test Project" }],
+    ...wsOverrides,
+  };
+  writeFileSync(
+    join(tempDir, "evalstudio.config.json"),
+    JSON.stringify(wsConfig, null, 2),
+  );
+
+  const projConfig = {
+    name: "Test Project",
+    ...projOverrides,
+  };
+  writeFileSync(
+    join(projectDir, "project.config.json"),
+    JSON.stringify(projConfig, null, 2),
+  );
+
+  ctx = {
+    id: projectId,
+    name: "Test Project",
+    dataDir,
+    configPath: join(projectDir, "project.config.json"),
+    workspaceDir: tempDir,
+  };
+}
 
 describe("project config", () => {
-  beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    setStorageDir(testDir);
-    setConfigDir(testDir);
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({ version: 2, name: "test-project" }, null, 2)
-    );
-  });
-
-  afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
-    }
-  });
-
   beforeEach(() => {
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({ version: 2, name: "test-project" }, null, 2)
-    );
+    tempDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
+    setupWorkspace();
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
   });
 
   describe("getProjectConfig", () => {
     it("returns project config", () => {
-      const config = getProjectConfig();
+      const config = getProjectConfig(ctx);
 
-      expect(config.version).toBe(2);
-      expect(config.name).toBe("test-project");
+      expect(config.version).toBe(3);
+      expect(config.name).toBe("Test Project");
     });
 
-    it("returns config with llmSettings when set", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          llmSettings: { provider: "openai", apiKey: "sk-test" },
-        }, null, 2)
-      );
+    it("returns config with llmSettings from project override", () => {
+      setupWorkspace({}, {
+        llmSettings: { provider: "openai", apiKey: "sk-test" },
+      });
 
-      const config = getProjectConfig();
+      const config = getProjectConfig(ctx);
 
       expect(config.llmSettings?.provider).toBe("openai");
       expect(config.llmSettings?.apiKey).toBe("sk-test");
     });
 
-    it("returns config with llmSettings models when set", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          llmSettings: {
-            provider: "openai",
-            apiKey: "sk-test",
-            models: { evaluation: "gpt-4o" },
-          },
-        }, null, 2)
+    it("inherits llmSettings from workspace when project does not override", () => {
+      setupWorkspace(
+        { llmSettings: { provider: "openai", apiKey: "sk-workspace" } },
+        {},
       );
 
-      const config = getProjectConfig();
+      const config = getProjectConfig(ctx);
+
+      expect(config.llmSettings?.provider).toBe("openai");
+      expect(config.llmSettings?.apiKey).toBe("sk-workspace");
+    });
+
+    it("returns config with llmSettings models when set", () => {
+      setupWorkspace({}, {
+        llmSettings: {
+          provider: "openai",
+          apiKey: "sk-test",
+          models: { evaluation: "gpt-4o" },
+        },
+      });
+
+      const config = getProjectConfig(ctx);
 
       expect(config.llmSettings?.models?.evaluation).toBe("gpt-4o");
     });
@@ -81,14 +118,14 @@ describe("project config", () => {
 
   describe("updateProjectConfig", () => {
     it("updates project name", () => {
-      const updated = updateProjectConfig({ name: "new-name" });
+      const updated = updateProjectConfig(ctx, { name: "new-name" });
 
       expect(updated.name).toBe("new-name");
-      expect(updated.version).toBe(2);
+      expect(updated.version).toBe(3);
     });
 
     it("updates llmSettings", () => {
-      const updated = updateProjectConfig({
+      const updated = updateProjectConfig(ctx, {
         llmSettings: { provider: "openai", apiKey: "sk-test" },
       });
 
@@ -96,23 +133,21 @@ describe("project config", () => {
       expect(updated.llmSettings?.apiKey).toBe("sk-test");
     });
 
-    it("clears llmSettings when set to null", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          llmSettings: { provider: "openai", apiKey: "sk-test" },
-        }, null, 2)
+    it("clears llmSettings when set to null (inherits from workspace)", () => {
+      setupWorkspace(
+        { llmSettings: { provider: "anthropic", apiKey: "sk-ws" } },
+        { llmSettings: { provider: "openai", apiKey: "sk-proj" } },
       );
 
-      const updated = updateProjectConfig({ llmSettings: null });
+      const updated = updateProjectConfig(ctx, { llmSettings: null });
 
-      expect(updated.llmSettings).toBeUndefined();
+      // After clearing, should inherit from workspace
+      expect(updated.llmSettings?.provider).toBe("anthropic");
+      expect(updated.llmSettings?.apiKey).toBe("sk-ws");
     });
 
     it("updates llmSettings with models", () => {
-      const updated = updateProjectConfig({
+      const updated = updateProjectConfig(ctx, {
         llmSettings: {
           provider: "openai",
           apiKey: "sk-test",
@@ -124,20 +159,15 @@ describe("project config", () => {
     });
 
     it("preserves existing fields when updating partially", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "original-name",
-          llmSettings: {
-            provider: "openai",
-            apiKey: "sk-test",
-            models: { evaluation: "gpt-4o" },
-          },
-        }, null, 2)
-      );
+      setupWorkspace({}, {
+        llmSettings: {
+          provider: "openai",
+          apiKey: "sk-test",
+          models: { evaluation: "gpt-4o" },
+        },
+      });
 
-      const updated = updateProjectConfig({ name: "updated-name" });
+      const updated = updateProjectConfig(ctx, { name: "updated-name" });
 
       expect(updated.name).toBe("updated-name");
       expect(updated.llmSettings?.provider).toBe("openai");
@@ -146,7 +176,7 @@ describe("project config", () => {
 
     it("validates llmSettings requires provider type", () => {
       expect(() =>
-        updateProjectConfig({
+        updateProjectConfig(ctx, {
           llmSettings: { provider: "" as "openai", apiKey: "sk-test" },
         })
       ).toThrow("LLM provider type is required");
@@ -154,7 +184,7 @@ describe("project config", () => {
 
     it("validates llmSettings requires apiKey", () => {
       expect(() =>
-        updateProjectConfig({
+        updateProjectConfig(ctx, {
           llmSettings: { provider: "openai", apiKey: "" },
         })
       ).toThrow("LLM provider API key is required");
@@ -162,73 +192,105 @@ describe("project config", () => {
   });
 
   describe("maxConcurrency", () => {
-    it("returns config with maxConcurrency when set", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          maxConcurrency: 5,
-        }, null, 2)
-      );
+    it("returns config with maxConcurrency from project override", () => {
+      setupWorkspace({}, { maxConcurrency: 5 });
 
-      const config = getProjectConfig();
+      const config = getProjectConfig(ctx);
 
       expect(config.maxConcurrency).toBe(5);
     });
 
+    it("inherits maxConcurrency from workspace when project does not override", () => {
+      setupWorkspace({ maxConcurrency: 8 }, {});
+
+      const config = getProjectConfig(ctx);
+
+      expect(config.maxConcurrency).toBe(8);
+    });
+
     it("returns undefined maxConcurrency when not set", () => {
-      const config = getProjectConfig();
+      const config = getProjectConfig(ctx);
 
       expect(config.maxConcurrency).toBeUndefined();
     });
 
     it("updates maxConcurrency", () => {
-      const updated = updateProjectConfig({ maxConcurrency: 10 });
+      const updated = updateProjectConfig(ctx, { maxConcurrency: 10 });
 
       expect(updated.maxConcurrency).toBe(10);
-      expect(updated.name).toBe("test-project");
+      expect(updated.name).toBe("Test Project");
     });
 
-    it("clears maxConcurrency when set to null", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          maxConcurrency: 5,
-        }, null, 2)
-      );
+    it("clears maxConcurrency when set to null (inherits from workspace)", () => {
+      setupWorkspace({ maxConcurrency: 7 }, { maxConcurrency: 5 });
 
-      const updated = updateProjectConfig({ maxConcurrency: null });
+      const updated = updateProjectConfig(ctx, { maxConcurrency: null });
 
-      expect(updated.maxConcurrency).toBeUndefined();
+      // After clearing, should inherit from workspace
+      expect(updated.maxConcurrency).toBe(7);
     });
 
     it("preserves maxConcurrency when not included in update", () => {
-      writeFileSync(
-        join(testDir, "evalstudio.config.json"),
-        JSON.stringify({
-          version: 2,
-          name: "test-project",
-          maxConcurrency: 7,
-        }, null, 2)
-      );
+      setupWorkspace({}, { maxConcurrency: 7 });
 
-      const updated = updateProjectConfig({ name: "new-name" });
+      const updated = updateProjectConfig(ctx, { name: "new-name" });
 
       expect(updated.name).toBe("new-name");
       expect(updated.maxConcurrency).toBe(7);
     });
 
     it("throws when maxConcurrency is less than 1", () => {
-      expect(() => updateProjectConfig({ maxConcurrency: 0 })).toThrow(
+      expect(() => updateProjectConfig(ctx, { maxConcurrency: 0 })).toThrow(
         "maxConcurrency must be at least 1"
       );
 
-      expect(() => updateProjectConfig({ maxConcurrency: -1 })).toThrow(
+      expect(() => updateProjectConfig(ctx, { maxConcurrency: -1 })).toThrow(
         "maxConcurrency must be at least 1"
       );
+    });
+  });
+
+  describe("readWorkspaceConfig", () => {
+    it("reads workspace config", () => {
+      const config = readWorkspaceConfig(tempDir);
+
+      expect(config.version).toBe(3);
+      expect(config.name).toBe("test-workspace");
+      expect(config.projects).toHaveLength(1);
+      expect(config.projects[0].id).toBe("proj1");
+    });
+  });
+
+  describe("updateWorkspaceConfig", () => {
+    it("updates workspace name", () => {
+      const updated = updateWorkspaceConfig(tempDir, { name: "new-ws-name" });
+
+      expect(updated.name).toBe("new-ws-name");
+    });
+
+    it("updates workspace llmSettings", () => {
+      const updated = updateWorkspaceConfig(tempDir, {
+        llmSettings: { provider: "openai", apiKey: "sk-ws-key" },
+      });
+
+      expect(updated.llmSettings?.provider).toBe("openai");
+      expect(updated.llmSettings?.apiKey).toBe("sk-ws-key");
+    });
+
+    it("validates workspace llmSettings requires provider", () => {
+      expect(() =>
+        updateWorkspaceConfig(tempDir, {
+          llmSettings: { provider: "" as "openai", apiKey: "sk-test" },
+        })
+      ).toThrow("LLM provider type is required");
+    });
+
+    it("validates workspace llmSettings requires apiKey", () => {
+      expect(() =>
+        updateWorkspaceConfig(tempDir, {
+          llmSettings: { provider: "openai", apiKey: "" },
+        })
+      ).toThrow("LLM provider API key is required");
     });
   });
 });

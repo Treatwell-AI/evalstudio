@@ -68,7 +68,7 @@ export function ScenarioList({ selectMode, onExitSelectMode }: ScenarioListProps
     if (selectMode) {
       toggleSelection(scenario.id);
     } else {
-      navigate(`/scenarios/${scenario.id}`);
+      navigate(scenario.id);
     }
   };
 

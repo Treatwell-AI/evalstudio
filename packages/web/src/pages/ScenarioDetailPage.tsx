@@ -73,7 +73,7 @@ export function ScenarioDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Scenario not found"}
         </div>
-        <Link to="/scenarios" className="btn btn-secondary">
+        <Link to=".." relative="path" className="btn btn-secondary">
           Back to Scenarios
         </Link>
       </div>
@@ -84,7 +84,7 @@ export function ScenarioDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete scenario "${scenario.name}"?`)) {
       await deleteScenario.mutateAsync(scenario.id);
-      navigate("/scenarios");
+      navigate("..", { relative: "path" });
     }
   };
 
@@ -144,7 +144,8 @@ export function ScenarioDetailPage() {
       <div className="page-header">
         <div className="page-header-nav">
           <Link
-            to="/scenarios"
+            to=".."
+            relative="path"
             className="back-link"
           >
             ← Back to Scenarios
@@ -320,7 +321,7 @@ export function ScenarioDetailPage() {
         {personas.length === 0 ? (
           <p className="form-hint">
             No personas available.{" "}
-            <Link to="/personas">Create a persona</Link> first.
+            <Link to="../../personas" relative="path">Create a persona</Link> first.
           </p>
         ) : (
           <div className="persona-checkbox-list">

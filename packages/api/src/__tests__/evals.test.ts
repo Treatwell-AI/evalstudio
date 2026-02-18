@@ -1,11 +1,13 @@
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
+import { initWorkspace } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
-let testDir: string;
+let workspaceDir: string;
+let projectId: string;
+let prefix: string;
 
 describe("evals routes", () => {
   let scenarioId: string;
@@ -13,29 +15,24 @@ describe("evals routes", () => {
   let connectorId: string;
 
   beforeAll(async () => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    const storageDir = join(testDir, "data");
-    mkdirSync(storageDir, { recursive: true });
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({ version: 2, name: "test-project" })
-    );
-    setStorageDir(storageDir);
-    setConfigDir(testDir);
+    workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
+    const result = initWorkspace(workspaceDir, "test-workspace", "test-project");
+    projectId = result.project.id;
+    prefix = `/api/projects/${projectId}`;
 
     // Create scenarios and connector for testing
-    const server = await createServer();
+    const server = await createServer({ workspaceDir, runProcessor: false });
 
     const scenarioResponse = await server.inject({
       method: "POST",
-      url: "/api/scenarios",
+      url: `${prefix}/scenarios`,
       payload: { name: "Test Scenario" },
     });
     scenarioId = JSON.parse(scenarioResponse.body).id;
 
     const scenario2Response = await server.inject({
       method: "POST",
-      url: "/api/scenarios",
+      url: `${prefix}/scenarios`,
       payload: { name: "Test Scenario 2" },
     });
     scenario2Id = JSON.parse(scenario2Response.body).id;
@@ -43,7 +40,7 @@ describe("evals routes", () => {
     // Create connector (required for evals)
     const connectorResponse = await server.inject({
       method: "POST",
-      url: "/api/connectors",
+      url: `${prefix}/connectors`,
       payload: {
         name: "Test Connector",
         type: "http",
@@ -56,14 +53,13 @@ describe("evals routes", () => {
   });
 
   afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
+    if (existsSync(workspaceDir)) {
+      rmSync(workspaceDir, { recursive: true });
     }
   });
 
   afterEach(async () => {
-    const storagePath = join(testDir, "data", "evals.json");
+    const storagePath = join(workspaceDir, "projects", projectId, "data", "evals.json");
     if (existsSync(storagePath)) {
       rmSync(storagePath);
     }
@@ -71,11 +67,11 @@ describe("evals routes", () => {
 
   describe("GET /evals", () => {
     it("returns empty array when no evals", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -85,23 +81,23 @@ describe("evals routes", () => {
     });
 
     it("returns all evals", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
       });
 
       await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
       });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -114,11 +110,11 @@ describe("evals routes", () => {
 
   describe("POST /evals", () => {
     it("creates an eval with required fields", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
 
@@ -133,11 +129,11 @@ describe("evals routes", () => {
     });
 
     it("creates an eval with all fields", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: {
           name: "Full Eval",
           connectorId,
@@ -157,11 +153,11 @@ describe("evals routes", () => {
     });
 
     it("returns 400 for missing name", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { connectorId, scenarioIds: [scenarioId] },
       });
 
@@ -172,11 +168,11 @@ describe("evals routes", () => {
     });
 
     it("returns 400 for missing scenario id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test", connectorId },
       });
 
@@ -187,11 +183,11 @@ describe("evals routes", () => {
     });
 
     it("returns 400 for missing connector id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test", scenarioIds: [scenarioId] },
       });
 
@@ -202,11 +198,11 @@ describe("evals routes", () => {
     });
 
     it("returns 404 for non-existent connector", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test", connectorId: "non-existent", scenarioIds: [scenarioId] },
       });
 
@@ -216,11 +212,11 @@ describe("evals routes", () => {
     });
 
     it("returns 404 for non-existent scenario", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test", connectorId, scenarioIds: ["non-existent"] },
       });
 
@@ -230,18 +226,18 @@ describe("evals routes", () => {
     });
 
     it("allows creating multiple evals with different scenarios", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response1 = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Eval 1", connectorId, scenarioIds: [scenarioId] },
       });
       expect(response1.statusCode).toBe(201);
 
       const response2 = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Eval 2", connectorId, scenarioIds: [scenario2Id] },
       });
       expect(response2.statusCode).toBe(201);
@@ -252,18 +248,18 @@ describe("evals routes", () => {
 
   describe("GET /evals/:id", () => {
     it("returns eval by id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "GET",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -273,18 +269,18 @@ describe("evals routes", () => {
     });
 
     it("returns eval with relations when expand=true", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "GET",
-        url: `/api/evals/${created.id}?expand=true`,
+        url: `${prefix}/evals/${created.id}?expand=true`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -297,11 +293,11 @@ describe("evals routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
-        url: "/api/evals/non-existent",
+        url: `${prefix}/evals/non-existent`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -312,18 +308,18 @@ describe("evals routes", () => {
 
   describe("PUT /evals/:id", () => {
     it("updates eval name", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Original Name", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "PUT",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
         payload: { name: "Updated Name" },
       });
 
@@ -335,18 +331,18 @@ describe("evals routes", () => {
     });
 
     it("updates eval input", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "PUT",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
         payload: { input: [{ role: "user", content: "Updated message" }] },
       });
 
@@ -358,18 +354,18 @@ describe("evals routes", () => {
     });
 
     it("updates eval scenario", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "PUT",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
         payload: { scenarioIds: [scenario2Id] },
       });
 
@@ -381,11 +377,11 @@ describe("evals routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "PUT",
-        url: "/api/evals/non-existent",
+        url: `${prefix}/evals/non-existent`,
         payload: { name: "new" },
       });
 
@@ -397,25 +393,25 @@ describe("evals routes", () => {
 
   describe("DELETE /evals/:id", () => {
     it("deletes eval", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const createResponse = await server.inject({
         method: "POST",
-        url: "/api/evals",
+        url: `${prefix}/evals`,
         payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
       });
       const created = JSON.parse(createResponse.body);
 
       const response = await server.inject({
         method: "DELETE",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
       });
 
       expect(response.statusCode).toBe(204);
 
       const getResponse = await server.inject({
         method: "GET",
-        url: `/api/evals/${created.id}`,
+        url: `${prefix}/evals/${created.id}`,
       });
 
       expect(getResponse.statusCode).toBe(404);
@@ -424,11 +420,11 @@ describe("evals routes", () => {
     });
 
     it("returns 404 for non-existent id", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "DELETE",
-        url: "/api/evals/non-existent",
+        url: `${prefix}/evals/non-existent`,
       });
 
       expect(response.statusCode).toBe(404);

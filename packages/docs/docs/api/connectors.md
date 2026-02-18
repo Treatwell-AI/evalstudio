@@ -10,18 +10,18 @@ REST endpoints for managing connector configurations. Connectors define how to c
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/connectors` | List connectors |
-| GET | `/api/connectors/types` | List available connector types |
-| POST | `/api/connectors` | Create a connector |
-| GET | `/api/connectors/:id` | Get a connector by ID |
-| PUT | `/api/connectors/:id` | Update a connector |
-| DELETE | `/api/connectors/:id` | Delete a connector |
-| POST | `/api/connectors/:id/test` | Test connector connectivity |
-| POST | `/api/connectors/:id/invoke` | Invoke connector with messages |
+| GET | `/api/projects/:projectId/connectors` | List connectors |
+| GET | `/api/projects/:projectId/connectors/types` | List available connector types |
+| POST | `/api/projects/:projectId/connectors` | Create a connector |
+| GET | `/api/projects/:projectId/connectors/:id` | Get a connector by ID |
+| PUT | `/api/projects/:projectId/connectors/:id` | Update a connector |
+| DELETE | `/api/projects/:projectId/connectors/:id` | Delete a connector |
+| POST | `/api/projects/:projectId/connectors/:id/test` | Test connector connectivity |
+| POST | `/api/projects/:projectId/connectors/:id/invoke` | Invoke connector with messages |
 
 ---
 
-## GET /api/connectors
+## GET /api/projects/:projectId/connectors
 
 List all connectors.
 
@@ -49,12 +49,12 @@ List all connectors.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/connectors
+curl http://localhost:3000/api/projects/PROJECT_ID/connectors
 ```
 
 ---
 
-## GET /api/connectors/types
+## GET /api/projects/:projectId/connectors/types
 
 Get available connector types with descriptions.
 
@@ -70,12 +70,12 @@ Get available connector types with descriptions.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/connectors/types
+curl http://localhost:3000/api/projects/PROJECT_ID/connectors/types
 ```
 
 ---
 
-## POST /api/connectors
+## POST /api/projects/:projectId/connectors
 
 Create a new connector.
 
@@ -144,7 +144,7 @@ Create a new connector.
 ### Example
 
 ```bash
-curl -X POST http://localhost:3000/api/connectors \
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/connectors \
   -H "Content-Type: application/json" \
   -d '{
     "name": "LangGraph Dev",
@@ -157,7 +157,7 @@ curl -X POST http://localhost:3000/api/connectors \
 
 ---
 
-## GET /api/connectors/:id
+## GET /api/projects/:projectId/connectors/:id
 
 Get a connector by its ID.
 
@@ -186,12 +186,12 @@ Get a connector by its ID.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789
+curl http://localhost:3000/api/projects/PROJECT_ID/connectors/987fcdeb-51a2-3bc4-d567-890123456789
 ```
 
 ---
 
-## PUT /api/connectors/:id
+## PUT /api/projects/:projectId/connectors/:id
 
 Update an existing connector.
 
@@ -246,14 +246,14 @@ Update an existing connector.
 ### Example
 
 ```bash
-curl -X PUT http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789 \
+curl -X PUT http://localhost:3000/api/projects/PROJECT_ID/connectors/987fcdeb-51a2-3bc4-d567-890123456789 \
   -H "Content-Type: application/json" \
   -d '{"baseUrl": "http://localhost:8124"}'
 ```
 
 ---
 
-## DELETE /api/connectors/:id
+## DELETE /api/projects/:projectId/connectors/:id
 
 Delete a connector.
 
@@ -270,12 +270,12 @@ Empty response on success.
 ### Example
 
 ```bash
-curl -X DELETE http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789
+curl -X DELETE http://localhost:3000/api/projects/PROJECT_ID/connectors/987fcdeb-51a2-3bc4-d567-890123456789
 ```
 
 ---
 
-## POST /api/connectors/:id/test
+## POST /api/projects/:projectId/connectors/:id/test
 
 Test a connector's connectivity by sending a "hello" message and checking the response.
 
@@ -311,12 +311,12 @@ Test a connector's connectivity by sending a "hello" message and checking the re
 ### Example
 
 ```bash
-curl -X POST http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789/test
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/connectors/987fcdeb-51a2-3bc4-d567-890123456789/test
 ```
 
 ---
 
-## POST /api/connectors/:id/invoke
+## POST /api/projects/:projectId/connectors/:id/invoke
 
 Invoke a connector by sending messages and receiving the assistant's response. This is used to send a conversation to an agent and get a response back.
 
@@ -373,7 +373,7 @@ Invoke a connector by sending messages and receiving the assistant's response. T
 ### Example
 
 ```bash
-curl -X POST http://localhost:3000/api/connectors/987fcdeb-51a2-3bc4-d567-890123456789/invoke \
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/connectors/987fcdeb-51a2-3bc4-d567-890123456789/invoke \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [

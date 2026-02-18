@@ -1,72 +1,86 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, CreateConnectorInput, UpdateConnectorInput, Message } from "../lib/api";
+import { useProjectId } from "./useProjectId";
 
 export function useConnectors() {
+  const projectId = useProjectId();
+
   return useQuery({
-    queryKey: ["connectors"],
-    queryFn: () => api.connectors.list(),
+    queryKey: ["connectors", projectId],
+    queryFn: () => api.connectors.list(projectId),
   });
 }
 
 export function useConnector(id: string | null) {
+  const projectId = useProjectId();
+
   return useQuery({
-    queryKey: ["connectors", "detail", id],
-    queryFn: () => api.connectors.get(id!),
+    queryKey: ["connectors", projectId, "detail", id],
+    queryFn: () => api.connectors.get(projectId, id!),
     enabled: !!id,
   });
 }
 
 export function useConnectorTypes() {
+  const projectId = useProjectId();
+
   return useQuery({
-    queryKey: ["connectors", "types"],
-    queryFn: () => api.connectors.getTypes(),
+    queryKey: ["connectors", projectId, "types"],
+    queryFn: () => api.connectors.getTypes(projectId),
     staleTime: Infinity,
   });
 }
 
 export function useCreateConnector() {
+  const projectId = useProjectId();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (input: CreateConnectorInput) => api.connectors.create(input),
+    mutationFn: (input: CreateConnectorInput) => api.connectors.create(projectId, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["connectors"] });
+      queryClient.invalidateQueries({ queryKey: ["connectors", projectId] });
     },
   });
 }
 
 export function useUpdateConnector() {
+  const projectId = useProjectId();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateConnectorInput }) =>
-      api.connectors.update(id, input),
+      api.connectors.update(projectId, id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["connectors"] });
+      queryClient.invalidateQueries({ queryKey: ["connectors", projectId] });
     },
   });
 }
 
 export function useDeleteConnector() {
+  const projectId = useProjectId();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => api.connectors.delete(id),
+    mutationFn: (id: string) => api.connectors.delete(projectId, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["connectors"] });
+      queryClient.invalidateQueries({ queryKey: ["connectors", projectId] });
     },
   });
 }
 
 export function useTestConnector() {
+  const projectId = useProjectId();
+
   return useMutation({
-    mutationFn: (id: string) => api.connectors.test(id),
+    mutationFn: (id: string) => api.connectors.test(projectId, id),
   });
 }
 
 export function useInvokeConnector() {
+  const projectId = useProjectId();
+
   return useMutation({
     mutationFn: ({ id, messages }: { id: string; messages: Message[] }) =>
-      api.connectors.invoke(id, { messages }),
+      api.connectors.invoke(projectId, id, { messages }),
   });
 }

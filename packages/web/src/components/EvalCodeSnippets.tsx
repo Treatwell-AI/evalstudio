@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { EvalWithRelations } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 
 interface EvalCodeSnippetsProps {
   evalData: EvalWithRelations;
@@ -8,10 +9,12 @@ interface EvalCodeSnippetsProps {
 type SnippetTab = "cli" | "api" | "core";
 
 export function EvalCodeSnippets({ evalData }: EvalCodeSnippetsProps) {
+  const projectId = useProjectId();
   const [activeTab, setActiveTab] = useState<SnippetTab>("cli");
   const [copiedCli, setCopiedCli] = useState(false);
   const [copiedApi, setCopiedApi] = useState(false);
   const [copiedCore, setCopiedCore] = useState(false);
+  const base = `http://localhost:3000/api/projects/${projectId}/runs`;
 
   const cliSnippet = `# Create a new run for this eval
 evalstudio run create --eval ${evalData.id}
@@ -23,18 +26,18 @@ evalstudio run process
 evalstudio run process --watch`;
 
   const apiSnippet = `# Create a new run for this eval
-curl -X POST http://localhost:3000/api/runs \\
+curl -X POST ${base} \\
   -H "Content-Type: application/json" \\
   -d '{"evalId": "${evalData.id}"}'
 
 # Get run status (replace RUN_ID with actual ID)
-curl http://localhost:3000/api/runs/RUN_ID
+curl ${base}/RUN_ID
 
 # List all runs for this eval
-curl "http://localhost:3000/api/runs?evalId=${evalData.id}"
+curl "${base}?evalId=${evalData.id}"
 
 # Retry a failed run
-curl -X POST http://localhost:3000/api/runs/RUN_ID/retry`;
+curl -X POST ${base}/RUN_ID/retry`;
 
   const coreSnippet = `import {
   createRun,

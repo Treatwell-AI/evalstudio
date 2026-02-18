@@ -20,6 +20,6 @@ function renderWithProviders(ui: React.ReactElement) {
 describe("App", () => {
   it("renders the loading state", () => {
     renderWithProviders(<App />);
-    expect(screen.getByText("Loading project...")).toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 });

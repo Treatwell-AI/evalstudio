@@ -10,15 +10,15 @@ REST endpoints for managing personas. Personas define a description and system p
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/personas` | List personas |
-| POST | `/api/personas` | Create a persona |
-| GET | `/api/personas/:id` | Get a persona by ID |
-| PUT | `/api/personas/:id` | Update a persona |
-| DELETE | `/api/personas/:id` | Delete a persona |
+| GET | `/api/projects/:projectId/personas` | List personas |
+| POST | `/api/projects/:projectId/personas` | Create a persona |
+| GET | `/api/projects/:projectId/personas/:id` | Get a persona by ID |
+| PUT | `/api/projects/:projectId/personas/:id` | Update a persona |
+| DELETE | `/api/projects/:projectId/personas/:id` | Delete a persona |
 
 ---
 
-## GET /api/personas
+## GET /api/projects/:projectId/personas
 
 List all personas.
 
@@ -40,12 +40,12 @@ List all personas.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/personas
+curl http://localhost:3000/api/projects/PROJECT_ID/personas
 ```
 
 ---
 
-## POST /api/personas
+## POST /api/projects/:projectId/personas
 
 Create a new persona.
 
@@ -88,7 +88,7 @@ Create a new persona.
 ### Example
 
 ```bash
-curl -X POST http://localhost:3000/api/personas \
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/personas \
   -H "Content-Type: application/json" \
   -d '{
     "name": "impatient-user",
@@ -99,7 +99,7 @@ curl -X POST http://localhost:3000/api/personas \
 
 ---
 
-## GET /api/personas/:id
+## GET /api/projects/:projectId/personas/:id
 
 Get a persona by its ID.
 
@@ -125,12 +125,12 @@ Get a persona by its ID.
 ### Example
 
 ```bash
-curl http://localhost:3000/api/personas/987fcdeb-51a2-3bc4-d567-890123456789
+curl http://localhost:3000/api/projects/PROJECT_ID/personas/987fcdeb-51a2-3bc4-d567-890123456789
 ```
 
 ---
 
-## PUT /api/personas/:id
+## PUT /api/projects/:projectId/personas/:id
 
 Update an existing persona.
 
@@ -171,14 +171,14 @@ Update an existing persona.
 ### Example
 
 ```bash
-curl -X PUT http://localhost:3000/api/personas/987fcdeb-51a2-3bc4-d567-890123456789 \
+curl -X PUT http://localhost:3000/api/projects/PROJECT_ID/personas/987fcdeb-51a2-3bc4-d567-890123456789 \
   -H "Content-Type: application/json" \
   -d '{"systemPrompt": "You are a technical user who expects detailed, accurate responses."}'
 ```
 
 ---
 
-## DELETE /api/personas/:id
+## DELETE /api/projects/:projectId/personas/:id
 
 Delete a persona.
 
@@ -195,5 +195,5 @@ Empty response on success.
 ### Example
 
 ```bash
-curl -X DELETE http://localhost:3000/api/personas/987fcdeb-51a2-3bc4-d567-890123456789
+curl -X DELETE http://localhost:3000/api/projects/PROJECT_ID/personas/987fcdeb-51a2-3bc4-d567-890123456789
 ```

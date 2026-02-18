@@ -34,7 +34,7 @@ export function ScenariosPage() {
       });
       setShowCreateModal(false);
       setName("");
-      navigate(`/scenarios/${scenario.id}`);
+      navigate(scenario.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     }

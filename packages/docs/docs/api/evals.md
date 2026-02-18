@@ -10,16 +10,16 @@ REST API endpoints for managing evals. Evals can contain multiple scenarios to c
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/evals` | List all evals |
-| GET | `/api/evals/:id` | Get eval by ID |
-| POST | `/api/evals` | Create a new eval |
-| PUT | `/api/evals/:id` | Update an eval |
-| DELETE | `/api/evals/:id` | Delete an eval |
+| GET | `/api/projects/:projectId/evals` | List all evals |
+| GET | `/api/projects/:projectId/evals/:id` | Get eval by ID |
+| POST | `/api/projects/:projectId/evals` | Create a new eval |
+| PUT | `/api/projects/:projectId/evals/:id` | Update an eval |
+| DELETE | `/api/projects/:projectId/evals/:id` | Delete an eval |
 
 ## List Evals
 
 ```http
-GET /api/evals
+GET /api/projects/:projectId/evals
 ```
 
 ### Response
@@ -41,8 +41,8 @@ GET /api/evals
 ## Get Eval
 
 ```http
-GET /api/evals/:id
-GET /api/evals/:id?expand=true
+GET /api/projects/:projectId/evals/:id
+GET /api/projects/:projectId/evals/:id?expand=true
 ```
 
 ### Query Parameters
@@ -100,7 +100,7 @@ GET /api/evals/:id?expand=true
 ## Create Eval
 
 ```http
-POST /api/evals
+POST /api/projects/:projectId/evals
 Content-Type: application/json
 ```
 
@@ -152,7 +152,7 @@ Note: LLM provider for evaluation is configured at the project level via project
 ## Update Eval
 
 ```http
-PUT /api/evals/:id
+PUT /api/projects/:projectId/evals/:id
 Content-Type: application/json
 ```
 
@@ -191,7 +191,7 @@ All fields are optional. Only provided fields will be updated.
 ## Delete Eval
 
 ```http
-DELETE /api/evals/:id
+DELETE /api/projects/:projectId/evals/:id
 ```
 
 ### Response

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import {
   getDefaultModels,
+  resolveProjectFromCwd,
   getProjectConfig,
   updateProjectConfig,
   type ProviderType,
@@ -40,9 +41,10 @@ export const llmProviderCommand = new Command("llm-provider")
               process.exit(1);
             }
 
+            const ctx = resolveProjectFromCwd();
             // Preserve existing models when updating provider
-            const existing = getProjectConfig();
-            const config = updateProjectConfig({
+            const existing = getProjectConfig(ctx);
+            const config = updateProjectConfig(ctx, {
               llmSettings: {
                 provider: options.provider as ProviderType,
                 apiKey: options.apiKey,
@@ -72,7 +74,8 @@ export const llmProviderCommand = new Command("llm-provider")
       .description("Show the current LLM provider configuration")
       .option("--json", "Output as JSON")
       .action((options: { json?: boolean }) => {
-        const config = getProjectConfig();
+        const ctx = resolveProjectFromCwd();
+        const config = getProjectConfig(ctx);
 
         if (!config.llmSettings) {
           if (options.json) {

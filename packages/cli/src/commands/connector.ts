@@ -1,12 +1,8 @@
 import { Command } from "commander";
 import {
-  createConnector,
-  deleteConnector,
-  getConnector,
-  getConnectorByName,
+  resolveProjectFromCwd,
+  createConnectorModule,
   getConnectorTypes,
-  listConnectors,
-  updateConnector,
   type ConnectorType,
 } from "@evalstudio/core";
 
@@ -57,7 +53,10 @@ export const connectorCommand = new Command("connector")
 
             const headers = parseHeaders(options.header);
 
-            const connector = createConnector({
+            const ctx = resolveProjectFromCwd();
+            const connectorMod = createConnectorModule(ctx);
+
+            const connector = connectorMod.create({
               name,
               type: options.type as ConnectorType,
               baseUrl: options.baseUrl,
@@ -96,7 +95,9 @@ export const connectorCommand = new Command("connector")
       .description("List connector configurations")
       .option("--json", "Output as JSON")
       .action((options: { json?: boolean }) => {
-        const connectors = listConnectors();
+        const ctx = resolveProjectFromCwd();
+        const connectorMod = createConnectorModule(ctx);
+        const connectors = connectorMod.list();
 
         if (options.json) {
           console.log(JSON.stringify(connectors, null, 2));
@@ -126,7 +127,9 @@ export const connectorCommand = new Command("connector")
           identifier: string,
           options: { json?: boolean }
         ) => {
-          const connector = getConnector(identifier) ?? getConnectorByName(identifier);
+          const ctx = resolveProjectFromCwd();
+          const connectorMod = createConnectorModule(ctx);
+          const connector = connectorMod.get(identifier) ?? connectorMod.getByName(identifier);
 
           if (!connector) {
             console.error(`Error: Connector "${identifier}" not found`);
@@ -176,7 +179,9 @@ export const connectorCommand = new Command("connector")
             json?: boolean;
           }
         ) => {
-          const existing = getConnector(identifier);
+          const ctx = resolveProjectFromCwd();
+          const connectorMod = createConnectorModule(ctx);
+          const existing = connectorMod.get(identifier);
 
           if (!existing) {
             console.error(`Error: Connector "${identifier}" not found`);
@@ -206,7 +211,7 @@ export const connectorCommand = new Command("connector")
           const headers = parseHeaders(options.header);
 
           try {
-            const updated = updateConnector(existing.id, {
+            const updated = connectorMod.update(existing.id, {
               name: options.name,
               type: options.type as ConnectorType | undefined,
               baseUrl: options.baseUrl,
@@ -251,14 +256,16 @@ export const connectorCommand = new Command("connector")
       .argument("<identifier>", "Connector ID")
       .option("--json", "Output as JSON")
       .action((identifier: string, options: { json?: boolean }) => {
-        const existing = getConnector(identifier);
+        const ctx = resolveProjectFromCwd();
+        const connectorMod = createConnectorModule(ctx);
+        const existing = connectorMod.get(identifier);
 
         if (!existing) {
           console.error(`Error: Connector "${identifier}" not found`);
           process.exit(1);
         }
 
-        const deleted = deleteConnector(existing.id);
+        const deleted = connectorMod.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete connector`);

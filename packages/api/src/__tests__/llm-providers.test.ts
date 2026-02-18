@@ -1,39 +1,30 @@
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { resetStorageDir, setConfigDir, setStorageDir } from "@evalstudio/core";
+import { initWorkspace, updateWorkspaceConfig } from "@evalstudio/core";
 import { createServer } from "../index.js";
 
-let testDir: string;
+let workspaceDir: string;
 
 describe("llm-providers routes", () => {
   beforeAll(() => {
-    testDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    const storageDir = join(testDir, "data");
-    mkdirSync(storageDir, { recursive: true });
-    writeFileSync(
-      join(testDir, "evalstudio.config.json"),
-      JSON.stringify({
-        version: 2,
-        name: "test-project",
-        llmSettings: { provider: "openai", apiKey: "sk-test-key" },
-      })
-    );
-    setStorageDir(storageDir);
-    setConfigDir(testDir);
+    workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
+    initWorkspace(workspaceDir, "test-workspace", "test-project");
+    updateWorkspaceConfig(workspaceDir, {
+      llmSettings: { provider: "openai", apiKey: "sk-test-key" },
+    });
   });
 
   afterAll(() => {
-    resetStorageDir();
-    if (existsSync(testDir)) {
-      rmSync(testDir, { recursive: true });
+    if (existsSync(workspaceDir)) {
+      rmSync(workspaceDir, { recursive: true });
     }
   });
 
   describe("GET /llm-providers/models", () => {
     it("returns grouped models for all providers", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",
@@ -60,7 +51,7 @@ describe("llm-providers routes", () => {
 
   describe("GET /llm-providers/:providerType/models", () => {
     it("returns 400 for invalid provider type", async () => {
-      const server = await createServer();
+      const server = await createServer({ workspaceDir, runProcessor: false });
 
       const response = await server.inject({
         method: "GET",

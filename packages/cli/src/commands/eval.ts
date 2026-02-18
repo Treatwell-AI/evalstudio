@@ -1,26 +1,12 @@
 import { Command } from "commander";
 import {
-  createEval,
-  deleteEval,
-  getConnector,
-  getConnectorByName,
-  getScenario,
-  getScenarioByName,
-  getEval,
-  getEvalWithRelations,
-  listEvals,
-  updateEval,
+  resolveProjectFromCwd,
+  createEvalModule,
+  createScenarioModule,
+  createConnectorModule,
   type Eval,
   type EvalWithRelations,
 } from "@evalstudio/core";
-
-function resolveScenario(identifier: string) {
-  return getScenario(identifier) ?? getScenarioByName(identifier);
-}
-
-function resolveConnector(identifier: string) {
-  return getConnector(identifier) ?? getConnectorByName(identifier);
-}
 
 function getEvalDisplayName(evalItem: Eval | EvalWithRelations): string {
   return evalItem.name || evalItem.id;
@@ -45,19 +31,24 @@ export const evalCommand = new Command("eval")
           }
         ) => {
           try {
-            const connector = resolveConnector(options.connector);
+            const ctx = resolveProjectFromCwd();
+            const connectorMod = createConnectorModule(ctx);
+            const scenarioMod = createScenarioModule(ctx);
+            const evalMod = createEvalModule(ctx);
+
+            const connector = connectorMod.get(options.connector) ?? connectorMod.getByName(options.connector);
             if (!connector) {
               console.error(`Error: Connector "${options.connector}" not found`);
               process.exit(1);
             }
 
-            const scenario = resolveScenario(options.scenario);
+            const scenario = scenarioMod.get(options.scenario) ?? scenarioMod.getByName(options.scenario);
             if (!scenario) {
               console.error(`Error: Scenario "${options.scenario}" not found`);
               process.exit(1);
             }
 
-            const evalItem = createEval({
+            const evalItem = evalMod.create({
               name: options.name,
               scenarioIds: [scenario.id],
               connectorId: connector.id,
@@ -97,7 +88,9 @@ export const evalCommand = new Command("eval")
       .description("List evals")
       .option("--json", "Output as JSON")
       .action((options: { json?: boolean }) => {
-        const evals = listEvals();
+        const ctx = resolveProjectFromCwd();
+        const evalMod = createEvalModule(ctx);
+        const evals = evalMod.list();
 
         if (options.json) {
           console.log(JSON.stringify(evals, null, 2));
@@ -130,9 +123,13 @@ export const evalCommand = new Command("eval")
           id: string,
           options: { expand?: boolean; json?: boolean }
         ) => {
+          const ctx = resolveProjectFromCwd();
+          const evalMod = createEvalModule(ctx);
+          const scenarioMod = createScenarioModule(ctx);
+
           const evalItem = options.expand
-            ? getEvalWithRelations(id)
-            : getEval(id);
+            ? evalMod.getWithRelations(id)
+            : evalMod.get(id);
 
           if (!evalItem) {
             console.error(`Error: Eval "${id}" not found`);
@@ -145,7 +142,7 @@ export const evalCommand = new Command("eval")
             console.log(JSON.stringify(evalItem, null, 2));
           } else {
             const firstScenarioId = evalItem.scenarioIds?.[0];
-            const firstScenario = firstScenarioId ? getScenario(firstScenarioId) : undefined;
+            const firstScenario = firstScenarioId ? scenarioMod.get(firstScenarioId) : undefined;
             console.log(`Eval: ${displayName}`);
             console.log(`------`);
             console.log(`  ID:          ${evalItem.id}`);
@@ -174,7 +171,7 @@ export const evalCommand = new Command("eval")
             } else {
               console.log(`  Scenarios:   ${evalItem.scenarioIds?.length ?? 0}`);
               if (evalItem.scenarioIds?.[0]) {
-                const firstScenario = getScenario(evalItem.scenarioIds[0]);
+                const firstScenario = scenarioMod.get(evalItem.scenarioIds[0]);
                 if (firstScenario) {
                   console.log(`    - ${firstScenario.name}`);
                 }
@@ -205,7 +202,12 @@ export const evalCommand = new Command("eval")
             json?: boolean;
           }
         ) => {
-          const existing = getEval(id);
+          const ctx = resolveProjectFromCwd();
+          const evalMod = createEvalModule(ctx);
+          const scenarioMod = createScenarioModule(ctx);
+          const connectorMod = createConnectorModule(ctx);
+
+          const existing = evalMod.get(id);
 
           if (!existing) {
             console.error(`Error: Eval "${id}" not found`);
@@ -215,7 +217,7 @@ export const evalCommand = new Command("eval")
           try {
             let scenarioIds: string[] | undefined;
             if (options.scenario) {
-              const scenario = resolveScenario(options.scenario);
+              const scenario = scenarioMod.get(options.scenario) ?? scenarioMod.getByName(options.scenario);
               if (!scenario) {
                 console.error(`Error: Scenario "${options.scenario}" not found`);
                 process.exit(1);
@@ -225,7 +227,7 @@ export const evalCommand = new Command("eval")
 
             let connectorId: string | undefined;
             if (options.connector) {
-              const connector = resolveConnector(options.connector);
+              const connector = connectorMod.get(options.connector) ?? connectorMod.getByName(options.connector);
               if (!connector) {
                 console.error(`Error: Connector "${options.connector}" not found`);
                 process.exit(1);
@@ -233,7 +235,7 @@ export const evalCommand = new Command("eval")
               connectorId = connector.id;
             }
 
-            const updated = updateEval(existing.id, {
+            const updated = evalMod.update(existing.id, {
               name: options.name,
               scenarioIds,
               connectorId,
@@ -245,8 +247,7 @@ export const evalCommand = new Command("eval")
             }
 
             const firstScenarioId = updated.scenarioIds?.[0];
-            const firstScenario = firstScenarioId ? getScenario(firstScenarioId) : undefined;
-            const displayName = getEvalDisplayName(updated);
+            const firstScenario = firstScenarioId ? scenarioMod.get(firstScenarioId) : undefined;
 
             if (options.json) {
               console.log(JSON.stringify(updated, null, 2));
@@ -282,7 +283,9 @@ export const evalCommand = new Command("eval")
       .argument("<id>", "Eval ID")
       .option("--json", "Output as JSON")
       .action((id: string, options: { json?: boolean }) => {
-        const existing = getEval(id);
+        const ctx = resolveProjectFromCwd();
+        const evalMod = createEvalModule(ctx);
+        const existing = evalMod.get(id);
 
         if (!existing) {
           console.error(`Error: Eval "${id}" not found`);
@@ -290,7 +293,7 @@ export const evalCommand = new Command("eval")
         }
 
         const displayName = getEvalDisplayName(existing);
-        const deleted = deleteEval(existing.id);
+        const deleted = evalMod.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete eval`);

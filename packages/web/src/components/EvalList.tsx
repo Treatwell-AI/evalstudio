@@ -37,7 +37,7 @@ export function EvalList() {
   }
 
   const handleCardClick = (evalId: string) => {
-    navigate(`/evals/${evalId}`);
+    navigate(evalId);
   };
 
   return (
