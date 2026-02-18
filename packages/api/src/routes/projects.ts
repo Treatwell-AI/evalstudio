@@ -8,6 +8,7 @@ import {
   updateProjectConfig,
   readWorkspaceConfig,
   updateWorkspaceConfig,
+  redactApiKey,
   type LLMSettings,
 } from "@evalstudio/core";
 
@@ -33,6 +34,18 @@ interface UpdateWorkspaceConfigBody {
   name?: string;
   llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
+}
+
+/** Strip apiKey from llmSettings in a config object for safe API responses */
+function redactConfig<T extends { llmSettings?: { apiKey: string } }>(config: T): T {
+  if (!config.llmSettings?.apiKey) return config;
+  return {
+    ...config,
+    llmSettings: {
+      ...config.llmSettings,
+      apiKey: redactApiKey(config.llmSettings.apiKey),
+    },
+  };
 }
 
 export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPluginOptions) {
@@ -64,7 +77,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
 
   // GET /api/workspace — Get workspace config
   fastify.get("/workspace", async () => {
-    return readWorkspaceConfig(workspaceDir);
+    return redactConfig(readWorkspaceConfig(workspaceDir));
   });
 
   // PUT /api/workspace — Update workspace config (defaults)
@@ -79,7 +92,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
           llmSettings,
           maxConcurrency,
         });
-        return config;
+        return redactConfig(config);
       } catch (error) {
         if (error instanceof Error) {
           reply.code(400);
@@ -98,7 +111,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
     async (request, reply) => {
       try {
         const ctx = resolveProject(workspaceDir, request.params.projectId);
-        return getProjectConfig(ctx);
+        return redactConfig(getProjectConfig(ctx));
       } catch (error) {
         if (error instanceof Error) {
           reply.code(404);
@@ -122,7 +135,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
           llmSettings,
           maxConcurrency,
         });
-        return config;
+        return redactConfig(config);
       } catch (error) {
         if (error instanceof Error) {
           reply.code(400);

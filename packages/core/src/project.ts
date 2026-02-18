@@ -4,6 +4,17 @@ import type { ProviderType } from "./llm-provider.js";
 import { CONFIG_FILENAME, type ProjectContext } from "./project-resolver.js";
 
 /**
+ * Masks an API key for safe display: shows first 4 and last 4 characters.
+ * Returns "****" for keys with 8 or fewer characters.
+ */
+export function redactApiKey(apiKey: string): string {
+  if (apiKey.length <= 8) {
+    return "****";
+  }
+  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
+}
+
+/**
  * Model selection per use-case
  */
 export interface LLMModelSettings {
@@ -94,8 +105,16 @@ export function updateWorkspaceConfig(
     if (!input.llmSettings.provider) {
       throw new Error("LLM provider type is required");
     }
+    // apiKey is optional on update — if not provided, keep existing
     if (!input.llmSettings.apiKey) {
-      throw new Error("LLM provider API key is required");
+      const existingKey = config.llmSettings?.apiKey;
+      if (!existingKey) {
+        throw new Error("LLM provider API key is required");
+      }
+      input = {
+        ...input,
+        llmSettings: { ...input.llmSettings, apiKey: existingKey },
+      };
     }
   }
 
@@ -196,8 +215,18 @@ export function updateProjectConfig(
     if (!input.llmSettings.provider) {
       throw new Error("LLM provider type is required");
     }
+    // apiKey is optional on update — if not provided, keep existing
     if (!input.llmSettings.apiKey) {
-      throw new Error("LLM provider API key is required");
+      const existingKey =
+        projConfig.llmSettings?.apiKey ||
+        readWorkspaceConfig(ctx.workspaceDir).llmSettings?.apiKey;
+      if (!existingKey) {
+        throw new Error("LLM provider API key is required");
+      }
+      input = {
+        ...input,
+        llmSettings: { ...input.llmSettings, apiKey: existingKey },
+      };
     }
   }
 

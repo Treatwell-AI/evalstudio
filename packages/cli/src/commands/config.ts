@@ -1,5 +1,16 @@
 import { Command } from "commander";
-import { resolveProjectFromCwd, getProjectConfig, updateProjectConfig } from "@evalstudio/core";
+import { resolveProjectFromCwd, getProjectConfig, updateProjectConfig, redactApiKey, type ProjectConfig } from "@evalstudio/core";
+
+function redactConfig(config: ProjectConfig): ProjectConfig {
+  if (!config.llmSettings?.apiKey) return config;
+  return {
+    ...config,
+    llmSettings: {
+      ...config.llmSettings,
+      apiKey: redactApiKey(config.llmSettings.apiKey),
+    },
+  };
+}
 
 export const configCommand = new Command("config")
   .description("View or update project configuration")
@@ -12,7 +23,7 @@ export const configCommand = new Command("config")
         const config = getProjectConfig(ctx);
 
         if (options.json) {
-          console.log(JSON.stringify(config, null, 2));
+          console.log(JSON.stringify(redactConfig(config), null, 2));
         } else {
           console.log("Project Configuration");
           console.log("---------------------");
@@ -64,7 +75,7 @@ export const configCommand = new Command("config")
           const config = updateProjectConfig(ctx, input);
 
           if (options.json) {
-            console.log(JSON.stringify(config, null, 2));
+            console.log(JSON.stringify(redactConfig(config), null, 2));
           } else {
             console.log(`Set ${key} = ${value}`);
           }

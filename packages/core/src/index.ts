@@ -32,6 +32,7 @@ export {
   readPerProjectConfig,
   getProjectConfig,
   updateProjectConfig,
+  redactApiKey,
   type WorkspaceConfig,
   type PerProjectConfig,
   type UpdateWorkspaceConfigInput,

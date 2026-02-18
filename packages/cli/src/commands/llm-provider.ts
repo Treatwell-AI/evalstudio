@@ -4,16 +4,18 @@ import {
   resolveProjectFromCwd,
   getProjectConfig,
   updateProjectConfig,
+  redactApiKey,
   type ProviderType,
+  type LLMSettings,
 } from "@evalstudio/core";
 
 const validProviders: ProviderType[] = ["openai", "anthropic"];
 
-function maskApiKey(apiKey: string): string {
-  if (apiKey.length <= 8) {
-    return "****";
-  }
-  return `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`;
+function redactLLMSettings(settings: LLMSettings): LLMSettings {
+  return {
+    ...settings,
+    apiKey: redactApiKey(settings.apiKey),
+  };
 }
 
 export const llmProviderCommand = new Command("llm-provider")
@@ -53,11 +55,11 @@ export const llmProviderCommand = new Command("llm-provider")
             });
 
             if (options.json) {
-              console.log(JSON.stringify(config.llmSettings, null, 2));
+              console.log(JSON.stringify(redactLLMSettings(config.llmSettings!), null, 2));
             } else {
               console.log(`LLM Provider configured successfully`);
               console.log(`  Provider: ${config.llmSettings!.provider}`);
-              console.log(`  API Key:  ${maskApiKey(config.llmSettings!.apiKey)}`);
+              console.log(`  API Key:  ${redactApiKey(config.llmSettings!.apiKey)}`);
             }
           } catch (error) {
             if (error instanceof Error) {
@@ -88,12 +90,12 @@ export const llmProviderCommand = new Command("llm-provider")
         }
 
         if (options.json) {
-          console.log(JSON.stringify(config.llmSettings, null, 2));
+          console.log(JSON.stringify(redactLLMSettings(config.llmSettings), null, 2));
         } else {
           console.log("LLM Provider:");
           console.log("--------------");
           console.log(`  Provider: ${config.llmSettings.provider}`);
-          console.log(`  API Key:  ${maskApiKey(config.llmSettings.apiKey)}`);
+          console.log(`  API Key:  ${redactApiKey(config.llmSettings.apiKey)}`);
           if (config.llmSettings.models?.evaluation) {
             console.log(`  Eval Model:    ${config.llmSettings.models.evaluation}`);
           }

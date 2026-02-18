@@ -60,13 +60,13 @@ export function SettingsLLMProvidersPage() {
     hasProvider ? projectConfig.llmSettings!.provider : undefined
   );
 
-  // Initialize from project config
+  // Initialize from project config (apiKey is redacted in responses — don't pre-fill)
   useEffect(() => {
     if (projectConfig) {
       if (projectConfig.llmSettings) {
         setProviderType(projectConfig.llmSettings.provider);
-        setApiKey(projectConfig.llmSettings.apiKey);
       }
+      setApiKey("");
       setEvaluationModel(projectConfig.llmSettings?.models?.evaluation || "");
       setPersonaModel(projectConfig.llmSettings?.models?.persona || "");
     }
@@ -75,16 +75,18 @@ export function SettingsLLMProvidersPage() {
   const handleSave = async () => {
     setSaveSuccess(false);
 
-    const llmSettings: LLMSettings | null = apiKey
+    // Build llmSettings — only include apiKey when user entered a new one
+    const llmSettings: LLMSettings | null = hasProvider || apiKey
       ? {
           provider: providerType,
-          apiKey,
+          ...(apiKey ? { apiKey } : {}),
           models: buildModelSettings(),
         }
       : null;
 
     try {
       await updateProjectConfig.mutateAsync({ llmSettings });
+      setApiKey("");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
@@ -139,7 +141,7 @@ export function SettingsLLMProvidersPage() {
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
+              placeholder={hasProvider ? "Enter new key to change" : "sk-..."}
             />
           </div>
         </div>
@@ -148,7 +150,7 @@ export function SettingsLLMProvidersPage() {
           <button
             className="btn btn-primary"
             onClick={handleSave}
-            disabled={updateProjectConfig.isPending || !apiKey}
+            disabled={updateProjectConfig.isPending || (!apiKey && !hasProvider)}
           >
             {updateProjectConfig.isPending ? "Saving..." : "Save"}
           </button>

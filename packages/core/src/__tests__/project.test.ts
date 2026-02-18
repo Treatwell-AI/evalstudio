@@ -7,6 +7,7 @@ import {
   readWorkspaceConfig,
   updateProjectConfig,
   updateWorkspaceConfig,
+  redactApiKey,
 } from "../project.js";
 import type { ProjectContext } from "../project-resolver.js";
 
@@ -189,6 +190,49 @@ describe("project config", () => {
         })
       ).toThrow("LLM provider API key is required");
     });
+
+    it("keeps existing project apiKey when apiKey is omitted from update", () => {
+      setupWorkspace({}, {
+        llmSettings: { provider: "openai", apiKey: "sk-existing-key-1234" },
+      });
+
+      const updated = updateProjectConfig(ctx, {
+        llmSettings: {
+          provider: "anthropic",
+          apiKey: "",
+          models: { evaluation: "claude-sonnet-4-5-20250929" },
+        },
+      });
+
+      expect(updated.llmSettings?.provider).toBe("anthropic");
+      expect(updated.llmSettings?.apiKey).toBe("sk-existing-key-1234");
+      expect(updated.llmSettings?.models?.evaluation).toBe("claude-sonnet-4-5-20250929");
+    });
+
+    it("keeps workspace apiKey when project has no key and apiKey is omitted", () => {
+      setupWorkspace(
+        { llmSettings: { provider: "openai", apiKey: "sk-workspace-key" } },
+        {},
+      );
+
+      const updated = updateProjectConfig(ctx, {
+        llmSettings: {
+          provider: "openai",
+          apiKey: "",
+          models: { evaluation: "gpt-4o" },
+        },
+      });
+
+      expect(updated.llmSettings?.apiKey).toBe("sk-workspace-key");
+    });
+
+    it("throws when apiKey is omitted and no existing key exists", () => {
+      expect(() =>
+        updateProjectConfig(ctx, {
+          llmSettings: { provider: "openai", apiKey: "" },
+        })
+      ).toThrow("LLM provider API key is required");
+    });
   });
 
   describe("maxConcurrency", () => {
@@ -291,6 +335,46 @@ describe("project config", () => {
           llmSettings: { provider: "openai", apiKey: "" },
         })
       ).toThrow("LLM provider API key is required");
+    });
+
+    it("keeps existing workspace apiKey when apiKey is omitted from update", () => {
+      setupWorkspace({
+        llmSettings: { provider: "openai", apiKey: "sk-ws-existing-key" },
+      });
+
+      const updated = updateWorkspaceConfig(tempDir, {
+        llmSettings: {
+          provider: "anthropic",
+          apiKey: "",
+          models: { evaluation: "claude-sonnet-4-5-20250929" },
+        },
+      });
+
+      expect(updated.llmSettings?.provider).toBe("anthropic");
+      expect(updated.llmSettings?.apiKey).toBe("sk-ws-existing-key");
+    });
+
+    it("throws when apiKey is omitted and no existing workspace key exists", () => {
+      expect(() =>
+        updateWorkspaceConfig(tempDir, {
+          llmSettings: { provider: "openai", apiKey: "" },
+        })
+      ).toThrow("LLM provider API key is required");
+    });
+  });
+
+  describe("redactApiKey", () => {
+    it("masks long keys showing first 4 and last 4 characters", () => {
+      expect(redactApiKey("sk-1234567890abcdef")).toBe("sk-1...cdef");
+    });
+
+    it("returns **** for short keys (8 chars or less)", () => {
+      expect(redactApiKey("sk-12")).toBe("****");
+      expect(redactApiKey("12345678")).toBe("****");
+    });
+
+    it("masks keys with exactly 9 characters", () => {
+      expect(redactApiKey("123456789")).toBe("1234...6789");
     });
   });
 });

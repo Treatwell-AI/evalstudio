@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **API key redaction** - LLM provider API keys are no longer exposed in API responses or CLI output
+  - Core: Added `redactApiKey()` utility that masks keys as `sk-1...cdef` (first 4 + last 4 chars)
+  - Core: Update functions now accept omitted `apiKey` to keep the existing stored key
+  - API: All config endpoints (`GET/PUT /workspace`, `GET/PUT /projects/:id/config`) return masked keys
+  - CLI: `config show --json`, `config set --json`, `llm-provider show --json`, `llm-provider set --json` all redact keys
+  - Web: Settings page no longer pre-fills API key from config; placeholder indicates when key is configured
+
 ### Added
 
 - **Multi-project workspaces** - Support multiple isolated projects within a single workspace

@@ -88,6 +88,10 @@ curl -X POST http://localhost:3000/api/projects \
 
 Get the workspace-level configuration (defaults inherited by all projects).
 
+:::note
+API keys are redacted in all config responses. The `apiKey` field contains a masked value (e.g., `"sk-1...cdef"`) instead of the actual key.
+:::
+
 ### Response (200 OK)
 
 ```json
@@ -99,7 +103,7 @@ Get the workspace-level configuration (defaults inherited by all projects).
   ],
   "llmSettings": {
     "provider": "openai",
-    "apiKey": "sk-...",
+    "apiKey": "sk-1...cdef",
     "models": { "evaluation": "gpt-4o" }
   },
   "maxConcurrency": 5
@@ -120,9 +124,11 @@ Update workspace-level defaults. These are inherited by projects that don't over
 | `llmSettings` | object \| null | No | Default LLM config (null to remove) |
 | `maxConcurrency` | number \| null | No | Default max concurrent runs (null to clear) |
 
+When updating `llmSettings`, the `apiKey` field is optional. Omit it to keep the existing stored key — only provide it when setting a new key.
+
 ### Response (200 OK)
 
-Returns the updated workspace config.
+Returns the updated workspace config (with redacted API key).
 
 ---
 
@@ -138,7 +144,7 @@ Get the effective configuration for a specific project (workspace defaults merge
   "name": "my-product-evals",
   "llmSettings": {
     "provider": "openai",
-    "apiKey": "sk-...",
+    "apiKey": "sk-1...cdef",
     "models": { "evaluation": "gpt-4o" }
   },
   "maxConcurrency": 5
@@ -165,9 +171,11 @@ Update project-specific configuration. Fields set to `null` are cleared (inherit
 | `llmSettings` | object \| null | No | LLM config (null to inherit from workspace) |
 | `maxConcurrency` | number \| null | No | Max concurrent runs (null to inherit) |
 
+When updating `llmSettings`, the `apiKey` field is optional. Omit it to keep the existing stored key — only provide it when setting a new key.
+
 ### Response (200 OK)
 
-Returns the effective (merged) config after update.
+Returns the effective (merged) config after update (with redacted API key).
 
 ---
 

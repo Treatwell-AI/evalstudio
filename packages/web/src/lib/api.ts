@@ -13,11 +13,13 @@ export interface LLMModelSettings {
 }
 
 /**
- * Unified LLM configuration: provider, credentials, and model selection
+ * Unified LLM configuration: provider, credentials, and model selection.
+ * apiKey is optional in update payloads (omit to keep existing key).
+ * In GET responses, apiKey contains a masked hint (e.g. "sk-...xxxx").
  */
 export interface LLMSettings {
   provider: ProviderType;
-  apiKey: string;
+  apiKey?: string;
   /** Model selection per use-case */
   models?: LLMModelSettings;
 }

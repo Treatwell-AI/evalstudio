@@ -50,6 +50,7 @@
 [x] As a user, I want to configure connector-specific settings (endpoint URL, authentication, headers) so that I can connect to secured APIs
 [x] As a user, I want to set arbitrary custom headers on connectors so that I can flexibly provide API keys, authorization tokens, and other headers without being limited to predefined auth types
 [x] As a user, I want to set LangGraph configurable values on connectors so that I can pass runtime configuration to my LangGraph agents
+[x] As a user, I want API keys to be redacted in API responses and CLI output so that credentials are not accidentally exposed
 
 ### Running Evals
 
