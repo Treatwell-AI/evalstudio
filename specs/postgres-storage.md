@@ -126,18 +126,17 @@ Each JSON file maps to a database table. Every entity table has a `project_id` c
 
 ### ProjectContext
 
-`ProjectContext` shape stays the same for consumers:
+`dataDir` is removed from `ProjectContext` — it was only needed because entity modules created their own repositories via `createJsonRepository(..., ctx.dataDir)`. After the refactor, repositories are injected, so `dataDir` becomes an internal detail of `FilesystemStorageProvider`:
 
 ```typescript
 interface ProjectContext {
   id: string;
   name: string;
-  dataDir: string;        // Still used for filesystem mode; empty string for postgres
-  workspaceDir: string;   // Still the workspace root (where config lives)
+  workspaceDir: string;   // Workspace root (where config lives)
 }
 ```
 
-Entity modules don't need to know the storage type — they receive a `Repository<T>` that handles the difference.
+`FilesystemStorageProvider` computes the data path internally (`join(workspaceDir, "projects", projectId, "data")`) — no other code needs it.
 
 ---
 
@@ -632,6 +631,7 @@ Pure refactor of `@evalstudio/core`. No new storage backend, no config changes. 
 
 New package that implements `StorageProvider` against PostgreSQL. Wires into core via dynamic import.
 
+- Remove `dataDir` from `ProjectContext` — it becomes an internal detail of `FilesystemStorageProvider`, which computes it from `workspaceDir` + `projectId`. `module-factory.ts` uses `StorageProvider.createRepository()` instead of `createJsonRepository(..., ctx.dataDir)` directly.
 - `@evalstudio/postgres` package with `PostgresStorageProvider` + `PostgresRepository` (depends on `pg`)
 - `storage` config field in `evalstudio.config.json` (`filesystem` default, `postgres` option)
 - `storage-factory.ts` in core with dynamic `import("@evalstudio/postgres")`
