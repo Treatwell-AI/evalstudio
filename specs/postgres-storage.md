@@ -615,24 +615,45 @@ The `RunProcessor` currently polls JSON files for queued runs. With Postgres:
 
 ---
 
-## Scope
+## Implementation Phases
 
-### In scope
+### Phase 1 — Core abstraction layer
 
-- `StorageProvider` interface in core with `FilesystemStorageProvider`
-- `@evalstudio/postgres` package with `PostgresStorageProvider` (depends on `pg`)
+Pure refactor of `@evalstudio/core`. No new storage backend, no config changes. Existing filesystem behavior is preserved behind new interfaces.
+
+- `StorageProvider` interface + `FilesystemStorageProvider` (extracts logic from project-resolver + JSON repo)
+- `Repository<T>` becomes async (`findAll` / `saveAll` return `Promise`)
+- Entity module factories accept injected `Repository<T>` instead of creating their own
+- All entity module methods become `async`
+- CLI and API add `await` to entity module calls
+- `run-processor.ts` awaits entity module calls
+
+### Phase 2 — `@evalstudio/postgres` package
+
+New package that implements `StorageProvider` against PostgreSQL. Wires into core via dynamic import.
+
+- `@evalstudio/postgres` package with `PostgresStorageProvider` + `PostgresRepository` (depends on `pg`)
 - `storage` config field in `evalstudio.config.json` (`filesystem` default, `postgres` option)
-- Dynamic import of `@evalstudio/postgres` when config says postgres
-- `Repository<T>` becomes async
-- Entity module factories accept injected `Repository<T>`
-- Phase 1 JSONB `data` column schema
+- `storage-factory.ts` in core with dynamic `import("@evalstudio/postgres")`
+- Database schema (reference columns + JSONB `data` column)
 - Project CRUD via `projects` table when storage is postgres
-- CLI `evalstudio db init` and `evalstudio migrate --to postgres` commands
 - Connection pooling and cleanup
+
+### Phase 3 — CLI tooling and migration
+
+CLI commands for schema management and data migration from filesystem to Postgres.
+
+- `evalstudio db init` — create tables if they don't exist
+- `evalstudio migrate --to postgres` — read filesystem data, insert into Postgres, update config
+- Auto-schema check on first connection
+
+---
+
+## Scope
 
 ### Out of scope
 
-- Phase 2 explicit-column schema (follow-up)
+- Explicit-column schema (promote JSONB fields to real columns — follow-up)
 - Other databases (MySQL, SQLite) — can be added later by implementing `StorageProvider`
 - Real-time change notifications (LISTEN/NOTIFY)
 - Read replicas or connection routing
