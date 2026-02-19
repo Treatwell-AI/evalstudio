@@ -57,6 +57,7 @@ export {
 export {
   createEvalModule,
   type EvalModule,
+  type EvalModuleDeps,
   type CreateEvalInput,
   type Eval,
   type EvalWithRelations,
@@ -88,6 +89,7 @@ export {
 export {
   createRunModule,
   type RunModule,
+  type RunModuleDeps,
   type CreatePlaygroundRunInput,
   type CreateRunInput,
   type ListRunsOptions,
@@ -103,6 +105,12 @@ export {
   type CreateExecutionInput,
   type Execution,
 } from "./execution.js";
+export {
+  createProjectModules,
+  type ProjectModules,
+} from "./module-factory.js";
+export { type StorageProvider } from "./storage-provider.js";
+export { createFilesystemStorage } from "./filesystem-storage.js";
 export {
   buildTestAgentSystemPrompt,
   buildTestAgentMessages,

@@ -2,8 +2,7 @@ import type { FastifyInstance } from "fastify";
 import {
   buildTestAgentMessages,
   buildTestAgentSystemPrompt,
-  createScenarioModule,
-  createPersonaModule,
+  createProjectModules,
   type FailureCriteriaMode,
   type Message,
 } from "@evalstudio/core";
@@ -40,15 +39,15 @@ interface ScenarioPromptQuerystring {
 
 export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.get("/scenarios", async (request) => {
-    const scenarios = createScenarioModule(request.projectCtx!);
-    return scenarios.list();
+    const { scenarios } = createProjectModules(request.projectCtx!);
+    return await scenarios.list();
   });
 
   fastify.get<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const scenarios = createScenarioModule(request.projectCtx!);
-      const scenario = scenarios.get(request.params.id);
+      const { scenarios } = createProjectModules(request.projectCtx!);
+      const scenario = await scenarios.get(request.params.id);
 
       if (!scenario) {
         reply.code(404);
@@ -63,8 +62,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.get<{ Params: ScenarioParams; Querystring: ScenarioPromptQuerystring }>(
     "/scenarios/:id/prompt",
     async (request, reply) => {
-      const scenarios = createScenarioModule(request.projectCtx!);
-      const scenario = scenarios.get(request.params.id);
+      const { scenarios, personas } = createProjectModules(request.projectCtx!);
+      const scenario = await scenarios.get(request.params.id);
 
       if (!scenario) {
         reply.code(404);
@@ -74,8 +73,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       // Get persona if provided
       let persona = null;
       if (request.query.personaId) {
-        const personaMod = createPersonaModule(request.projectCtx!);
-        persona = personaMod.get(request.query.personaId);
+        persona = await personas.get(request.query.personaId);
         if (!persona) {
           reply.code(404);
           return { error: "Persona not found" };
@@ -105,8 +103,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const scenarios = createScenarioModule(request.projectCtx!);
-        const scenario = scenarios.create({
+        const { scenarios } = createProjectModules(request.projectCtx!);
+        const scenario = await scenarios.create({
           name,
           instructions,
           messages,
@@ -134,8 +132,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
 
       try {
-        const scenarios = createScenarioModule(request.projectCtx!);
-        const scenario = scenarios.update(request.params.id, {
+        const { scenarios } = createProjectModules(request.projectCtx!);
+        const scenario = await scenarios.update(request.params.id, {
           name,
           instructions,
           messages,
@@ -165,8 +163,8 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const scenarios = createScenarioModule(request.projectCtx!);
-      const deleted = scenarios.delete(request.params.id);
+      const { scenarios } = createProjectModules(request.projectCtx!);
+      const deleted = await scenarios.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

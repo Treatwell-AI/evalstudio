@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { resolveProjectFromCwd, createPersonaModule } from "@evalstudio/core";
+import { resolveProjectFromCwd, createProjectModules } from "@evalstudio/core";
 
 export const personaCommand = new Command("persona")
   .description("Manage personas for testing scenarios")
@@ -11,7 +11,7 @@ export const personaCommand = new Command("persona")
       .option("-s, --system-prompt <prompt>", "System prompt for this persona")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           name: string,
           options: {
             description?: string;
@@ -21,8 +21,8 @@ export const personaCommand = new Command("persona")
         ) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const personas = createPersonaModule(ctx);
-            const persona = personas.create({
+            const { personas } = createProjectModules(ctx);
+            const persona = await personas.create({
               name,
               description: options.description,
               systemPrompt: options.systemPrompt,
@@ -56,10 +56,10 @@ export const personaCommand = new Command("persona")
     new Command("list")
       .description("List personas")
       .option("--json", "Output as JSON")
-      .action((options: { json?: boolean }) => {
+      .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const personas = createPersonaModule(ctx);
-        const list = personas.list();
+        const { personas } = createProjectModules(ctx);
+        const list = await personas.list();
 
         if (options.json) {
           console.log(JSON.stringify(list, null, 2));
@@ -86,13 +86,13 @@ export const personaCommand = new Command("persona")
       .argument("<identifier>", "Persona ID or name")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const personas = createPersonaModule(ctx);
-          const persona = personas.get(identifier) ?? personas.getByName(identifier);
+          const { personas } = createProjectModules(ctx);
+          const persona = await personas.get(identifier) ?? await personas.getByName(identifier);
 
           if (!persona) {
             console.error(`Error: Persona "${identifier}" not found`);
@@ -127,7 +127,7 @@ export const personaCommand = new Command("persona")
       .option("-s, --system-prompt <prompt>", "New system prompt")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: {
             name?: string;
@@ -137,8 +137,8 @@ export const personaCommand = new Command("persona")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const personas = createPersonaModule(ctx);
-          const existing = personas.get(identifier);
+          const { personas } = createProjectModules(ctx);
+          const existing = await personas.get(identifier);
 
           if (!existing) {
             console.error(`Error: Persona "${identifier}" not found`);
@@ -146,7 +146,7 @@ export const personaCommand = new Command("persona")
           }
 
           try {
-            const updated = personas.update(existing.id, {
+            const updated = await personas.update(existing.id, {
               name: options.name,
               description: options.description,
               systemPrompt: options.systemPrompt,
@@ -186,17 +186,17 @@ export const personaCommand = new Command("persona")
       .description("Delete a persona")
       .argument("<identifier>", "Persona ID")
       .option("--json", "Output as JSON")
-      .action((identifier: string, options: { json?: boolean }) => {
+      .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const personas = createPersonaModule(ctx);
-        const existing = personas.get(identifier);
+        const { personas } = createProjectModules(ctx);
+        const existing = await personas.get(identifier);
 
         if (!existing) {
           console.error(`Error: Persona "${identifier}" not found`);
           process.exit(1);
         }
 
-        const deleted = personas.delete(existing.id);
+        const deleted = await personas.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete persona`);

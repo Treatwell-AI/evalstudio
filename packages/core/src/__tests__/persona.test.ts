@@ -2,12 +2,12 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createPersonaModule } from "../persona.js";
+import { createProjectModules, type PersonaModule } from "../index.js";
 import type { ProjectContext } from "../project-resolver.js";
 
 let tempDir: string;
 let ctx: ProjectContext;
-let mod: ReturnType<typeof createPersonaModule>;
+let mod: PersonaModule;
 
 describe("persona", () => {
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe("persona", () => {
       dataDir,
       workspaceDir: tempDir,
     };
-    mod = createPersonaModule(ctx);
+    mod = createProjectModules(ctx).personas;
   });
 
   afterEach(() => {
@@ -28,8 +28,8 @@ describe("persona", () => {
   });
 
   describe("create", () => {
-    it("creates a persona with required fields", () => {
-      const persona = mod.create({ name: "Test Persona" });
+    it("creates a persona with required fields", async () => {
+      const persona = await mod.create({ name: "Test Persona" });
 
       expect(persona.id).toBeDefined();
       expect(persona.name).toBe("Test Persona");
@@ -39,8 +39,8 @@ describe("persona", () => {
       expect(persona.updatedAt).toBeDefined();
     });
 
-    it("creates a persona with all fields", () => {
-      const persona = mod.create({
+    it("creates a persona with all fields", async () => {
+      const persona = await mod.create({
         name: "Frustrated User",
         description: "A user who is impatient",
         systemPrompt: "You are a frustrated user...",
@@ -51,57 +51,57 @@ describe("persona", () => {
       expect(persona.systemPrompt).toBe("You are a frustrated user...");
     });
 
-    it("throws error for duplicate name", () => {
-      mod.create({ name: "Test Persona" });
+    it("throws error for duplicate name", async () => {
+      await mod.create({ name: "Test Persona" });
 
-      expect(() => mod.create({ name: "Test Persona" })).toThrow(
+      await expect(mod.create({ name: "Test Persona" })).rejects.toThrow(
         'Persona with name "Test Persona" already exists'
       );
     });
   });
 
   describe("get", () => {
-    it("returns persona by id", () => {
-      const created = mod.create({ name: "Test Persona" });
-      const found = mod.get(created.id);
+    it("returns persona by id", async () => {
+      const created = await mod.create({ name: "Test Persona" });
+      const found = await mod.get(created.id);
 
       expect(found).toEqual(created);
     });
 
-    it("returns undefined for non-existent id", () => {
-      const found = mod.get("non-existent");
+    it("returns undefined for non-existent id", async () => {
+      const found = await mod.get("non-existent");
 
       expect(found).toBeUndefined();
     });
   });
 
   describe("getByName", () => {
-    it("returns persona by name", () => {
-      const created = mod.create({ name: "Test Persona" });
-      const found = mod.getByName("Test Persona");
+    it("returns persona by name", async () => {
+      const created = await mod.create({ name: "Test Persona" });
+      const found = await mod.getByName("Test Persona");
 
       expect(found).toEqual(created);
     });
 
-    it("returns undefined for non-existent name", () => {
-      const found = mod.getByName("non-existent");
+    it("returns undefined for non-existent name", async () => {
+      const found = await mod.getByName("non-existent");
 
       expect(found).toBeUndefined();
     });
   });
 
   describe("list", () => {
-    it("returns empty array when no personas", () => {
-      const personas = mod.list();
+    it("returns empty array when no personas", async () => {
+      const personas = await mod.list();
 
       expect(personas).toEqual([]);
     });
 
-    it("returns all personas", () => {
-      const persona1 = mod.create({ name: "Persona 1" });
-      const persona2 = mod.create({ name: "Persona 2" });
+    it("returns all personas", async () => {
+      const persona1 = await mod.create({ name: "Persona 1" });
+      const persona2 = await mod.create({ name: "Persona 2" });
 
-      const personas = mod.list();
+      const personas = await mod.list();
 
       expect(personas).toHaveLength(2);
       expect(personas).toContainEqual(persona1);
@@ -111,10 +111,10 @@ describe("persona", () => {
 
   describe("update", () => {
     it("updates persona name", async () => {
-      const created = mod.create({ name: "Old Name" });
+      const created = await mod.create({ name: "Old Name" });
       // Small delay to ensure timestamp changes
       await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = mod.update(created.id, { name: "New Name" });
+      const updated = await mod.update(created.id, { name: "New Name" });
 
       expect(updated?.name).toBe("New Name");
       expect(new Date(updated!.updatedAt).getTime()).toBeGreaterThanOrEqual(
@@ -122,51 +122,51 @@ describe("persona", () => {
       );
     });
 
-    it("updates persona description", () => {
-      const created = mod.create({ name: "Test" });
-      const updated = mod.update(created.id, {
+    it("updates persona description", async () => {
+      const created = await mod.create({ name: "Test" });
+      const updated = await mod.update(created.id, {
         description: "New description",
       });
 
       expect(updated?.description).toBe("New description");
     });
 
-    it("updates persona systemPrompt", () => {
-      const created = mod.create({ name: "Test" });
-      const updated = mod.update(created.id, {
+    it("updates persona systemPrompt", async () => {
+      const created = await mod.create({ name: "Test" });
+      const updated = await mod.update(created.id, {
         systemPrompt: "New prompt",
       });
 
       expect(updated?.systemPrompt).toBe("New prompt");
     });
 
-    it("returns undefined for non-existent id", () => {
-      const updated = mod.update("non-existent", { name: "new-name" });
+    it("returns undefined for non-existent id", async () => {
+      const updated = await mod.update("non-existent", { name: "new-name" });
 
       expect(updated).toBeUndefined();
     });
 
-    it("throws error for duplicate name", () => {
-      mod.create({ name: "Persona 1" });
-      const persona2 = mod.create({ name: "Persona 2" });
+    it("throws error for duplicate name", async () => {
+      await mod.create({ name: "Persona 1" });
+      const persona2 = await mod.create({ name: "Persona 2" });
 
-      expect(() => mod.update(persona2.id, { name: "Persona 1" })).toThrow(
+      await expect(mod.update(persona2.id, { name: "Persona 1" })).rejects.toThrow(
         'Persona with name "Persona 1" already exists'
       );
     });
   });
 
   describe("delete", () => {
-    it("deletes existing persona", () => {
-      const created = mod.create({ name: "Test" });
-      const deleted = mod.delete(created.id);
+    it("deletes existing persona", async () => {
+      const created = await mod.create({ name: "Test" });
+      const deleted = await mod.delete(created.id);
 
       expect(deleted).toBe(true);
-      expect(mod.get(created.id)).toBeUndefined();
+      expect(await mod.get(created.id)).toBeUndefined();
     });
 
-    it("returns false for non-existent id", () => {
-      const deleted = mod.delete("non-existent");
+    it("returns false for non-existent id", async () => {
+      const deleted = await mod.delete("non-existent");
 
       expect(deleted).toBe(false);
     });

@@ -122,6 +122,7 @@
 [x] As a user, I want to start the API server and web UI with a single `evalstudio serve` command so that I don't need to run separate processes
 [x] As a user, I want documentation automatically deployed to GitHub Pages so that I can always access up-to-date docs online
 [x] As a developer, I want entity storage abstracted behind a repository interface so that I can swap storage backends in the future
+[x] As a developer, I want a StorageProvider interface with async Repository so that I can plug in a PostgreSQL backend without changing business logic
 
 ### Integrations
 

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createJsonRepository, type Repository } from "./repository.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { Repository } from "./repository.js";
 import type { Message } from "./types.js";
 
 export type { Message };
@@ -48,12 +47,10 @@ export interface UpdateScenarioInput {
   personaIds?: string[];
 }
 
-export function createScenarioModule(ctx: ProjectContext) {
-  const repo: Repository<Scenario> = createJsonRepository<Scenario>("scenarios.json", ctx.dataDir);
-
+export function createScenarioModule(repo: Repository<Scenario>) {
   return {
-    create(input: CreateScenarioInput): Scenario {
-      const scenarios = repo.findAll();
+    async create(input: CreateScenarioInput): Promise<Scenario> {
+      const scenarios = await repo.findAll();
 
       if (scenarios.some((s) => s.name === input.name)) {
         throw new Error(`Scenario with name "${input.name}" already exists`);
@@ -75,25 +72,25 @@ export function createScenarioModule(ctx: ProjectContext) {
       };
 
       scenarios.push(scenario);
-      repo.saveAll(scenarios);
+      await repo.saveAll(scenarios);
 
       return scenario;
     },
 
-    get(id: string): Scenario | undefined {
-      return repo.findAll().find((s) => s.id === id);
+    async get(id: string): Promise<Scenario | undefined> {
+      return (await repo.findAll()).find((s) => s.id === id);
     },
 
-    getByName(name: string): Scenario | undefined {
-      return repo.findAll().find((s) => s.name === name);
+    async getByName(name: string): Promise<Scenario | undefined> {
+      return (await repo.findAll()).find((s) => s.name === name);
     },
 
-    list(): Scenario[] {
+    async list(): Promise<Scenario[]> {
       return repo.findAll();
     },
 
-    update(id: string, input: UpdateScenarioInput): Scenario | undefined {
-      const scenarios = repo.findAll();
+    async update(id: string, input: UpdateScenarioInput): Promise<Scenario | undefined> {
+      const scenarios = await repo.findAll();
       const index = scenarios.findIndex((s) => s.id === id);
 
       if (index === -1) {
@@ -123,13 +120,13 @@ export function createScenarioModule(ctx: ProjectContext) {
       };
 
       scenarios[index] = updated;
-      repo.saveAll(scenarios);
+      await repo.saveAll(scenarios);
 
       return updated;
     },
 
-    delete(id: string): boolean {
-      const scenarios = repo.findAll();
+    async delete(id: string): Promise<boolean> {
+      const scenarios = await repo.findAll();
       const index = scenarios.findIndex((s) => s.id === id);
 
       if (index === -1) {
@@ -137,7 +134,7 @@ export function createScenarioModule(ctx: ProjectContext) {
       }
 
       scenarios.splice(index, 1);
-      repo.saveAll(scenarios);
+      await repo.saveAll(scenarios);
 
       return true;
     },

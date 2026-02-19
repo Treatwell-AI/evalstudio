@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
-  createRunModule,
+  createProjectModules,
   type RunStatus,
   type RunResult,
   type RunMetadata,
@@ -40,27 +40,27 @@ interface RunQuerystring {
 
 export async function runsRoute(fastify: FastifyInstance) {
   fastify.get<{ Querystring: RunQuerystring }>("/runs", async (request) => {
-    const runs = createRunModule(request.projectCtx!);
+    const { runs } = createProjectModules(request.projectCtx!);
     const { evalId, scenarioId, personaId } = request.query;
 
     if (evalId) {
-      return runs.listByEval(evalId);
+      return await runs.listByEval(evalId);
     }
 
     if (scenarioId) {
-      return runs.listByScenario(scenarioId);
+      return await runs.listByScenario(scenarioId);
     }
 
     if (personaId) {
-      return runs.listByPersona(personaId);
+      return await runs.listByPersona(personaId);
     }
 
-    return runs.list();
+    return await runs.list();
   });
 
   fastify.get<{ Params: RunParams }>("/runs/:id", async (request, reply) => {
-    const runs = createRunModule(request.projectCtx!);
-    const run = runs.get(request.params.id);
+    const { runs } = createProjectModules(request.projectCtx!);
+    const run = await runs.get(request.params.id);
 
     if (!run) {
       reply.code(404);
@@ -79,8 +79,8 @@ export async function runsRoute(fastify: FastifyInstance) {
     }
 
     try {
-      const runs = createRunModule(request.projectCtx!);
-      const created = runs.createMany({ evalId });
+      const { runs } = createProjectModules(request.projectCtx!);
+      const created = await runs.createMany({ evalId });
       reply.code(201);
       return created;
     } catch (error) {
@@ -113,8 +113,8 @@ export async function runsRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const runs = createRunModule(request.projectCtx!);
-        const run = runs.createPlayground({
+        const { runs } = createProjectModules(request.projectCtx!);
+        const run = await runs.createPlayground({
           scenarioId,
           connectorId,
           personaId,
@@ -149,8 +149,8 @@ export async function runsRoute(fastify: FastifyInstance) {
         metadata,
       } = request.body;
 
-      const runs = createRunModule(request.projectCtx!);
-      const run = runs.update(request.params.id, {
+      const { runs } = createProjectModules(request.projectCtx!);
+      const run = await runs.update(request.params.id, {
         status,
         startedAt,
         completedAt,
@@ -175,8 +175,8 @@ export async function runsRoute(fastify: FastifyInstance) {
     "/runs/:id/retry",
     async (request, reply) => {
       try {
-        const runs = createRunModule(request.projectCtx!);
-        const run = runs.retry(request.params.id);
+        const { runs } = createProjectModules(request.projectCtx!);
+        const run = await runs.retry(request.params.id);
 
         if (!run) {
           reply.code(404);
@@ -197,8 +197,8 @@ export async function runsRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: RunParams }>(
     "/runs/:id",
     async (request, reply) => {
-      const runs = createRunModule(request.projectCtx!);
-      const deleted = runs.delete(request.params.id);
+      const { runs } = createProjectModules(request.projectCtx!);
+      const deleted = await runs.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

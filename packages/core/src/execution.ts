@@ -1,5 +1,4 @@
-import { createJsonRepository, type Repository } from "./repository.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { Repository } from "./repository.js";
 
 /**
  * Execution represents a batch of runs created together from a single eval run.
@@ -26,12 +25,10 @@ function getNextId(executions: Execution[]): number {
   return maxId + 1;
 }
 
-export function createExecutionModule(ctx: ProjectContext) {
-  const repo: Repository<Execution> = createJsonRepository<Execution>("executions.json", ctx.dataDir);
-
+export function createExecutionModule(repo: Repository<Execution>) {
   return {
-    create(input: CreateExecutionInput): Execution {
-      const executions = repo.findAll();
+    async create(input: CreateExecutionInput): Promise<Execution> {
+      const executions = await repo.findAll();
       const now = new Date().toISOString();
 
       const execution: Execution = {
@@ -41,17 +38,17 @@ export function createExecutionModule(ctx: ProjectContext) {
       };
 
       executions.push(execution);
-      repo.saveAll(executions);
+      await repo.saveAll(executions);
 
       return execution;
     },
 
-    get(id: number): Execution | undefined {
-      return repo.findAll().find((e) => e.id === id);
+    async get(id: number): Promise<Execution | undefined> {
+      return (await repo.findAll()).find((e) => e.id === id);
     },
 
-    list(evalId?: string): Execution[] {
-      const executions = repo.findAll();
+    async list(evalId?: string): Promise<Execution[]> {
+      const executions = await repo.findAll();
       if (evalId) {
         return executions
           .filter((e) => e.evalId === evalId)
@@ -60,8 +57,8 @@ export function createExecutionModule(ctx: ProjectContext) {
       return executions.sort((a, b) => b.id - a.id);
     },
 
-    delete(id: number): boolean {
-      const executions = repo.findAll();
+    async delete(id: number): Promise<boolean> {
+      const executions = await repo.findAll();
       const index = executions.findIndex((e) => e.id === id);
 
       if (index === -1) {
@@ -69,18 +66,18 @@ export function createExecutionModule(ctx: ProjectContext) {
       }
 
       executions.splice(index, 1);
-      repo.saveAll(executions);
+      await repo.saveAll(executions);
 
       return true;
     },
 
-    deleteByEval(evalId: string): number {
-      const executions = repo.findAll();
+    async deleteByEval(evalId: string): Promise<number> {
+      const executions = await repo.findAll();
       const filtered = executions.filter((e) => e.evalId !== evalId);
       const deletedCount = executions.length - filtered.length;
 
       if (deletedCount > 0) {
-        repo.saveAll(filtered);
+        await repo.saveAll(filtered);
       }
 
       return deletedCount;

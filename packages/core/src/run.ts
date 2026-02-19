@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { createConnectorModule } from "./connector.js";
-import { createEvalModule, type Message } from "./eval.js";
-import { createExecutionModule } from "./execution.js";
-import { createPersonaModule } from "./persona.js";
-import { createJsonRepository, type Repository } from "./repository.js";
-import { createScenarioModule } from "./scenario.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { Repository } from "./repository.js";
+import type { EvalModule, Message } from "./eval.js";
+import type { ScenarioModule } from "./scenario.js";
+import type { PersonaModule } from "./persona.js";
+import type { ConnectorModule } from "./connector.js";
+import type { ExecutionModule } from "./execution.js";
 
 /**
  * Run status types:
@@ -81,35 +80,40 @@ export interface ListRunsOptions {
   limit?: number;
 }
 
-export function createRunModule(ctx: ProjectContext) {
-  const repo: Repository<Run> = createJsonRepository<Run>("runs.json", ctx.dataDir);
+export interface RunModuleDeps {
+  evals: EvalModule;
+  scenarios: ScenarioModule;
+  personas: PersonaModule;
+  connectors: ConnectorModule;
+  executions: ExecutionModule;
+}
+
+export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
+  const { evals, scenarios, personas, connectors, executions } = deps;
 
   return {
-    createMany(input: CreateRunInput): Run[] {
-      const evals = createEvalModule(ctx);
-      const scenarioMod = createScenarioModule(ctx);
-      const personaMod = createPersonaModule(ctx);
-      const executionMod = createExecutionModule(ctx);
-
-      const evalItem = evals.get(input.evalId);
+    async createMany(input: CreateRunInput): Promise<Run[]> {
+      const evalItem = await evals.get(input.evalId);
       if (!evalItem) {
         throw new Error(`Eval with id "${input.evalId}" not found`);
       }
 
-      const scenarios = evalItem.scenarioIds.map((scenarioId) => {
-        const scenario = scenarioMod.get(scenarioId);
-        if (!scenario) {
-          throw new Error(`Scenario with id "${scenarioId}" not found`);
-        }
-        return scenario;
-      });
+      const scenarioList = await Promise.all(
+        evalItem.scenarioIds.map(async (scenarioId) => {
+          const scenario = await scenarios.get(scenarioId);
+          if (!scenario) {
+            throw new Error(`Scenario with id "${scenarioId}" not found`);
+          }
+          return scenario;
+        }),
+      );
 
-      if (scenarios.length === 0) {
+      if (scenarioList.length === 0) {
         throw new Error("Eval has no scenarios configured");
       }
 
       const allPersonaIds = new Set<string>();
-      for (const scenario of scenarios) {
+      for (const scenario of scenarioList) {
         if (scenario.personaIds) {
           for (const personaId of scenario.personaIds) {
             allPersonaIds.add(personaId);
@@ -118,19 +122,19 @@ export function createRunModule(ctx: ProjectContext) {
       }
 
       for (const personaId of allPersonaIds) {
-        const persona = personaMod.get(personaId);
+        const persona = await personas.get(personaId);
         if (!persona) {
           throw new Error(`Persona with id "${personaId}" not found`);
         }
       }
 
-      const allRuns = repo.findAll();
+      const allRuns = await repo.findAll();
       const now = new Date().toISOString();
       const createdRuns: Run[] = [];
 
-      const execution = executionMod.create({ evalId: input.evalId });
+      const execution = await executions.create({ evalId: input.evalId });
 
-      for (const scenario of scenarios) {
+      for (const scenario of scenarioList) {
         const personaIds: (string | undefined)[] =
           scenario.personaIds && scenario.personaIds.length > 0
             ? scenario.personaIds
@@ -154,40 +158,36 @@ export function createRunModule(ctx: ProjectContext) {
         }
       }
 
-      repo.saveAll(allRuns);
+      await repo.saveAll(allRuns);
       return createdRuns;
     },
 
-    create(input: CreateRunInput): Run {
-      const runs = this.createMany(input);
+    async create(input: CreateRunInput): Promise<Run> {
+      const runs = await this.createMany(input);
       return runs[0];
     },
 
-    createPlayground(input: CreatePlaygroundRunInput): Run {
+    async createPlayground(input: CreatePlaygroundRunInput): Promise<Run> {
       const { scenarioId, connectorId, personaId } = input;
 
-      const scenarioMod = createScenarioModule(ctx);
-      const connectorMod = createConnectorModule(ctx);
-      const personaMod = createPersonaModule(ctx);
-
-      const scenario = scenarioMod.get(scenarioId);
+      const scenario = await scenarios.get(scenarioId);
       if (!scenario) {
         throw new Error(`Scenario with id "${scenarioId}" not found`);
       }
 
-      const connector = connectorMod.get(connectorId);
+      const connector = await connectors.get(connectorId);
       if (!connector) {
         throw new Error(`Connector with id "${connectorId}" not found`);
       }
 
       if (personaId) {
-        const persona = personaMod.get(personaId);
+        const persona = await personas.get(personaId);
         if (!persona) {
           throw new Error(`Persona with id "${personaId}" not found`);
         }
       }
 
-      const allRuns = repo.findAll();
+      const allRuns = await repo.findAll();
       const now = new Date().toISOString();
 
       const run: Run = {
@@ -202,17 +202,17 @@ export function createRunModule(ctx: ProjectContext) {
       };
 
       allRuns.push(run);
-      repo.saveAll(allRuns);
+      await repo.saveAll(allRuns);
 
       return run;
     },
 
-    get(id: string): Run | undefined {
-      return repo.findAll().find((r) => r.id === id);
+    async get(id: string): Promise<Run | undefined> {
+      return (await repo.findAll()).find((r) => r.id === id);
     },
 
-    list(options?: ListRunsOptions): Run[] {
-      const runs = repo.findAll();
+    async list(options?: ListRunsOptions): Promise<Run[]> {
+      const runs = await repo.findAll();
 
       if (!options) return runs;
 
@@ -242,32 +242,32 @@ export function createRunModule(ctx: ProjectContext) {
       return filtered;
     },
 
-    listByEval(evalId: string): Run[] {
-      return repo.findAll()
+    async listByEval(evalId: string): Promise<Run[]> {
+      return (await repo.findAll())
         .filter((r) => r.evalId === evalId)
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
-    listByScenario(scenarioId: string): Run[] {
-      return repo.findAll()
+    async listByScenario(scenarioId: string): Promise<Run[]> {
+      return (await repo.findAll())
         .filter((r) => r.scenarioId === scenarioId)
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
-    listByPersona(personaId: string): Run[] {
-      return repo.findAll()
+    async listByPersona(personaId: string): Promise<Run[]> {
+      return (await repo.findAll())
         .filter((r) => r.personaId === personaId)
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
-    update(id: string, input: UpdateRunInput): Run | undefined {
-      const runs = repo.findAll();
+    async update(id: string, input: UpdateRunInput): Promise<Run | undefined> {
+      const runs = await repo.findAll();
       const index = runs.findIndex((r) => r.id === id);
 
       if (index === -1) return undefined;
@@ -288,37 +288,37 @@ export function createRunModule(ctx: ProjectContext) {
       };
 
       runs[index] = updated;
-      repo.saveAll(runs);
+      await repo.saveAll(runs);
 
       return updated;
     },
 
-    delete(id: string): boolean {
-      const runs = repo.findAll();
+    async delete(id: string): Promise<boolean> {
+      const runs = await repo.findAll();
       const index = runs.findIndex((r) => r.id === id);
 
       if (index === -1) return false;
 
       runs.splice(index, 1);
-      repo.saveAll(runs);
+      await repo.saveAll(runs);
 
       return true;
     },
 
-    deleteByEval(evalId: string): number {
-      const runs = repo.findAll();
+    async deleteByEval(evalId: string): Promise<number> {
+      const runs = await repo.findAll();
       const filtered = runs.filter((r) => r.evalId !== evalId);
       const deletedCount = runs.length - filtered.length;
 
       if (deletedCount > 0) {
-        repo.saveAll(filtered);
+        await repo.saveAll(filtered);
       }
 
       return deletedCount;
     },
 
-    retry(id: string): Run | undefined {
-      const run = this.get(id);
+    async retry(id: string): Promise<Run | undefined> {
+      const run = await this.get(id);
       if (!run) return undefined;
 
       if (run.status !== "error") {

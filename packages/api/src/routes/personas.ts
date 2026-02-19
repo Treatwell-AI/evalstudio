@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { createPersonaModule } from "@evalstudio/core";
+import { createProjectModules } from "@evalstudio/core";
 
 interface CreatePersonaBody {
   name: string;
@@ -19,15 +19,15 @@ interface PersonaParams {
 
 export async function personasRoute(fastify: FastifyInstance) {
   fastify.get("/personas", async (request) => {
-    const personas = createPersonaModule(request.projectCtx!);
-    return personas.list();
+    const { personas } = createProjectModules(request.projectCtx!);
+    return await personas.list();
   });
 
   fastify.get<{ Params: PersonaParams }>(
     "/personas/:id",
     async (request, reply) => {
-      const personas = createPersonaModule(request.projectCtx!);
-      const persona = personas.get(request.params.id);
+      const { personas } = createProjectModules(request.projectCtx!);
+      const persona = await personas.get(request.params.id);
 
       if (!persona) {
         reply.code(404);
@@ -49,8 +49,8 @@ export async function personasRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const personas = createPersonaModule(request.projectCtx!);
-        const persona = personas.create({
+        const { personas } = createProjectModules(request.projectCtx!);
+        const persona = await personas.create({
           name,
           description,
           systemPrompt,
@@ -73,8 +73,8 @@ export async function personasRoute(fastify: FastifyInstance) {
       const { name, description, systemPrompt } = request.body;
 
       try {
-        const personas = createPersonaModule(request.projectCtx!);
-        const persona = personas.update(request.params.id, {
+        const { personas } = createProjectModules(request.projectCtx!);
+        const persona = await personas.update(request.params.id, {
           name,
           description,
           systemPrompt,
@@ -99,8 +99,8 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: PersonaParams }>(
     "/personas/:id",
     async (request, reply) => {
-      const personas = createPersonaModule(request.projectCtx!);
-      const deleted = personas.delete(request.params.id);
+      const { personas } = createProjectModules(request.projectCtx!);
+      const deleted = await personas.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

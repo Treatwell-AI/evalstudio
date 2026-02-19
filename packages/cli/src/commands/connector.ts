@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import {
   resolveProjectFromCwd,
-  createConnectorModule,
+  createProjectModules,
   getConnectorTypes,
   type ConnectorType,
 } from "@evalstudio/core";
@@ -23,7 +23,7 @@ export const connectorCommand = new Command("connector")
       .option("--header <key:value...>", "Custom headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           name: string,
           options: {
             type: string;
@@ -54,9 +54,9 @@ export const connectorCommand = new Command("connector")
             const headers = parseHeaders(options.header);
 
             const ctx = resolveProjectFromCwd();
-            const connectorMod = createConnectorModule(ctx);
+            const { connectors } = createProjectModules(ctx);
 
-            const connector = connectorMod.create({
+            const connector = await connectors.create({
               name,
               type: options.type as ConnectorType,
               baseUrl: options.baseUrl,
@@ -94,22 +94,22 @@ export const connectorCommand = new Command("connector")
     new Command("list")
       .description("List connector configurations")
       .option("--json", "Output as JSON")
-      .action((options: { json?: boolean }) => {
+      .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const connectorMod = createConnectorModule(ctx);
-        const connectors = connectorMod.list();
+        const { connectors } = createProjectModules(ctx);
+        const connectorList = await connectors.list();
 
         if (options.json) {
-          console.log(JSON.stringify(connectors, null, 2));
+          console.log(JSON.stringify(connectorList, null, 2));
         } else {
-          if (connectors.length === 0) {
+          if (connectorList.length === 0) {
             console.log("No connectors found");
             return;
           }
 
           console.log("Connectors:");
           console.log("-----------");
-          for (const connector of connectors) {
+          for (const connector of connectorList) {
             console.log(`  ${connector.name} (${connector.id})`);
             console.log(`    Type:     ${connector.type}`);
             console.log(`    Base URL: ${connector.baseUrl}`);
@@ -123,13 +123,13 @@ export const connectorCommand = new Command("connector")
       .argument("<identifier>", "Connector ID or name")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const connectorMod = createConnectorModule(ctx);
-          const connector = connectorMod.get(identifier) ?? connectorMod.getByName(identifier);
+          const { connectors } = createProjectModules(ctx);
+          const connector = await connectors.get(identifier) ?? await connectors.getByName(identifier);
 
           if (!connector) {
             console.error(`Error: Connector "${identifier}" not found`);
@@ -168,7 +168,7 @@ export const connectorCommand = new Command("connector")
       .option("--header <key:value...>", "Custom headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: {
             name?: string;
@@ -180,8 +180,8 @@ export const connectorCommand = new Command("connector")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const connectorMod = createConnectorModule(ctx);
-          const existing = connectorMod.get(identifier);
+          const { connectors } = createProjectModules(ctx);
+          const existing = await connectors.get(identifier);
 
           if (!existing) {
             console.error(`Error: Connector "${identifier}" not found`);
@@ -211,7 +211,7 @@ export const connectorCommand = new Command("connector")
           const headers = parseHeaders(options.header);
 
           try {
-            const updated = connectorMod.update(existing.id, {
+            const updated = await connectors.update(existing.id, {
               name: options.name,
               type: options.type as ConnectorType | undefined,
               baseUrl: options.baseUrl,
@@ -255,17 +255,17 @@ export const connectorCommand = new Command("connector")
       .description("Delete a connector configuration")
       .argument("<identifier>", "Connector ID")
       .option("--json", "Output as JSON")
-      .action((identifier: string, options: { json?: boolean }) => {
+      .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const connectorMod = createConnectorModule(ctx);
-        const existing = connectorMod.get(identifier);
+        const { connectors } = createProjectModules(ctx);
+        const existing = await connectors.get(identifier);
 
         if (!existing) {
           console.error(`Error: Connector "${identifier}" not found`);
           process.exit(1);
         }
 
-        const deleted = connectorMod.delete(existing.id);
+        const deleted = await connectors.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete connector`);

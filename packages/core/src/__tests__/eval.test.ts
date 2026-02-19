@@ -1,17 +1,15 @@
-import { mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createConnectorModule } from "../connector.js";
-import { createEvalModule } from "../eval.js";
-import { createScenarioModule } from "../scenario.js";
+import { createProjectModules, type EvalModule, type ScenarioModule, type ConnectorModule } from "../index.js";
 import type { ProjectContext } from "../project-resolver.js";
 
 let tempDir: string;
 let ctx: ProjectContext;
-let evalMod: ReturnType<typeof createEvalModule>;
-let scenarioMod: ReturnType<typeof createScenarioModule>;
-let connectorMod: ReturnType<typeof createConnectorModule>;
+let evalMod: EvalModule;
+let scenarioMod: ScenarioModule;
+let connectorMod: ConnectorModule;
 
 let scenarioId: string;
 let scenario2Id: string;
@@ -19,7 +17,7 @@ let connectorId: string;
 let connector2Id: string;
 
 describe("eval", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
     const dataDir = join(tempDir, "data");
     mkdirSync(dataDir, { recursive: true });
@@ -29,21 +27,22 @@ describe("eval", () => {
       dataDir,
       workspaceDir: tempDir,
     };
-    evalMod = createEvalModule(ctx);
-    scenarioMod = createScenarioModule(ctx);
-    connectorMod = createConnectorModule(ctx);
+    const modules = createProjectModules(ctx);
+    evalMod = modules.evals;
+    scenarioMod = modules.scenarios;
+    connectorMod = modules.connectors;
 
-    const scenario = scenarioMod.create({ name: "Test Scenario" });
+    const scenario = await scenarioMod.create({ name: "Test Scenario" });
     scenarioId = scenario.id;
-    const scenario2 = scenarioMod.create({ name: "Test Scenario 2" });
+    const scenario2 = await scenarioMod.create({ name: "Test Scenario 2" });
     scenario2Id = scenario2.id;
-    const connector = connectorMod.create({
+    const connector = await connectorMod.create({
       name: "Test Connector",
       type: "http",
       baseUrl: "http://localhost:3000",
     });
     connectorId = connector.id;
-    const connector2 = connectorMod.create({
+    const connector2 = await connectorMod.create({
       name: "Test Connector 2",
       type: "http",
       baseUrl: "http://localhost:3001",
@@ -56,8 +55,8 @@ describe("eval", () => {
   });
 
   describe("create", () => {
-    it("creates an eval with required fields", () => {
-      const evalItem = evalMod.create({ name: "Test Eval", connectorId, scenarioIds: [scenarioId] });
+    it("creates an eval with required fields", async () => {
+      const evalItem = await evalMod.create({ name: "Test Eval", connectorId, scenarioIds: [scenarioId] });
 
       expect(evalItem.id).toBeDefined();
       expect(evalItem.name).toBe("Test Eval");
@@ -67,8 +66,8 @@ describe("eval", () => {
       expect(evalItem.updatedAt).toBeDefined();
     });
 
-    it("creates an eval with multiple scenarios", () => {
-      const evalItem = evalMod.create({
+    it("creates an eval with multiple scenarios", async () => {
+      const evalItem = await evalMod.create({
         name: "Multi-Scenario Eval",
         connectorId,
         scenarioIds: [scenarioId, scenario2Id],
@@ -77,8 +76,8 @@ describe("eval", () => {
       expect(evalItem.scenarioIds).toEqual([scenarioId, scenario2Id]);
     });
 
-    it("creates an eval with input messages", () => {
-      const evalItem = evalMod.create({
+    it("creates an eval with input messages", async () => {
+      const evalItem = await evalMod.create({
         name: "Messages Eval",
         connectorId,
         input: [{ role: "user", content: "Hello" }],
@@ -89,80 +88,80 @@ describe("eval", () => {
       expect(evalItem.scenarioIds).toEqual([scenarioId]);
     });
 
-    it("throws error for non-existent connector", () => {
-      expect(() =>
+    it("throws error for non-existent connector", async () => {
+      await expect(
         evalMod.create({ name: "Test", connectorId: "non-existent", scenarioIds: [scenarioId] })
-      ).toThrow('Connector with id "non-existent" not found');
+      ).rejects.toThrow('Connector with id "non-existent" not found');
     });
 
-    it("throws error for non-existent scenario", () => {
-      expect(() =>
+    it("throws error for non-existent scenario", async () => {
+      await expect(
         evalMod.create({ name: "Test", connectorId, scenarioIds: ["non-existent"] })
-      ).toThrow('Scenario with id "non-existent" not found');
+      ).rejects.toThrow('Scenario with id "non-existent" not found');
     });
 
-    it("throws error for empty scenarioIds", () => {
-      expect(() =>
+    it("throws error for empty scenarioIds", async () => {
+      await expect(
         evalMod.create({ name: "Test", connectorId, scenarioIds: [] })
-      ).toThrow("At least one scenario is required");
+      ).rejects.toThrow("At least one scenario is required");
     });
 
-    it("allows multiple evals with different scenarios", () => {
-      const eval1 = evalMod.create({ name: "Eval 1", connectorId, scenarioIds: [scenarioId] });
-      const eval2 = evalMod.create({ name: "Eval 2", connectorId, scenarioIds: [scenario2Id] });
+    it("allows multiple evals with different scenarios", async () => {
+      const eval1 = await evalMod.create({ name: "Eval 1", connectorId, scenarioIds: [scenarioId] });
+      const eval2 = await evalMod.create({ name: "Eval 2", connectorId, scenarioIds: [scenario2Id] });
 
-      expect(evalMod.list()).toHaveLength(2);
+      expect(await evalMod.list()).toHaveLength(2);
       expect(eval1.scenarioIds).toEqual([scenarioId]);
       expect(eval2.scenarioIds).toEqual([scenario2Id]);
     });
   });
 
   describe("get", () => {
-    it("returns eval by id", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const found = evalMod.get(created.id);
+    it("returns eval by id", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const found = await evalMod.get(created.id);
 
       expect(found).toEqual(created);
     });
 
-    it("returns undefined for non-existent id", () => {
-      const found = evalMod.get("non-existent");
+    it("returns undefined for non-existent id", async () => {
+      const found = await evalMod.get("non-existent");
 
       expect(found).toBeUndefined();
     });
   });
 
   describe("getByScenario", () => {
-    it("returns eval by scenario", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const found = evalMod.getByScenario(scenarioId);
+    it("returns eval by scenario", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const found = await evalMod.getByScenario(scenarioId);
 
       expect(found).toEqual(created);
     });
 
-    it("returns eval when scenario is in scenarioIds array", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId, scenario2Id] });
-      const found = evalMod.getByScenario(scenario2Id);
+    it("returns eval when scenario is in scenarioIds array", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId, scenario2Id] });
+      const found = await evalMod.getByScenario(scenario2Id);
 
       expect(found).toEqual(created);
     });
 
-    it("returns undefined for non-matching scenario", () => {
-      evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const found = evalMod.getByScenario(scenario2Id);
+    it("returns undefined for non-matching scenario", async () => {
+      await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const found = await evalMod.getByScenario(scenario2Id);
 
       expect(found).toBeUndefined();
     });
   });
 
   describe("getWithRelations", () => {
-    it("returns eval with scenarios relation", () => {
-      const created = evalMod.create({
+    it("returns eval with scenarios relation", async () => {
+      const created = await evalMod.create({
         name: "Test",
         connectorId,
         scenarioIds: [scenarioId, scenario2Id],
       });
-      const found = evalMod.getWithRelations(created.id);
+      const found = await evalMod.getWithRelations(created.id);
 
       expect(found).toBeDefined();
       expect(found?.scenarios).toBeDefined();
@@ -173,9 +172,9 @@ describe("eval", () => {
       expect(found?.scenarios[1]?.name).toBe("Test Scenario 2");
     });
 
-    it("returns eval with connector relation", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const found = evalMod.getWithRelations(created.id);
+    it("returns eval with connector relation", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const found = await evalMod.getWithRelations(created.id);
 
       expect(found).toBeDefined();
       expect(found?.connector).toBeDefined();
@@ -183,25 +182,25 @@ describe("eval", () => {
       expect(found?.connector?.name).toBe("Test Connector");
     });
 
-    it("returns undefined for non-existent id", () => {
-      const found = evalMod.getWithRelations("non-existent");
+    it("returns undefined for non-existent id", async () => {
+      const found = await evalMod.getWithRelations("non-existent");
 
       expect(found).toBeUndefined();
     });
   });
 
   describe("list", () => {
-    it("returns empty array when no evals", () => {
-      const evals = evalMod.list();
+    it("returns empty array when no evals", async () => {
+      const evals = await evalMod.list();
 
       expect(evals).toEqual([]);
     });
 
-    it("returns all evals", () => {
-      const eval1 = evalMod.create({ name: "Eval 1", connectorId, scenarioIds: [scenarioId] });
-      const eval2 = evalMod.create({ name: "Eval 2", connectorId, scenarioIds: [scenario2Id] });
+    it("returns all evals", async () => {
+      const eval1 = await evalMod.create({ name: "Eval 1", connectorId, scenarioIds: [scenarioId] });
+      const eval2 = await evalMod.create({ name: "Eval 2", connectorId, scenarioIds: [scenario2Id] });
 
-      const evals = evalMod.list();
+      const evals = await evalMod.list();
 
       expect(evals).toHaveLength(2);
       expect(evals).toContainEqual(eval1);
@@ -210,17 +209,17 @@ describe("eval", () => {
   });
 
   describe("update", () => {
-    it("updates eval name", () => {
-      const created = evalMod.create({ name: "Original Name", connectorId, scenarioIds: [scenarioId] });
-      const updated = evalMod.update(created.id, { name: "Updated Name" });
+    it("updates eval name", async () => {
+      const created = await evalMod.create({ name: "Original Name", connectorId, scenarioIds: [scenarioId] });
+      const updated = await evalMod.update(created.id, { name: "Updated Name" });
 
       expect(updated?.name).toBe("Updated Name");
     });
 
     it("updates eval connectorId", async () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
       await new Promise((resolve) => setTimeout(resolve, 10));
-      const updated = evalMod.update(created.id, { connectorId: connector2Id });
+      const updated = await evalMod.update(created.id, { connectorId: connector2Id });
 
       expect(updated?.connectorId).toBe(connector2Id);
       expect(new Date(updated!.updatedAt).getTime()).toBeGreaterThanOrEqual(
@@ -228,63 +227,63 @@ describe("eval", () => {
       );
     });
 
-    it("updates eval input", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const updated = evalMod.update(created.id, {
+    it("updates eval input", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const updated = await evalMod.update(created.id, {
         input: [{ role: "user", content: "Updated message" }],
       });
 
       expect(updated?.input).toEqual([{ role: "user", content: "Updated message" }]);
     });
 
-    it("updates eval scenarioIds", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const updated = evalMod.update(created.id, { scenarioIds: [scenario2Id] });
+    it("updates eval scenarioIds", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const updated = await evalMod.update(created.id, { scenarioIds: [scenario2Id] });
 
       expect(updated?.scenarioIds).toEqual([scenario2Id]);
     });
 
-    it("updates eval to multiple scenarios", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const updated = evalMod.update(created.id, { scenarioIds: [scenarioId, scenario2Id] });
+    it("updates eval to multiple scenarios", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const updated = await evalMod.update(created.id, { scenarioIds: [scenarioId, scenario2Id] });
 
       expect(updated?.scenarioIds).toEqual([scenarioId, scenario2Id]);
     });
 
-    it("returns undefined for non-existent id", () => {
-      const updated = evalMod.update("non-existent", { connectorId });
+    it("returns undefined for non-existent id", async () => {
+      const updated = await evalMod.update("non-existent", { connectorId });
 
       expect(updated).toBeUndefined();
     });
 
-    it("throws error for non-existent scenario", () => {
-      const evalItem = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+    it("throws error for non-existent scenario", async () => {
+      const evalItem = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
 
-      expect(() =>
+      await expect(
         evalMod.update(evalItem.id, { scenarioIds: ["non-existent"] })
-      ).toThrow('Scenario with id "non-existent" not found');
+      ).rejects.toThrow('Scenario with id "non-existent" not found');
     });
 
-    it("throws error for empty scenarioIds", () => {
-      const evalItem = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+    it("throws error for empty scenarioIds", async () => {
+      const evalItem = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
 
-      expect(() =>
+      await expect(
         evalMod.update(evalItem.id, { scenarioIds: [] })
-      ).toThrow("At least one scenario is required");
+      ).rejects.toThrow("At least one scenario is required");
     });
   });
 
   describe("delete", () => {
-    it("deletes existing eval", () => {
-      const created = evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const deleted = evalMod.delete(created.id);
+    it("deletes existing eval", async () => {
+      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
+      const deleted = await evalMod.delete(created.id);
 
       expect(deleted).toBe(true);
-      expect(evalMod.get(created.id)).toBeUndefined();
+      expect(await evalMod.get(created.id)).toBeUndefined();
     });
 
-    it("returns false for non-existent id", () => {
-      const deleted = evalMod.delete("non-existent");
+    it("returns false for non-existent id", async () => {
+      const deleted = await evalMod.delete("non-existent");
 
       expect(deleted).toBe(false);
     });

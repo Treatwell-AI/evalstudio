@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import {
-  createEvalModule,
+  createProjectModules,
   type Message,
 } from "@evalstudio/core";
 
@@ -34,19 +34,19 @@ interface EvalQuerystring {
 
 export async function evalsRoute(fastify: FastifyInstance) {
   fastify.get("/evals", async (request) => {
-    const evals = createEvalModule(request.projectCtx!);
-    return evals.list();
+    const { evals } = createProjectModules(request.projectCtx!);
+    return await evals.list();
   });
 
   fastify.get<{ Params: EvalParams; Querystring: EvalQuerystring }>(
     "/evals/:id",
     async (request, reply) => {
-      const evals = createEvalModule(request.projectCtx!);
+      const { evals } = createProjectModules(request.projectCtx!);
       const expand = request.query.expand === "true";
 
       const evalItem = expand
-        ? evals.getWithRelations(request.params.id)
-        : evals.get(request.params.id);
+        ? await evals.getWithRelations(request.params.id)
+        : await evals.get(request.params.id);
 
       if (!evalItem) {
         reply.code(404);
@@ -83,8 +83,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const evals = createEvalModule(request.projectCtx!);
-        const evalItem = evals.create({
+        const { evals } = createProjectModules(request.projectCtx!);
+        const evalItem = await evals.create({
           name,
           input,
           scenarioIds,
@@ -117,8 +117,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
       } = request.body;
 
       try {
-        const evals = createEvalModule(request.projectCtx!);
-        const evalItem = evals.update(request.params.id, {
+        const { evals } = createProjectModules(request.projectCtx!);
+        const evalItem = await evals.update(request.params.id, {
           name,
           input,
           scenarioIds,
@@ -148,8 +148,8 @@ export async function evalsRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: EvalParams }>(
     "/evals/:id",
     async (request, reply) => {
-      const evals = createEvalModule(request.projectCtx!);
-      const deleted = evals.delete(request.params.id);
+      const { evals } = createProjectModules(request.projectCtx!);
+      const deleted = await evals.delete(request.params.id);
 
       if (!deleted) {
         reply.code(404);

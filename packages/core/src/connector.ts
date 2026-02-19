@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createJsonRepository, type Repository } from "./repository.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { Repository } from "./repository.js";
 import type { Message } from "./types.js";
 
 export type ConnectorType = "http" | "langgraph";
@@ -278,12 +277,10 @@ function getStrategy(type: ConnectorType): ConnectorStrategy {
 // Factory: project-scoped connector module
 // ============================================================================
 
-export function createConnectorModule(ctx: ProjectContext) {
-  const repo: Repository<Connector> = createJsonRepository<Connector>("connectors.json", ctx.dataDir);
-
+export function createConnectorModule(repo: Repository<Connector>) {
   return {
-    create(input: CreateConnectorInput): Connector {
-      const connectors = repo.findAll();
+    async create(input: CreateConnectorInput): Promise<Connector> {
+      const connectors = await repo.findAll();
 
       if (connectors.some((c) => c.name === input.name)) {
         throw new Error(`Connector with name "${input.name}" already exists`);
@@ -302,25 +299,25 @@ export function createConnectorModule(ctx: ProjectContext) {
       };
 
       connectors.push(connector);
-      repo.saveAll(connectors);
+      await repo.saveAll(connectors);
 
       return connector;
     },
 
-    get(id: string): Connector | undefined {
-      return repo.findAll().find((c) => c.id === id);
+    async get(id: string): Promise<Connector | undefined> {
+      return (await repo.findAll()).find((c) => c.id === id);
     },
 
-    getByName(name: string): Connector | undefined {
-      return repo.findAll().find((c) => c.name === name);
+    async getByName(name: string): Promise<Connector | undefined> {
+      return (await repo.findAll()).find((c) => c.name === name);
     },
 
-    list(): Connector[] {
+    async list(): Promise<Connector[]> {
       return repo.findAll();
     },
 
-    update(id: string, input: UpdateConnectorInput): Connector | undefined {
-      const connectors = repo.findAll();
+    async update(id: string, input: UpdateConnectorInput): Promise<Connector | undefined> {
+      const connectors = await repo.findAll();
       const index = connectors.findIndex((c) => c.id === id);
 
       if (index === -1) {
@@ -347,13 +344,13 @@ export function createConnectorModule(ctx: ProjectContext) {
       };
 
       connectors[index] = updated;
-      repo.saveAll(connectors);
+      await repo.saveAll(connectors);
 
       return updated;
     },
 
-    delete(id: string): boolean {
-      const connectors = repo.findAll();
+    async delete(id: string): Promise<boolean> {
+      const connectors = await repo.findAll();
       const index = connectors.findIndex((c) => c.id === id);
 
       if (index === -1) {
@@ -361,13 +358,13 @@ export function createConnectorModule(ctx: ProjectContext) {
       }
 
       connectors.splice(index, 1);
-      repo.saveAll(connectors);
+      await repo.saveAll(connectors);
 
       return true;
     },
 
     async test(id: string): Promise<ConnectorTestResult> {
-      const connector = this.get(id);
+      const connector = await this.get(id);
       if (!connector) {
         return { success: false, latencyMs: 0, error: `Connector with id "${id}" not found` };
       }
@@ -408,7 +405,7 @@ export function createConnectorModule(ctx: ProjectContext) {
     },
 
     async invoke(id: string, input: ConnectorInvokeInput): Promise<ConnectorInvokeResult> {
-      const connector = this.get(id);
+      const connector = await this.get(id);
       if (!connector) {
         return { success: false, latencyMs: 0, error: `Connector with id "${id}" not found` };
       }

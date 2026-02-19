@@ -9,8 +9,8 @@ import { join } from "node:path";
  * cascade deletes, relational queries) belongs in the entity modules.
  */
 export interface Repository<T> {
-  findAll(): T[];
-  saveAll(items: T[]): void;
+  findAll(): Promise<T[]>;
+  saveAll(items: T[]): Promise<void>;
 }
 
 /**
@@ -19,13 +19,13 @@ export interface Repository<T> {
  */
 export function createJsonRepository<T>(filename: string, dataDir: string): Repository<T> {
   return {
-    findAll(): T[] {
+    async findAll(): Promise<T[]> {
       const path = join(dataDir, filename);
       if (!existsSync(path)) return [];
       return JSON.parse(readFileSync(path, "utf-8")) as T[];
     },
 
-    saveAll(items: T[]): void {
+    async saveAll(items: T[]): Promise<void> {
       writeFileSync(
         join(dataDir, filename),
         JSON.stringify(items, null, 2),

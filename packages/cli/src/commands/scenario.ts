@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import {
   resolveProjectFromCwd,
-  createScenarioModule,
-  createPersonaModule,
+  createProjectModules,
   type Message,
 } from "@evalstudio/core";
 
@@ -40,7 +39,7 @@ export const scenarioCommand = new Command("scenario")
       .option("--personas <personas>", "Comma-separated list of persona IDs or names to associate")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           name: string,
           options: {
             instructions?: string;
@@ -54,8 +53,7 @@ export const scenarioCommand = new Command("scenario")
         ) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const scenarioMod = createScenarioModule(ctx);
-            const personaMod = createPersonaModule(ctx);
+            const { scenarios, personas } = createProjectModules(ctx);
 
             const messages = options.messagesFile
               ? loadMessagesFromFile(options.messagesFile)
@@ -65,7 +63,7 @@ export const scenarioCommand = new Command("scenario")
             if (options.personas) {
               personaIds = [];
               for (const identifier of options.personas.split(",").map(s => s.trim())) {
-                const persona = personaMod.get(identifier) ?? personaMod.getByName(identifier);
+                const persona = await personas.get(identifier) ?? await personas.getByName(identifier);
                 if (!persona) {
                   throw new Error(`Persona "${identifier}" not found`);
                 }
@@ -73,7 +71,7 @@ export const scenarioCommand = new Command("scenario")
               }
             }
 
-            const scenario = scenarioMod.create({
+            const scenario = await scenarios.create({
               name,
               instructions: options.instructions,
               messages,
@@ -105,10 +103,11 @@ export const scenarioCommand = new Command("scenario")
                 console.log(`  Failure:         ${scenario.failureCriteria}`);
               }
               if (scenario.personaIds && scenario.personaIds.length > 0) {
-                const names = scenario.personaIds.map((id: string) => {
-                  const p = personaMod.get(id);
-                  return p ? p.name : id;
-                });
+                const names: string[] = [];
+                for (const id of scenario.personaIds) {
+                  const p = await personas.get(id);
+                  names.push(p ? p.name : id);
+                }
                 console.log(`  Personas:        ${names.join(", ")}`);
               }
               console.log(`  Created:         ${scenario.createdAt}`);
@@ -127,23 +126,22 @@ export const scenarioCommand = new Command("scenario")
     new Command("list")
       .description("List scenarios")
       .option("--json", "Output as JSON")
-      .action((options: { json?: boolean }) => {
+      .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const scenarioMod = createScenarioModule(ctx);
-        const personaMod = createPersonaModule(ctx);
-        const scenarios = scenarioMod.list();
+        const { scenarios, personas } = createProjectModules(ctx);
+        const scenarioList = await scenarios.list();
 
         if (options.json) {
-          console.log(JSON.stringify(scenarios, null, 2));
+          console.log(JSON.stringify(scenarioList, null, 2));
         } else {
-          if (scenarios.length === 0) {
+          if (scenarioList.length === 0) {
             console.log("No scenarios found");
             return;
           }
 
           console.log("Scenarios:");
           console.log("----------");
-          for (const scenario of scenarios) {
+          for (const scenario of scenarioList) {
             console.log(`  ${scenario.name} (${scenario.id})`);
             if (scenario.instructions) {
               const preview = scenario.instructions.length > 60
@@ -155,10 +153,11 @@ export const scenarioCommand = new Command("scenario")
               console.log(`    Messages: ${scenario.messages.length} initial messages`);
             }
             if (scenario.personaIds && scenario.personaIds.length > 0) {
-              const names = scenario.personaIds.map((id: string) => {
-                const p = personaMod.get(id);
-                return p ? p.name : id;
-              });
+              const names: string[] = [];
+              for (const id of scenario.personaIds) {
+                const p = await personas.get(id);
+                names.push(p ? p.name : id);
+              }
               console.log(`    Personas: ${names.join(", ")}`);
             }
           }
@@ -171,14 +170,13 @@ export const scenarioCommand = new Command("scenario")
       .argument("<identifier>", "Scenario ID or name")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const scenarioMod = createScenarioModule(ctx);
-          const personaMod = createPersonaModule(ctx);
-          const scenario = scenarioMod.get(identifier) ?? scenarioMod.getByName(identifier);
+          const { scenarios, personas } = createProjectModules(ctx);
+          const scenario = await scenarios.get(identifier) ?? await scenarios.getByName(identifier);
 
           if (!scenario) {
             console.error(`Error: Scenario "${identifier}" not found`);
@@ -214,10 +212,11 @@ export const scenarioCommand = new Command("scenario")
               console.log(`  Failure:         ${scenario.failureCriteria}`);
             }
             if (scenario.personaIds && scenario.personaIds.length > 0) {
-              const names = scenario.personaIds.map((id: string) => {
-                const p = personaMod.get(id);
-                return p ? p.name : id;
-              });
+              const names: string[] = [];
+              for (const id of scenario.personaIds) {
+                const p = await personas.get(id);
+                names.push(p ? p.name : id);
+              }
               console.log(`  Personas:        ${names.join(", ")}`);
             }
             console.log(`  Created:         ${scenario.createdAt}`);
@@ -239,7 +238,7 @@ export const scenarioCommand = new Command("scenario")
       .option("--personas <personas>", "Comma-separated list of persona IDs or names (use empty string to clear)")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: {
             name?: string;
@@ -253,9 +252,8 @@ export const scenarioCommand = new Command("scenario")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const scenarioMod = createScenarioModule(ctx);
-          const personaMod = createPersonaModule(ctx);
-          const existing = scenarioMod.get(identifier);
+          const { scenarios, personas } = createProjectModules(ctx);
+          const existing = await scenarios.get(identifier);
 
           if (!existing) {
             console.error(`Error: Scenario "${identifier}" not found`);
@@ -274,7 +272,7 @@ export const scenarioCommand = new Command("scenario")
               } else {
                 personaIds = [];
                 for (const identifier of options.personas.split(",").map(s => s.trim())) {
-                  const persona = personaMod.get(identifier) ?? personaMod.getByName(identifier);
+                  const persona = await personas.get(identifier) ?? await personas.getByName(identifier);
                   if (!persona) {
                     throw new Error(`Persona "${identifier}" not found`);
                   }
@@ -283,7 +281,7 @@ export const scenarioCommand = new Command("scenario")
               }
             }
 
-            const updated = scenarioMod.update(existing.id, {
+            const updated = await scenarios.update(existing.id, {
               name: options.name,
               instructions: options.instructions,
               messages,
@@ -320,10 +318,11 @@ export const scenarioCommand = new Command("scenario")
                 console.log(`  Failure:         ${updated.failureCriteria}`);
               }
               if (updated.personaIds && updated.personaIds.length > 0) {
-                const names = updated.personaIds.map(id => {
-                  const p = personaMod.get(id);
-                  return p ? p.name : id;
-                });
+                const names: string[] = [];
+                for (const id of updated.personaIds) {
+                  const p = await personas.get(id);
+                  names.push(p ? p.name : id);
+                }
                 console.log(`  Personas:        ${names.join(", ")}`);
               }
               console.log(`  Updated:         ${updated.updatedAt}`);
@@ -343,17 +342,17 @@ export const scenarioCommand = new Command("scenario")
       .description("Delete a scenario")
       .argument("<identifier>", "Scenario ID")
       .option("--json", "Output as JSON")
-      .action((identifier: string, options: { json?: boolean }) => {
+      .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const scenarioMod = createScenarioModule(ctx);
-        const existing = scenarioMod.get(identifier);
+        const { scenarios } = createProjectModules(ctx);
+        const existing = await scenarios.get(identifier);
 
         if (!existing) {
           console.error(`Error: Scenario "${identifier}" not found`);
           process.exit(1);
         }
 
-        const deleted = scenarioMod.delete(existing.id);
+        const deleted = await scenarios.delete(existing.id);
 
         if (!deleted) {
           console.error(`Error: Failed to delete scenario`);

@@ -1,9 +1,8 @@
-import { createEvalModule } from "./eval.js";
-import { createConnectorModule, type ConnectorInvokeResult } from "./connector.js";
+import type { ConnectorInvokeResult } from "./connector.js";
 import { getLLMProviderFromProjectConfig, type LLMProvider } from "./llm-provider.js";
-import { createPersonaModule, type Persona } from "./persona.js";
-import { createScenarioModule, type Scenario } from "./scenario.js";
-import { createRunModule, type Run, type RunStatus, type RunResult } from "./run.js";
+import type { Persona } from "./persona.js";
+import type { Scenario } from "./scenario.js";
+import type { Run, RunStatus, RunResult } from "./run.js";
 import {
   listProjects,
   resolveProject,
@@ -15,6 +14,7 @@ import type { Message } from "./types.js";
 import { buildTestAgentSystemPrompt } from "./prompt.js";
 import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";
 import { generatePersonaMessage } from "./persona-generator.js";
+import { createProjectModules, type ProjectModules } from "./module-factory.js";
 
 /**
  * Resolved LLM configuration for evaluation and persona generation
@@ -199,20 +199,21 @@ export class RunProcessor {
         continue; // Skip projects that can't be resolved
       }
 
-      const runMod = createRunModule(ctx);
-      const queuedRuns = runMod.list({ status: "queued", limit: remaining });
+      const modules = createProjectModules(ctx);
+      const queuedRuns = await modules.runs.list({ status: "queued", limit: remaining });
 
       for (const run of queuedRuns) {
         if (remaining <= 0) break;
         if (this.activeRuns.has(run.id)) continue;
 
         // Attempt to claim the run atomically
-        if (!this.claimRun(ctx, run.id)) {
+        const claimed = await this.claimRun(modules, run.id);
+        if (!claimed) {
           continue; // Already claimed by another processor
         }
 
         // Start execution
-        const promise = this.executeRun(ctx, run);
+        const promise = this.executeRun(ctx, modules, run);
         this.activeRuns.set(run.id, promise);
         started++;
         remaining--;
@@ -238,15 +239,14 @@ export class RunProcessor {
    * Atomically claims a run for processing.
    * Returns true if successful, false if already claimed.
    */
-  private claimRun(ctx: ProjectContext, runId: string): boolean {
-    const runMod = createRunModule(ctx);
-    const run = runMod.get(runId);
+  private async claimRun(modules: ProjectModules, runId: string): Promise<boolean> {
+    const run = await modules.runs.get(runId);
     if (!run || run.status !== "queued") {
       return false; // Already claimed or doesn't exist
     }
 
     // Update status atomically
-    const updated = runMod.update(runId, {
+    const updated = await modules.runs.update(runId, {
       status: "running",
       startedAt: new Date().toISOString(),
     });
@@ -264,15 +264,9 @@ export class RunProcessor {
    * 4. If max messages reached, finish the run
    * 5. Otherwise, generate a new persona message and continue
    */
-  private async executeRun(ctx: ProjectContext, run: Run): Promise<void> {
-    const runMod = createRunModule(ctx);
-    const evalMod = createEvalModule(ctx);
-    const connectorMod = createConnectorModule(ctx);
-    const scenarioMod = createScenarioModule(ctx);
-    const personaMod = createPersonaModule(ctx);
-
+  private async executeRun(ctx: ProjectContext, modules: ProjectModules, run: Run): Promise<void> {
     // Re-fetch run to get updated state after claim
-    let currentRun = runMod.get(run.id);
+    let currentRun = await modules.runs.get(run.id);
     if (!currentRun) {
       return;
     }
@@ -287,7 +281,7 @@ export class RunProcessor {
 
       if (currentRun.evalId) {
         // Eval-based run
-        const evalItem = evalMod.get(currentRun.evalId);
+        const evalItem = await modules.evals.get(currentRun.evalId);
         if (!evalItem) {
           throw new Error(`Eval not found: ${currentRun.evalId}`);
         }
@@ -317,23 +311,24 @@ export class RunProcessor {
       };
 
       // Get scenario and persona from stored IDs
-      const scenario = scenarioMod.get(currentRun.scenarioId);
+      const scenario = await modules.scenarios.get(currentRun.scenarioId);
       if (!scenario) {
         throw new Error(`Scenario not found: ${currentRun.scenarioId}`);
       }
 
       const persona = currentRun.personaId
-        ? personaMod.get(currentRun.personaId)
+        ? await modules.personas.get(currentRun.personaId)
         : undefined;
 
       // Get eval input messages if this is an eval-based run
-      const evalInput = currentRun.evalId ? evalMod.get(currentRun.evalId)?.input : undefined;
+      const evalForInput = currentRun.evalId ? await modules.evals.get(currentRun.evalId) : undefined;
+      const evalInput = evalForInput?.input;
 
       // Build all messages including system prompt
       const allMessages = this.buildAllMessages(scenario, persona, evalInput);
 
       // Store all initial messages in the run (so they're visible in UI)
-      const runWithMessages = runMod.update(currentRun.id, {
+      const runWithMessages = await modules.runs.update(currentRun.id, {
         messages: allMessages,
       });
       if (runWithMessages) {
@@ -350,8 +345,7 @@ export class RunProcessor {
 
       // Run the evaluation loop
       await this.executeEvaluationLoop(
-        ctx,
-        connectorMod,
+        modules,
         currentRun,
         connectorId,
         llmConfig,
@@ -361,7 +355,7 @@ export class RunProcessor {
       );
     } catch (error) {
       const err = error instanceof Error ? error : new Error("Unknown error");
-      const updatedRun = runMod.update(currentRun.id, {
+      const updatedRun = await modules.runs.update(currentRun.id, {
         status: "error",
         error: err.message,
         completedAt: new Date().toISOString(),
@@ -401,8 +395,7 @@ export class RunProcessor {
    * - Max messages reached without success (run fails; default mode "on_max_messages")
    */
   private async executeEvaluationLoop(
-    ctx: ProjectContext,
-    connectorMod: ReturnType<typeof createConnectorModule>,
+    modules: ProjectModules,
     currentRun: Run,
     connectorId: string,
     llmConfig: ResolvedLLMConfig,
@@ -410,7 +403,6 @@ export class RunProcessor {
     persona: Persona | undefined,
     maxMessages: number
   ): Promise<void> {
-    const runMod = createRunModule(ctx);
     let messages = [...currentRun.messages];
     let totalLatencyMs = 0;
     let connectorCallCount = 0;
@@ -443,7 +435,7 @@ export class RunProcessor {
       messages = [...messages, userMessage];
 
       // Update run with the generated persona message
-      runMod.update(currentRun.id, { messages });
+      await modules.runs.update(currentRun.id, { messages });
     }
 
     while (countConversationMessages() < maxMessages) {
@@ -452,7 +444,7 @@ export class RunProcessor {
 
       // Invoke the connector (send to tested agent, pass thread ID for LangGraph)
       // threadMessageCount tells LangGraph strategy how many messages are already in the thread
-      const result = await connectorMod.invoke(connectorId, {
+      const result = await modules.connectors.invoke(connectorId, {
         messages: conversationMessages,
         runId: this.getThreadId(currentRun),
         threadMessageCount,
@@ -472,7 +464,7 @@ export class RunProcessor {
       connectorCallCount++;
 
       // Update run with current messages
-      runMod.update(currentRun.id, { messages });
+      await modules.runs.update(currentRun.id, { messages });
 
       // Evaluate the conversation against criteria
       const evaluation = await evaluateCriteria({
@@ -497,7 +489,7 @@ export class RunProcessor {
             : `Failure criteria was triggered. ${evaluation.reasoning}`,
         };
 
-        const updatedRun = runMod.update(currentRun.id, {
+        const updatedRun = await modules.runs.update(currentRun.id, {
           status: "completed",
           messages,
           result: runResult,
@@ -545,7 +537,7 @@ export class RunProcessor {
       messages = [...messages, userMessage];
 
       // Update run with new user message
-      runMod.update(currentRun.id, { messages });
+      await modules.runs.update(currentRun.id, { messages });
     }
 
     // Max messages reached without meeting success criteria
@@ -558,7 +550,7 @@ export class RunProcessor {
         : `Max messages (${maxMessages}) reached without meeting success criteria. ${finalEvaluation?.reasoning || ""}`,
     };
 
-    const updatedRun = runMod.update(currentRun.id, {
+    const updatedRun = await modules.runs.update(currentRun.id, {
       status: "completed",
       messages,
       result: runResult,
@@ -643,12 +635,14 @@ export class RunProcessor {
     for (const project of projects) {
       try {
         const ctx = resolveProject(this.options.workspaceDir, project.id);
-        const runMod = createRunModule(ctx);
-        const stuckRuns = runMod.list({ status: "running" });
+        const modules = createProjectModules(ctx);
 
-        for (const run of stuckRuns) {
-          runMod.update(run.id, { status: "queued" });
-        }
+        // Fire-and-forget the async recovery for each project
+        modules.runs.list({ status: "running" }).then((stuckRuns) => {
+          for (const run of stuckRuns) {
+            modules.runs.update(run.id, { status: "queued" });
+          }
+        });
       } catch {
         // Skip projects that can't be resolved
       }

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createJsonRepository, type Repository } from "./repository.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { Repository } from "./repository.js";
 
 export interface Persona {
   id: string;
@@ -23,12 +22,10 @@ export interface UpdatePersonaInput {
   systemPrompt?: string;
 }
 
-export function createPersonaModule(ctx: ProjectContext) {
-  const repo: Repository<Persona> = createJsonRepository<Persona>("personas.json", ctx.dataDir);
-
+export function createPersonaModule(repo: Repository<Persona>) {
   return {
-    create(input: CreatePersonaInput): Persona {
-      const personas = repo.findAll();
+    async create(input: CreatePersonaInput): Promise<Persona> {
+      const personas = await repo.findAll();
 
       if (personas.some((p) => p.name === input.name)) {
         throw new Error(`Persona with name "${input.name}" already exists`);
@@ -45,25 +42,25 @@ export function createPersonaModule(ctx: ProjectContext) {
       };
 
       personas.push(persona);
-      repo.saveAll(personas);
+      await repo.saveAll(personas);
 
       return persona;
     },
 
-    get(id: string): Persona | undefined {
-      return repo.findAll().find((p) => p.id === id);
+    async get(id: string): Promise<Persona | undefined> {
+      return (await repo.findAll()).find((p) => p.id === id);
     },
 
-    getByName(name: string): Persona | undefined {
-      return repo.findAll().find((p) => p.name === name);
+    async getByName(name: string): Promise<Persona | undefined> {
+      return (await repo.findAll()).find((p) => p.name === name);
     },
 
-    list(): Persona[] {
+    async list(): Promise<Persona[]> {
       return repo.findAll();
     },
 
-    update(id: string, input: UpdatePersonaInput): Persona | undefined {
-      const personas = repo.findAll();
+    async update(id: string, input: UpdatePersonaInput): Promise<Persona | undefined> {
+      const personas = await repo.findAll();
       const index = personas.findIndex((p) => p.id === id);
 
       if (index === -1) {
@@ -88,13 +85,13 @@ export function createPersonaModule(ctx: ProjectContext) {
       };
 
       personas[index] = updated;
-      repo.saveAll(personas);
+      await repo.saveAll(personas);
 
       return updated;
     },
 
-    delete(id: string): boolean {
-      const personas = repo.findAll();
+    async delete(id: string): Promise<boolean> {
+      const personas = await repo.findAll();
       const index = personas.findIndex((p) => p.id === id);
 
       if (index === -1) {
@@ -102,7 +99,7 @@ export function createPersonaModule(ctx: ProjectContext) {
       }
 
       personas.splice(index, 1);
-      repo.saveAll(personas);
+      await repo.saveAll(personas);
 
       return true;
     },

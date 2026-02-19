@@ -58,11 +58,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - CLI: `models` subcommand displays grouped output with tier labels
   - Updated model lists with latest OpenAI (gpt-5.x, o3/o4 series) and Anthropic models
   - Removed `fetchOpenAIModels()` / `fetchProviderModels()` — uses local curated list only
-- **Storage abstraction** - Introduced `Repository<T>` interface and `createJsonRepository<T>()` factory to decouple entity storage from the filesystem
-  - All entity modules now use the repository pattern: persona, scenario, connector, llm-provider, execution, eval, and run
-  - Removed direct `node:fs` / `node:path` / `storage.js` imports from entity modules — storage I/O is fully centralized in `repository.ts`
-  - All entity-specific business logic (validation, uniqueness, cascading deletes, filtering) remains unchanged
-  - Foundation for future support of alternative storage backends (database, cloud, etc.)
+- **Storage provider abstraction** - Introduced `StorageProvider` interface, async `Repository<T>`, and dependency injection for all entity modules
+  - Core: `Repository<T>` is now fully async — `findAll()` returns `Promise<T[]>`, `saveAll()` returns `Promise<void>`
+  - Core: New `StorageProvider` interface with `createRepository<T>()` factory method for pluggable storage backends
+  - Core: `FilesystemStorageProvider` wraps existing JSON file storage behind the new interface
+  - Core: Entity module factories now accept injected `Repository<T>` instead of `ProjectContext` (dependency injection)
+  - Core: New `createProjectModules(ctx)` helper wires all repositories and modules together with correct dependency order
+  - CLI: All commands updated to use `createProjectModules()` with async module calls
+  - API: All routes updated to use `createProjectModules()` with async module calls
+  - Tests: All test suites updated for async patterns (`await` on module calls, `.rejects.toThrow()` for error assertions)
+  - Foundation for Phase 2 PostgreSQL storage backend — swap `StorageProvider` implementation without changing business logic
 
 ### Removed
 

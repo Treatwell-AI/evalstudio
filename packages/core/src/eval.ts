@@ -1,9 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { createJsonRepository, type Repository } from "./repository.js";
-import type { ProjectContext } from "./project-resolver.js";
-import { createConnectorModule } from "./connector.js";
-import { createScenarioModule, type FailureCriteriaMode } from "./scenario.js";
-import { createRunModule } from "./run.js";
+import type { Repository } from "./repository.js";
+import type { ConnectorModule } from "./connector.js";
+import type { ScenarioModule, FailureCriteriaMode } from "./scenario.js";
+import type { Run } from "./run.js";
 import type { Message } from "./types.js";
 
 export type { Message };
@@ -53,14 +52,19 @@ export interface EvalWithRelations extends Eval {
   };
 }
 
-export function createEvalModule(ctx: ProjectContext) {
-  const repo: Repository<Eval> = createJsonRepository<Eval>("evals.json", ctx.dataDir);
-  const connectors = createConnectorModule(ctx);
-  const scenarios = createScenarioModule(ctx);
+export interface EvalModuleDeps {
+  scenarios: ScenarioModule;
+  connectors: ConnectorModule;
+  /** Run repo for cascade deletes (avoids circular dep with RunModule) */
+  runRepo: Repository<Run>;
+}
+
+export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
+  const { scenarios, connectors, runRepo } = deps;
 
   return {
-    create(input: CreateEvalInput): Eval {
-      const connector = connectors.get(input.connectorId);
+    async create(input: CreateEvalInput): Promise<Eval> {
+      const connector = await connectors.get(input.connectorId);
       if (!connector) {
         throw new Error(`Connector with id "${input.connectorId}" not found`);
       }
@@ -70,13 +74,13 @@ export function createEvalModule(ctx: ProjectContext) {
       }
 
       for (const scenarioId of input.scenarioIds) {
-        const scenario = scenarios.get(scenarioId);
+        const scenario = await scenarios.get(scenarioId);
         if (!scenario) {
           throw new Error(`Scenario with id "${scenarioId}" not found`);
         }
       }
 
-      const evals = repo.findAll();
+      const evals = await repo.findAll();
       const now = new Date().toISOString();
       const evalItem: Eval = {
         id: randomUUID(),
@@ -89,30 +93,30 @@ export function createEvalModule(ctx: ProjectContext) {
       };
 
       evals.push(evalItem);
-      repo.saveAll(evals);
+      await repo.saveAll(evals);
 
       return evalItem;
     },
 
-    get(id: string): Eval | undefined {
-      return repo.findAll().find((e) => e.id === id);
+    async get(id: string): Promise<Eval | undefined> {
+      return (await repo.findAll()).find((e) => e.id === id);
     },
 
-    getByScenario(scenarioId: string): Eval | undefined {
-      return repo.findAll().find((e) => e.scenarioIds.includes(scenarioId));
+    async getByScenario(scenarioId: string): Promise<Eval | undefined> {
+      return (await repo.findAll()).find((e) => e.scenarioIds.includes(scenarioId));
     },
 
-    list(): Eval[] {
+    async list(): Promise<Eval[]> {
       return repo.findAll();
     },
 
-    getWithRelations(id: string): EvalWithRelations | undefined {
-      const evalItem = this.get(id);
+    async getWithRelations(id: string): Promise<EvalWithRelations | undefined> {
+      const evalItem = await this.get(id);
       if (!evalItem) return undefined;
 
       const scenarioList: ScenarioSummary[] = [];
       for (const scenarioId of evalItem.scenarioIds) {
-        const scenario = scenarios.get(scenarioId);
+        const scenario = await scenarios.get(scenarioId);
         if (!scenario) continue;
         scenarioList.push({
           id: scenario.id,
@@ -130,7 +134,7 @@ export function createEvalModule(ctx: ProjectContext) {
 
       const result: EvalWithRelations = { ...evalItem, scenarios: scenarioList };
 
-      const connector = connectors.get(evalItem.connectorId);
+      const connector = await connectors.get(evalItem.connectorId);
       if (connector) {
         result.connector = {
           id: connector.id,
@@ -143,14 +147,14 @@ export function createEvalModule(ctx: ProjectContext) {
       return result;
     },
 
-    update(id: string, input: UpdateEvalInput): Eval | undefined {
-      const evals = repo.findAll();
+    async update(id: string, input: UpdateEvalInput): Promise<Eval | undefined> {
+      const evals = await repo.findAll();
       const index = evals.findIndex((e) => e.id === id);
 
       if (index === -1) return undefined;
 
       if (input.connectorId) {
-        const connector = connectors.get(input.connectorId);
+        const connector = await connectors.get(input.connectorId);
         if (!connector) {
           throw new Error(`Connector with id "${input.connectorId}" not found`);
         }
@@ -161,7 +165,7 @@ export function createEvalModule(ctx: ProjectContext) {
           throw new Error("At least one scenario is required");
         }
         for (const scenarioId of input.scenarioIds) {
-          const scenario = scenarios.get(scenarioId);
+          const scenario = await scenarios.get(scenarioId);
           if (!scenario) {
             throw new Error(`Scenario with id "${scenarioId}" not found`);
           }
@@ -179,23 +183,26 @@ export function createEvalModule(ctx: ProjectContext) {
       };
 
       evals[index] = updated;
-      repo.saveAll(evals);
+      await repo.saveAll(evals);
 
       return updated;
     },
 
-    delete(id: string): boolean {
-      const evals = repo.findAll();
+    async delete(id: string): Promise<boolean> {
+      const evals = await repo.findAll();
       const index = evals.findIndex((e) => e.id === id);
 
       if (index === -1) return false;
 
-      // Delete associated runs first
-      const runs = createRunModule(ctx);
-      runs.deleteByEval(id);
+      // Cascade delete runs via run repo (avoids circular dependency with RunModule)
+      const runs = await runRepo.findAll();
+      const filteredRuns = runs.filter((r) => r.evalId !== id);
+      if (filteredRuns.length < runs.length) {
+        await runRepo.saveAll(filteredRuns);
+      }
 
       evals.splice(index, 1);
-      repo.saveAll(evals);
+      await repo.saveAll(evals);
 
       return true;
     },
