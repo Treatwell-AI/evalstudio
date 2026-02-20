@@ -47,7 +47,7 @@ describe("PerformanceChart", () => {
         output: { avgLatencyMs: 1500 },
       }),
     ];
-    const { container } = render(<PerformanceChart runs={runs} />);
+    const { container } = render(<PerformanceChart runs={runs} viewMode="time" />);
 
     // Should show chart even for single data point
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe("PerformanceChart", () => {
         completedAt: "2026-02-01T11:00:00Z",
       }),
     ];
-    const { container } = render(<PerformanceChart runs={runs} />);
+    const { container } = render(<PerformanceChart runs={runs} viewMode="time" />);
 
     // Should render chart (single day groups to one data point)
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe("PerformanceChart", () => {
       }),
     ];
 
-    const { container } = render(<PerformanceChart runs={runs} />);
+    const { container } = render(<PerformanceChart runs={runs} viewMode="time" />);
 
     // Should render the chart container
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -111,7 +111,7 @@ describe("PerformanceChart", () => {
         completedAt: "2026-02-01T11:00:00Z",
       }),
     ];
-    const { container } = render(<PerformanceChart runs={runs} />);
+    const { container } = render(<PerformanceChart runs={runs} viewMode="time" />);
 
     // Should render chart (only the run with a result is counted)
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("PerformanceChart", () => {
         output: { avgLatencyMs: 1500 },
       }),
     ];
-    const { container } = render(<PerformanceChart runs={runs} />);
+    const { container } = render(<PerformanceChart runs={runs} viewMode="time" />);
 
     // Should render chart with latency data
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -200,18 +200,18 @@ describe("PerformanceChart", () => {
 
     const { container } = render(<PerformanceChart runs={runs} />);
 
-    // Initially in time mode (line chart)
+    // Initially in execution mode (default)
     const byTimeButton = screen.getByText("By Time");
     const byExecutionButton = screen.getByText("By Execution");
-    expect(byTimeButton).toHaveClass("active");
-    expect(byExecutionButton).not.toHaveClass("active");
-
-    // Click to switch to execution mode
-    fireEvent.click(byExecutionButton);
-
-    // Button states should toggle
     expect(byExecutionButton).toHaveClass("active");
     expect(byTimeButton).not.toHaveClass("active");
+
+    // Click to switch to time mode
+    fireEvent.click(byTimeButton);
+
+    // Button states should toggle
+    expect(byTimeButton).toHaveClass("active");
+    expect(byExecutionButton).not.toHaveClass("active");
 
     // Chart container should still be present
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();

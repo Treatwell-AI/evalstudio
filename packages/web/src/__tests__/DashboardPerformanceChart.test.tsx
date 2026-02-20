@@ -47,7 +47,7 @@ describe("DashboardPerformanceChart", () => {
         output: { avgLatencyMs: 1500 },
       }),
     ];
-    render(<DashboardPerformanceChart runs={runs} />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
 
     // Should show stats instead of chart for single data point
     expect(screen.getByText("100%")).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("DashboardPerformanceChart", () => {
         completedAt: "2026-02-01T11:00:00Z",
       }),
     ];
-    render(<DashboardPerformanceChart runs={runs} />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
 
     // 1 pass, 1 fail = 50% pass rate (single day, so stats view)
     expect(screen.getByText("50%")).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("DashboardPerformanceChart", () => {
       }),
     ];
 
-    const { container } = render(<DashboardPerformanceChart runs={runs} />);
+    const { container } = render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
 
     // Should render the chart container
     expect(container.querySelector(".performance-chart")).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("DashboardPerformanceChart", () => {
         completedAt: "2026-02-01T11:00:00Z",
       }),
     ];
-    render(<DashboardPerformanceChart runs={runs} />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
 
     // Should only count the run with a result
     expect(screen.getByText("1")).toBeInTheDocument(); // Total runs
@@ -129,7 +129,7 @@ describe("DashboardPerformanceChart", () => {
         output: { avgLatencyMs: 500 },
       }),
     ];
-    render(<DashboardPerformanceChart runs={runs} />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
     expect(screen.getByText("500ms")).toBeInTheDocument();
   });
 
@@ -142,7 +142,7 @@ describe("DashboardPerformanceChart", () => {
         output: { avgLatencyMs: 2500 },
       }),
     ];
-    render(<DashboardPerformanceChart runs={runs} />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" />);
     expect(screen.getByText("2.5s")).toBeInTheDocument();
   });
 
@@ -155,7 +155,7 @@ describe("DashboardPerformanceChart", () => {
       }),
     ];
 
-    render(<DashboardPerformanceChart runs={runs} title="Performance Overview" />);
+    render(<DashboardPerformanceChart runs={runs} viewMode="time" title="Performance Overview" />);
 
     expect(screen.getByText("Performance Overview")).toBeInTheDocument();
   });

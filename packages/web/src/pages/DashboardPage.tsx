@@ -10,7 +10,7 @@ import { DashboardPerformanceChart } from "../components/DashboardPerformanceCha
 type ViewMode = "time" | "execution";
 
 export function DashboardPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("time");
+  const [viewMode, setViewMode] = useState<ViewMode>("execution");
 
   const { data: evals, isLoading: loadingEvals } = useEvals();
   const { data: scenarios, isLoading: loadingScenarios } = useScenarios();

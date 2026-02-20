@@ -21,7 +21,7 @@ export function PersonaDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [activeTab, setActiveTab] = useState<PersonaTab>("runs");
-  const [viewMode, setViewMode] = useState<ViewMode>("time");
+  const [viewMode, setViewMode] = useState<ViewMode>("execution");
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

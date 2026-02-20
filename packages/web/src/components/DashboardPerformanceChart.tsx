@@ -129,7 +129,7 @@ function groupRunsByExecution(completedRuns: Run[]): ChartDataPoint[] {
 
 export function DashboardPerformanceChart({
   runs,
-  viewMode = "time",
+  viewMode = "execution",
   title,
 }: DashboardPerformanceChartProps) {
   const chartData = useMemo(() => {
@@ -142,9 +142,11 @@ export function DashboardPerformanceChart({
       return [];
     }
 
-    return viewMode === "time"
+    const grouped = viewMode === "time"
       ? groupRunsByDate(completedRuns)
       : groupRunsByExecution(completedRuns);
+
+    return grouped.slice(-20);
   }, [runs, viewMode]);
 
   if (chartData.length === 0) {

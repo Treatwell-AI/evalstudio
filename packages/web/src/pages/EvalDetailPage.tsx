@@ -22,7 +22,8 @@ export function EvalDetailPage() {
   const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [activeTab, setActiveTab] = useState<EvalTab>("runs");
-  const [viewMode, setViewMode] = useState<ViewMode>("time");
+  const [viewMode, setViewMode] = useState<ViewMode>("execution");
+  const [scenarioSearch, setScenarioSearch] = useState("");
 
   // Load related data for dropdowns
   const { data: scenarios = [] } = useScenarios();
@@ -232,20 +233,39 @@ export function EvalDetailPage() {
           <div className="eval-primary-fields">
             <div className="form-group">
               <label>Scenarios ({scenarioIds.length} selected)</label>
-              <div className="checkbox-list">
-                {scenarios.map((s) => (
-                  <label key={s.id} className="checkbox-item">
-                    <input
-                      type="checkbox"
-                      checked={scenarioIds.includes(s.id)}
-                      onChange={() => handleScenarioToggle(s.id)}
-                    />
-                    <span>{s.name}</span>
-                  </label>
-                ))}
+              {scenarios.length > 5 && (
+                <input
+                  type="text"
+                  className="scenario-search-input"
+                  placeholder="Search scenarios..."
+                  value={scenarioSearch}
+                  onChange={(e) => setScenarioSearch(e.target.value)}
+                />
+              )}
+              <div className="checkbox-list scenario-checkbox-list">
+                {scenarios
+                  .filter((s) =>
+                    s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                  )
+                  .map((s) => (
+                    <label key={s.id} className="checkbox-item checkbox-item-compact">
+                      <input
+                        type="checkbox"
+                        checked={scenarioIds.includes(s.id)}
+                        onChange={() => handleScenarioToggle(s.id)}
+                      />
+                      <span>{s.name}</span>
+                    </label>
+                  ))}
                 {scenarios.length === 0 && (
                   <p className="form-hint">No scenarios available.</p>
                 )}
+                {scenarios.length > 0 &&
+                  scenarios.filter((s) =>
+                    s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                  ).length === 0 && (
+                    <p className="form-hint">No scenarios match "{scenarioSearch}"</p>
+                  )}
               </div>
               <small className="form-hint">
                 Select one or more scenarios. Runs will be created for each scenario/persona combination.

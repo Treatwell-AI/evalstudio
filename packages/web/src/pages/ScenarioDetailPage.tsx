@@ -27,7 +27,7 @@ export function ScenarioDetailPage() {
   const [showPlayground, setShowPlayground] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [activeTab, setActiveTab] = useState<ScenarioTab>("runs");
-  const [viewMode, setViewMode] = useState<ViewMode>("time");
+  const [viewMode, setViewMode] = useState<ViewMode>("execution");
 
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");

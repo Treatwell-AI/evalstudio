@@ -30,6 +30,7 @@
 [x] As a user, I want personas to generate realistic messages based on their description so that tests feel natural
 [x] As a user, I want to reuse personas across multiple evals so that I maintain consistency
 [x] As a user, I want to associate multiple scenarios to an eval so that I can create scenario/persona combinations and maintain evals as collections of tests to run
+[x] As a user, I want to search and filter scenarios in the eval page so that I can quickly find and select scenarios when there are many
 
 ### Conversation Seeding
 

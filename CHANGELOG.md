@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Eval page scenario list** — Compact rows with search filtering and scrollable container
+  - Scenario checkbox rows are thinner with smaller text and tighter padding
+  - Search input appears when there are more than 5 scenarios, filtering by name
+  - List scrolls when it exceeds max height (18rem)
+  - Same improvements applied to the Create/Edit Eval modal
+- **Performance charts default to "By Execution" view** across all pages (Dashboard, Eval, Scenario, Persona)
+- **Performance charts capped to last 20 data points** to keep charts readable
+
 ## [0.5.0] - 2026-02-20
 
 ### Added

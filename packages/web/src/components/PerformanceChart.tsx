@@ -134,7 +134,7 @@ export function PerformanceChart({
   onViewModeChange,
   showToggle = true,
 }: PerformanceChartProps) {
-  const [internalViewMode, setInternalViewMode] = useState<ViewMode>("time");
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>("execution");
 
   // Use external viewMode if provided, otherwise use internal state
   const viewMode = externalViewMode ?? internalViewMode;
@@ -155,9 +155,11 @@ export function PerformanceChart({
       return [];
     }
 
-    return viewMode === "time"
+    const grouped = viewMode === "time"
       ? groupRunsByDate(completedRuns)
       : groupRunsByExecution(completedRuns);
+
+    return grouped.slice(-20);
   }, [runs, viewMode]);
 
   if (chartData.length === 0) {

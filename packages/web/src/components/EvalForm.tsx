@@ -17,6 +17,7 @@ export function EvalForm({ evalId, onClose }: EvalFormProps) {
   const [scenarioIds, setScenarioIds] = useState<string[]>([]);
   const [connectorId, setConnectorId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [scenarioSearch, setScenarioSearch] = useState("");
 
   const { data: evalItem } = useEval(evalId);
   const { data: scenarios } = useScenarios();
@@ -107,20 +108,39 @@ export function EvalForm({ evalId, onClose }: EvalFormProps) {
 
           <div className="form-group">
             <label>Scenarios * ({scenarioIds.length} selected)</label>
-            <div className="checkbox-list">
-              {scenarios?.map((scenario) => (
-                <label key={scenario.id} className="checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={scenarioIds.includes(scenario.id)}
-                    onChange={() => handleScenarioToggle(scenario.id)}
-                  />
-                  <span>{scenario.name}</span>
-                </label>
-              ))}
+            {(scenarios?.length ?? 0) > 5 && (
+              <input
+                type="text"
+                className="scenario-search-input"
+                placeholder="Search scenarios..."
+                value={scenarioSearch}
+                onChange={(e) => setScenarioSearch(e.target.value)}
+              />
+            )}
+            <div className="checkbox-list scenario-checkbox-list">
+              {scenarios
+                ?.filter((scenario) =>
+                  scenario.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                )
+                .map((scenario) => (
+                  <label key={scenario.id} className="checkbox-item checkbox-item-compact">
+                    <input
+                      type="checkbox"
+                      checked={scenarioIds.includes(scenario.id)}
+                      onChange={() => handleScenarioToggle(scenario.id)}
+                    />
+                    <span>{scenario.name}</span>
+                  </label>
+                ))}
               {(!scenarios || scenarios.length === 0) && (
                 <p className="form-hint">No scenarios available. Create a scenario first.</p>
               )}
+              {(scenarios?.length ?? 0) > 0 &&
+                scenarios?.filter((scenario) =>
+                  scenario.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                ).length === 0 && (
+                  <p className="form-hint">No scenarios match "{scenarioSearch}"</p>
+                )}
             </div>
             <small className="form-hint">
               Select one or more scenarios. Each scenario defines a test context with its own personas.
