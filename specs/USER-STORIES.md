@@ -116,6 +116,8 @@
 [x] As a user, I want to initialize the PostgreSQL schema with a CLI command so that database setup is explicit and controlled
 [x] As a user, I want the storage backend to be selected automatically from workspace config so that switching between filesystem and postgres is seamless
 [x] As a user, I want connection string environment variable placeholders so that I can keep credentials out of config files
+[x] As a user, I want database schema changes managed via versioned migrations so that upgrades are safe and tracked
+[x] As a user, I want to check which database migrations have been applied so that I can troubleshoot schema issues
 
 ### Data Management
 

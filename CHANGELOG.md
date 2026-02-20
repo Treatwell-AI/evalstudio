@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Database migrations** — Version-stamped SQL migration system for `@evalstudio/postgres`
+  - `schema_migrations` table tracks applied migrations with version, name, and timestamp
+  - Each migration runs in its own transaction; already-applied migrations are skipped
+  - Existing databases upgraded seamlessly — migration 001 uses `IF NOT EXISTS` (no-op on existing tables)
+  - `evalstudio db status` CLI command shows applied and pending migrations
+- **Deployment documentation** — New Getting Started > Deployment guide and `@evalstudio/postgres` README
+  - Step-by-step server project setup with `dotenv-cli` for `.env` file support
+  - Dockerfile example for production deployments
+
+### Changed
+
+- **`evalstudio db init` now runs migrations** instead of executing raw SQL — behavior is identical but schema changes are tracked
+
 ## [0.4.0] - 2026-02-20
 
 ### Added

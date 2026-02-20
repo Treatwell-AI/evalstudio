@@ -2,6 +2,7 @@ import type { StorageProvider } from "@evalstudio/core";
 import { createPool } from "./pool.js";
 import { createPostgresStorageProvider } from "./postgres-storage.js";
 import { initSchema as initSchemaImpl } from "./schema.js";
+import { getMigrationStatus as getMigrationStatusImpl, type MigrationStatus } from "./migrator.js";
 
 /**
  * Creates a PostgreSQL-backed StorageProvider.
@@ -23,8 +24,9 @@ export async function createPostgresStorage(connectionString: string): Promise<S
 }
 
 /**
- * Explicitly initializes the database schema.
+ * Runs all pending database migrations.
  * Used by the `evalstudio db init` CLI command.
+ * Safe to call on every startup — already-applied migrations are skipped.
  *
  * @param connectionString - PostgreSQL connection string
  */
@@ -36,3 +38,20 @@ export async function initSchema(connectionString: string): Promise<void> {
     await pool.end();
   }
 }
+
+/**
+ * Returns applied and pending migration status.
+ * Used by the `evalstudio db status` CLI command.
+ *
+ * @param connectionString - PostgreSQL connection string
+ */
+export async function getMigrationStatus(connectionString: string): Promise<MigrationStatus> {
+  const pool = createPool(connectionString);
+  try {
+    return await getMigrationStatusImpl(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
+export type { MigrationStatus };

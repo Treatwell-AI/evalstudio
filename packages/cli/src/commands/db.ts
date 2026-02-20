@@ -64,9 +64,9 @@ dbCommand
       process.exit(1);
     }
 
-    console.log("Initializing PostgreSQL schema...");
+    console.log("Initializing database...");
     await initSchema(connectionString);
-    console.log("Database schema initialized.");
+    console.log("Database ready.");
 
     const storage = await createPostgresStorage(connectionString);
     const projects = await storage.listProjects();
@@ -76,5 +76,45 @@ dbCommand
       console.log(`Created default project: ${project.name} (${project.id.slice(0, 8)})`);
     } else {
       console.log(`Found ${projects.length} existing project(s).`);
+    }
+  });
+
+dbCommand
+  .command("status")
+  .description("Show applied and pending database migrations")
+  .option("-c, --connection-string <url>", "PostgreSQL connection string")
+  .action(async (options: { connectionString?: string }) => {
+    const connectionString = resolveDbConnectionString(options.connectionString);
+
+    let getMigrationStatus: (connectionString: string) => Promise<{ applied: Array<{ version: number; name: string; appliedAt: Date }>; pending: Array<{ version: number; name: string }> }>;
+    try {
+      const pgPackage = "@evalstudio/postgres";
+      const mod = await import(pgPackage);
+      getMigrationStatus = mod.getMigrationStatus;
+    } catch {
+      console.error(
+        "PostgreSQL storage requires the @evalstudio/postgres package.\n" +
+        "Install it with: npm install @evalstudio/postgres"
+      );
+      process.exit(1);
+    }
+
+    const status = await getMigrationStatus(connectionString);
+
+    if (status.applied.length > 0) {
+      console.log("Applied migrations:");
+      for (const m of status.applied) {
+        const date = new Date(m.appliedAt).toISOString();
+        console.log(`  ${m.name}  (applied ${date})`);
+      }
+    } else {
+      console.log("No migrations applied yet.");
+    }
+
+    if (status.pending.length > 0) {
+      console.log("\nPending migrations:");
+      for (const m of status.pending) {
+        console.log(`  ${m.name}  (not yet applied)`);
+      }
     }
   });

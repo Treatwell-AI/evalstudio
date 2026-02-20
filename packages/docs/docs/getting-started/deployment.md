@@ -21,7 +21,7 @@ npm init -y
 ### 2. Install dependencies
 
 ```bash
-npm install @evalstudio/cli @evalstudio/postgres
+npm install @evalstudio/cli @evalstudio/postgres dotenv-cli
 ```
 
 ### 3. Initialize the project
@@ -32,7 +32,13 @@ npx evalstudio init
 
 This creates an `evalstudio.config.json` in the current directory.
 
-### 4. Configure PostgreSQL storage
+### 4. Create a `.env` file
+
+```bash
+EVALSTUDIO_DATABASE_URL=postgresql://user:pass@localhost:5432/evalstudio
+```
+
+### 5. Configure PostgreSQL storage
 
 Edit `evalstudio.config.json` to use Postgres:
 
@@ -56,31 +62,33 @@ Edit `evalstudio.config.json` to use Postgres:
 
 The `connectionString` supports `${VAR}` placeholders that resolve from environment variables at runtime. If `connectionString` is omitted entirely, it falls back to the `EVALSTUDIO_DATABASE_URL` environment variable.
 
-### 5. Add scripts
+### 6. Add scripts
 
 Update your `package.json`:
 
 ```json
 {
   "scripts": {
-    "start": "evalstudio serve",
-    "db:init": "evalstudio db init"
+    "start": "dotenv -- evalstudio serve",
+    "db:init": "dotenv -- evalstudio db init"
   },
   "dependencies": {
     "@evalstudio/cli": "latest",
-    "@evalstudio/postgres": "latest"
+    "@evalstudio/postgres": "latest",
+    "dotenv-cli": "latest"
   }
 }
 ```
 
-### 6. Initialize the database
+The `dotenv --` prefix loads variables from `.env` before running the command, so the `${EVALSTUDIO_DATABASE_URL}` placeholder in the config resolves correctly.
+
+### 7. Initialize the database
 
 ```bash
-export EVALSTUDIO_DATABASE_URL="postgresql://user:pass@localhost:5432/evalstudio"
 npm run db:init
 ```
 
-### 7. Start the server
+### 8. Start the server
 
 ```bash
 npm start

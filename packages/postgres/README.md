@@ -17,7 +17,7 @@ npm init -y
 ### 2. Install dependencies
 
 ```bash
-npm install @evalstudio/cli @evalstudio/postgres
+npm install @evalstudio/cli @evalstudio/postgres dotenv-cli
 ```
 
 ### 3. Initialize the project
@@ -28,7 +28,13 @@ npx evalstudio init
 
 This creates an `evalstudio.config.json` in the current directory.
 
-### 4. Configure PostgreSQL storage
+### 4. Create a `.env` file
+
+```bash
+EVALSTUDIO_DATABASE_URL=postgresql://user:pass@localhost:5432/evalstudio
+```
+
+### 5. Configure PostgreSQL storage
 
 Edit `evalstudio.config.json` to use Postgres:
 
@@ -52,31 +58,33 @@ Edit `evalstudio.config.json` to use Postgres:
 
 The `connectionString` supports `${VAR}` placeholders that resolve from environment variables at runtime. If `connectionString` is omitted entirely, it falls back to the `EVALSTUDIO_DATABASE_URL` environment variable.
 
-### 5. Add a start script
+### 6. Add scripts
 
 Update your `package.json`:
 
 ```json
 {
   "scripts": {
-    "start": "evalstudio serve",
-    "db:init": "evalstudio db init"
+    "start": "dotenv -- evalstudio serve",
+    "db:init": "dotenv -- evalstudio db init"
   },
   "dependencies": {
     "@evalstudio/cli": "latest",
-    "@evalstudio/postgres": "latest"
+    "@evalstudio/postgres": "latest",
+    "dotenv-cli": "latest"
   }
 }
 ```
 
-### 6. Initialize the database
+The `dotenv --` prefix loads variables from `.env` before running the command, so the `${EVALSTUDIO_DATABASE_URL}` placeholder in the config resolves correctly.
+
+### 7. Initialize the database
 
 ```bash
-export EVALSTUDIO_DATABASE_URL="postgresql://user:pass@localhost:5432/evalstudio"
 npm run db:init
 ```
 
-### 7. Start the server
+### 8. Start the server
 
 ```bash
 npm start
@@ -111,13 +119,23 @@ docker run -p 3000:3000 \
   evalstudio-server
 ```
 
-`db:init` is idempotent — it's safe to run on every container start. The schema is created if it doesn't exist and left untouched if it does.
+`db:init` is idempotent — it's safe to run on every container start. Only pending migrations are applied; already-applied ones are skipped.
 
 ## How It Works
 
 When `storage.type` is set to `"postgres"` in your config, `@evalstudio/core` dynamically imports `@evalstudio/postgres` at startup. No code changes are needed — just install the package and update the config.
 
 If the package is not installed, you'll get a clear error message telling you to add it.
+
+### Migrations
+
+Schema changes are managed via version-stamped SQL migrations. A `schema_migrations` table tracks which migrations have been applied. Each migration runs in its own transaction — if one fails, previously applied migrations remain committed.
+
+To check migration status:
+
+```bash
+evalstudio db status
+```
 
 ## API
 
@@ -127,7 +145,11 @@ Creates a PostgreSQL-backed storage provider. The database schema must already e
 
 ### `initSchema(connectionString: string): Promise<void>`
 
-Creates all required database tables. Used internally by the `evalstudio db init` CLI command.
+Runs all pending database migrations. Used internally by the `evalstudio db init` CLI command.
+
+### `getMigrationStatus(connectionString: string): Promise<MigrationStatus>`
+
+Returns applied and pending migrations. Used internally by `evalstudio db status`.
 
 ## License
 

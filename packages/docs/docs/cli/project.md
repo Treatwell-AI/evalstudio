@@ -123,12 +123,21 @@ evalstudio db init
 evalstudio db init --connection-string "postgresql://user:pass@localhost:5432/evalstudio"
 ```
 
-Creates all PostgreSQL tables and indexes. If the database has no projects, creates a "default" project.
+Runs all pending database migrations and creates tables/indexes. If the database has no projects, creates a "default" project. Safe to run on every startup — already-applied migrations are skipped.
 
 The connection string is resolved from (in order):
 1. `--connection-string` CLI option
 2. `storage.connectionString` in `evalstudio.config.json`
 3. `EVALSTUDIO_DATABASE_URL` environment variable
+
+### Migration Status
+
+```bash
+evalstudio db status
+evalstudio db status --connection-string "postgresql://user:pass@localhost:5432/evalstudio"
+```
+
+Shows which database migrations have been applied and which are pending.
 
 ## Workspace Structure
 
