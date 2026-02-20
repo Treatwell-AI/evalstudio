@@ -35,6 +35,7 @@ Bump the version across all packages in the monorepo.
    - `packages/api/package.json` (@evalstudio/api)
    - `packages/web/package.json` (@evalstudio/web)
    - `packages/docs/package.json` (@evalstudio/docs)
+   - `packages/postgres/package.json` (@evalstudio/postgres)
 
 3. **Read new version** back from `packages/core/package.json` (needed for commit message and tag)
 
@@ -67,6 +68,7 @@ Bump the version across all packages in the monorepo.
      ✓ @evalstudio/api
      ✓ @evalstudio/web
      ✓ @evalstudio/docs
+     ✓ @evalstudio/postgres
 
    Changelog:
      ✓ Promoted [Unreleased] → [0.1.0] - 2026-02-13
