@@ -24,6 +24,7 @@ EvalStudio is a flexible evaluation platform for testing chatbots, AI agents, an
 | `@evalstudio/cli` | CLI — bundles API and Web UI via `evalstudio serve` |
 | `@evalstudio/api` | Fastify REST API server (embedded in CLI) |
 | `@evalstudio/web` | React Web UI (embedded in CLI) |
+| `@evalstudio/postgres` | Optional PostgreSQL storage backend |
 | `@evalstudio/docs` | Documentation site (you're here!) |
 
 ## Quick Links

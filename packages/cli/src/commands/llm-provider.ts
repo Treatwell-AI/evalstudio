@@ -4,6 +4,7 @@ import {
   resolveProjectFromCwd,
   getProjectConfig,
   updateProjectConfig,
+  createStorageProvider,
   redactApiKey,
   type ProviderType,
   type LLMSettings,
@@ -30,7 +31,7 @@ export const llmProviderCommand = new Command("llm-provider")
       .requiredOption("--api-key <key>", "API key for the provider")
       .option("--json", "Output as JSON")
       .action(
-        (options: {
+        async (options: {
           provider: string;
           apiKey: string;
           json?: boolean;
@@ -44,9 +45,10 @@ export const llmProviderCommand = new Command("llm-provider")
             }
 
             const ctx = resolveProjectFromCwd();
+            const storage = await createStorageProvider(ctx.workspaceDir);
             // Preserve existing models when updating provider
-            const existing = getProjectConfig(ctx);
-            const config = updateProjectConfig(ctx, {
+            const existing = await getProjectConfig(storage, ctx.workspaceDir, ctx.id);
+            const config = await updateProjectConfig(storage, ctx.workspaceDir, ctx.id, {
               llmSettings: {
                 provider: options.provider as ProviderType,
                 apiKey: options.apiKey,
@@ -75,9 +77,10 @@ export const llmProviderCommand = new Command("llm-provider")
     new Command("show")
       .description("Show the current LLM provider configuration")
       .option("--json", "Output as JSON")
-      .action((options: { json?: boolean }) => {
+      .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const config = getProjectConfig(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const config = await getProjectConfig(storage, ctx.workspaceDir, ctx.id);
 
         if (!config.llmSettings) {
           if (options.json) {

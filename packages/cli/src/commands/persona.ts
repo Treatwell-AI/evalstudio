@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { resolveProjectFromCwd, createProjectModules } from "@evalstudio/core";
+import { resolveProjectFromCwd, createStorageProvider, createProjectModules } from "@evalstudio/core";
 
 export const personaCommand = new Command("persona")
   .description("Manage personas for testing scenarios")
@@ -21,7 +21,8 @@ export const personaCommand = new Command("persona")
         ) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const { personas } = createProjectModules(ctx);
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const { personas } = createProjectModules(storage, ctx.id);
             const persona = await personas.create({
               name,
               description: options.description,
@@ -58,7 +59,8 @@ export const personaCommand = new Command("persona")
       .option("--json", "Output as JSON")
       .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { personas } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { personas } = createProjectModules(storage, ctx.id);
         const list = await personas.list();
 
         if (options.json) {
@@ -91,7 +93,8 @@ export const personaCommand = new Command("persona")
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { personas } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { personas } = createProjectModules(storage, ctx.id);
           const persona = await personas.get(identifier) ?? await personas.getByName(identifier);
 
           if (!persona) {
@@ -137,7 +140,8 @@ export const personaCommand = new Command("persona")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { personas } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { personas } = createProjectModules(storage, ctx.id);
           const existing = await personas.get(identifier);
 
           if (!existing) {
@@ -188,7 +192,8 @@ export const personaCommand = new Command("persona")
       .option("--json", "Output as JSON")
       .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { personas } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { personas } = createProjectModules(storage, ctx.id);
         const existing = await personas.get(identifier);
 
         if (!existing) {

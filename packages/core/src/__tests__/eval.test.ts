@@ -3,10 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createProjectModules, type EvalModule, type ScenarioModule, type ConnectorModule } from "../index.js";
-import type { ProjectContext } from "../project-resolver.js";
+import { createFilesystemStorage } from "../filesystem-storage.js";
+import type { StorageProvider } from "../storage-provider.js";
 
+const projectId = "test-project-id";
 let tempDir: string;
-let ctx: ProjectContext;
+let storage: StorageProvider;
 let evalMod: EvalModule;
 let scenarioMod: ScenarioModule;
 let connectorMod: ConnectorModule;
@@ -19,15 +21,9 @@ let connector2Id: string;
 describe("eval", () => {
   beforeEach(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "evalstudio-test-"));
-    const dataDir = join(tempDir, "data");
-    mkdirSync(dataDir, { recursive: true });
-    ctx = {
-      id: "test-project-id",
-      name: "Test Project",
-      dataDir,
-      workspaceDir: tempDir,
-    };
-    const modules = createProjectModules(ctx);
+    mkdirSync(join(tempDir, "projects", projectId, "data"), { recursive: true });
+    storage = createFilesystemStorage(tempDir);
+    const modules = createProjectModules(storage, projectId);
     evalMod = modules.evals;
     scenarioMod = modules.scenarios;
     connectorMod = modules.connectors;

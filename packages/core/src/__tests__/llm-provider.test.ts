@@ -6,10 +6,11 @@ import {
   getDefaultModels,
   getLLMProviderFromProjectConfig,
 } from "../llm-provider.js";
-import type { ProjectContext } from "../project-resolver.js";
+import { createFilesystemStorage } from "../filesystem-storage.js";
+import type { StorageProvider } from "../storage-provider.js";
 
 let tempDir: string;
-let ctx: ProjectContext;
+let storage: StorageProvider;
 
 function setupWorkspace(
   wsOverrides: Record<string, unknown> = {},
@@ -32,12 +33,7 @@ function setupWorkspace(
     JSON.stringify(wsConfig, null, 2),
   );
 
-  ctx = {
-    id: projectId,
-    name: "Test Project",
-    dataDir,
-    workspaceDir: tempDir,
-  };
+  storage = createFilesystemStorage(tempDir);
 }
 
 describe("llm-provider", () => {
@@ -50,7 +46,7 @@ describe("llm-provider", () => {
   });
 
   describe("getLLMProviderFromProjectConfig", () => {
-    it("returns provider from project config", () => {
+    it("returns provider from project config", async () => {
       setupWorkspace({}, {
         llmSettings: {
           provider: "openai",
@@ -58,28 +54,28 @@ describe("llm-provider", () => {
         },
       });
 
-      const provider = getLLMProviderFromProjectConfig(ctx);
+      const provider = await getLLMProviderFromProjectConfig(storage, tempDir, "proj1");
 
       expect(provider.provider).toBe("openai");
       expect(provider.apiKey).toBe("sk-test-key");
     });
 
-    it("returns provider inherited from workspace config", () => {
+    it("returns provider inherited from workspace config", async () => {
       setupWorkspace(
         { llmSettings: { provider: "anthropic", apiKey: "sk-ws-key" } },
         {},
       );
 
-      const provider = getLLMProviderFromProjectConfig(ctx);
+      const provider = await getLLMProviderFromProjectConfig(storage, tempDir, "proj1");
 
       expect(provider.provider).toBe("anthropic");
       expect(provider.apiKey).toBe("sk-ws-key");
     });
 
-    it("throws when no provider configured", () => {
+    it("throws when no provider configured", async () => {
       setupWorkspace({}, {});
 
-      expect(() => getLLMProviderFromProjectConfig(ctx)).toThrow(
+      await expect(getLLMProviderFromProjectConfig(storage, tempDir, "proj1")).rejects.toThrow(
         "No LLM provider configured"
       );
     });

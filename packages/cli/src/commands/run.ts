@@ -3,6 +3,7 @@ import {
   resolveProjectFromCwd,
   resolveWorkspace,
   createProjectModules,
+  createStorageProvider,
   RunProcessor,
   type Run,
 } from "@evalstudio/core";
@@ -33,7 +34,8 @@ export const runCommand = new Command("run")
         }) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const { runs, evals, connectors, personas } = createProjectModules(ctx);
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const { runs, evals, connectors, personas } = createProjectModules(storage, ctx.id);
 
             const evalItem = await evals.get(options.eval);
             if (!evalItem) {
@@ -89,7 +91,8 @@ export const runCommand = new Command("run")
           json?: boolean;
         }) => {
           const ctx = resolveProjectFromCwd();
-          const { runs, personas, evals, connectors } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { runs, personas, evals, connectors } = createProjectModules(storage, ctx.id);
 
           const runList = await runs.list({
             evalId: options.eval,
@@ -143,7 +146,8 @@ export const runCommand = new Command("run")
       .option("--json", "Output as JSON")
       .action(async (id: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { runs, scenarios, personas, evals, connectors } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { runs, scenarios, personas, evals, connectors } = createProjectModules(storage, ctx.id);
 
         const run = await runs.get(id);
 
@@ -210,7 +214,8 @@ export const runCommand = new Command("run")
       .option("--json", "Output as JSON")
       .action(async (id: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { runs } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { runs } = createProjectModules(storage, ctx.id);
 
         const run = await runs.get(id);
 
@@ -246,6 +251,7 @@ export const runCommand = new Command("run")
           poll?: string;
         }) => {
           const workspaceDir = resolveWorkspace();
+          const storage = await createStorageProvider(workspaceDir);
           const maxConcurrent = options.concurrency
             ? parseInt(options.concurrency, 10)
             : undefined;
@@ -255,6 +261,7 @@ export const runCommand = new Command("run")
 
           const processor = new RunProcessor({
             workspaceDir,
+            storage,
             pollIntervalMs,
             ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
             onRunStart: (run) => {

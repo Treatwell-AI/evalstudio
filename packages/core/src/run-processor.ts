@@ -3,11 +3,6 @@ import { getLLMProviderFromProjectConfig, type LLMProvider } from "./llm-provide
 import type { Persona } from "./persona.js";
 import type { Scenario } from "./scenario.js";
 import type { Run, RunStatus, RunResult } from "./run.js";
-import {
-  listProjects,
-  resolveProject,
-  type ProjectContext,
-} from "./project-resolver.js";
 import { getProjectConfig } from "./project.js";
 import { readWorkspaceConfig } from "./project.js";
 import type { Message } from "./types.js";
@@ -15,6 +10,7 @@ import { buildTestAgentSystemPrompt } from "./prompt.js";
 import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";
 import { generatePersonaMessage } from "./persona-generator.js";
 import { createProjectModules, type ProjectModules } from "./module-factory.js";
+import type { StorageProvider } from "./storage-provider.js";
 
 /**
  * Resolved LLM configuration for evaluation and persona generation
@@ -30,6 +26,8 @@ export type { RunStatus };
 export interface RunProcessorOptions {
   /** Workspace root directory */
   workspaceDir: string;
+  /** Storage provider for entity and project access */
+  storage: StorageProvider;
   /** Polling interval in milliseconds (default: 5000) */
   pollIntervalMs?: number;
   /** Maximum concurrent run executions (default: from workspace config, then 3) */
@@ -46,6 +44,7 @@ export interface RunProcessorOptions {
 
 interface InternalOptions {
   workspaceDir: string;
+  storage: StorageProvider;
   pollIntervalMs: number;
   maxConcurrent: number;
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
@@ -65,6 +64,7 @@ interface InternalOptions {
  * ```typescript
  * const processor = new RunProcessor({
  *   workspaceDir: '/path/to/workspace',
+ *   storage: await createStorageProvider(workspaceDir),
  *   pollIntervalMs: 5000,
  *   maxConcurrent: 3,
  *   onStatusChange: (runId, status, run) => {
@@ -98,6 +98,7 @@ export class RunProcessor {
 
     this.options = {
       workspaceDir: options.workspaceDir,
+      storage: options.storage,
       pollIntervalMs: options.pollIntervalMs ?? 5000,
       maxConcurrent: options.maxConcurrent ?? configMaxConcurrency ?? 3,
       onStatusChange: options.onStatusChange,
@@ -177,10 +178,12 @@ export class RunProcessor {
     const availableSlots = this.options.maxConcurrent - this.activeRuns.size;
     if (availableSlots <= 0) return 0;
 
+    const { storage } = this.options;
+
     // Iterate over all projects to find queued runs
     let projects: Array<{ id: string; name: string }>;
     try {
-      projects = listProjects(this.options.workspaceDir);
+      projects = await storage.listProjects();
     } catch {
       return 0; // No workspace config yet
     }
@@ -192,14 +195,7 @@ export class RunProcessor {
     for (const project of projects) {
       if (remaining <= 0) break;
 
-      let ctx: ProjectContext;
-      try {
-        ctx = resolveProject(this.options.workspaceDir, project.id);
-      } catch {
-        continue; // Skip projects that can't be resolved
-      }
-
-      const modules = createProjectModules(ctx);
+      const modules = createProjectModules(storage, project.id);
       const queuedRuns = await modules.runs.list({ status: "queued", limit: remaining });
 
       for (const run of queuedRuns) {
@@ -213,7 +209,7 @@ export class RunProcessor {
         }
 
         // Start execution
-        const promise = this.executeRun(ctx, modules, run);
+        const promise = this.executeRun(project.id, modules, run);
         this.activeRuns.set(run.id, promise);
         started++;
         remaining--;
@@ -264,12 +260,14 @@ export class RunProcessor {
    * 4. If max messages reached, finish the run
    * 5. Otherwise, generate a new persona message and continue
    */
-  private async executeRun(ctx: ProjectContext, modules: ProjectModules, run: Run): Promise<void> {
+  private async executeRun(projectId: string, modules: ProjectModules, run: Run): Promise<void> {
     // Re-fetch run to get updated state after claim
     let currentRun = await modules.runs.get(run.id);
     if (!currentRun) {
       return;
     }
+
+    const { storage, workspaceDir } = this.options;
 
     try {
       // Notify start
@@ -298,8 +296,8 @@ export class RunProcessor {
       }
 
       // Get project config for LLM settings
-      const config = getProjectConfig(ctx);
-      const llmProvider = getLLMProviderFromProjectConfig(ctx);
+      const config = await getProjectConfig(storage, workspaceDir, projectId);
+      const llmProvider = await getLLMProviderFromProjectConfig(storage, workspaceDir, projectId);
       const models = config.llmSettings?.models;
       const evaluationModel = models?.evaluation;
       const personaModel = models?.persona || evaluationModel;
@@ -624,25 +622,24 @@ export class RunProcessor {
    * Recovers runs that were interrupted by server crash.
    * Iterates over all projects to find stuck runs.
    */
-  private recoverStuckRuns(): void {
+  private async recoverStuckRuns(): Promise<void> {
+    const { storage } = this.options;
+
     let projects: Array<{ id: string; name: string }>;
     try {
-      projects = listProjects(this.options.workspaceDir);
+      projects = await storage.listProjects();
     } catch {
       return;
     }
 
     for (const project of projects) {
       try {
-        const ctx = resolveProject(this.options.workspaceDir, project.id);
-        const modules = createProjectModules(ctx);
+        const modules = createProjectModules(storage, project.id);
 
-        // Fire-and-forget the async recovery for each project
-        modules.runs.list({ status: "running" }).then((stuckRuns) => {
-          for (const run of stuckRuns) {
-            modules.runs.update(run.id, { status: "queued" });
-          }
-        });
+        const stuckRuns = await modules.runs.list({ status: "running" });
+        for (const run of stuckRuns) {
+          await modules.runs.update(run.id, { status: "queued" });
+        }
       } catch {
         // Skip projects that can't be resolved
       }

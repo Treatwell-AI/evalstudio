@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Command } from "commander";
 import {
   resolveWorkspace,
@@ -7,6 +8,7 @@ import {
   resolveProject,
   getProjectConfig,
   updateProjectConfig,
+  createStorageProvider,
 } from "@evalstudio/core";
 
 export const projectsCommand = new Command("projects")
@@ -70,7 +72,7 @@ export const projectsCommand = new Command("projects")
       .description("Show project details")
       .argument("<identifier>", "Project ID (or prefix) or name")
       .option("--json", "Output as JSON")
-      .action((identifier: string, options: { json?: boolean }) => {
+      .action(async (identifier: string, options: { json?: boolean }) => {
         const workspaceDir = resolveWorkspace();
         const projects = listProjects(workspaceDir);
 
@@ -83,8 +85,8 @@ export const projectsCommand = new Command("projects")
           process.exit(1);
         }
 
-        const ctx = resolveProject(workspaceDir, project.id);
-        const config = getProjectConfig(ctx);
+        const storage = await createStorageProvider(workspaceDir);
+        const config = await getProjectConfig(storage, workspaceDir, project.id);
 
         if (options.json) {
           console.log(JSON.stringify({ ...project, config }, null, 2));
@@ -109,7 +111,7 @@ export const projectsCommand = new Command("projects")
       .option("-n, --name <name>", "New project name")
       .option("--json", "Output as JSON")
       .action(
-        (
+        async (
           identifier: string,
           options: { name?: string; json?: boolean }
         ) => {
@@ -126,8 +128,8 @@ export const projectsCommand = new Command("projects")
           }
 
           try {
-            const ctx = resolveProject(workspaceDir, project.id);
-            const updated = updateProjectConfig(ctx, {
+            const storage = await createStorageProvider(workspaceDir);
+            const updated = await updateProjectConfig(storage, workspaceDir, project.id, {
               name: options.name,
             });
 
@@ -206,8 +208,8 @@ export const resolveProjectCommand = new Command("_resolve-project")
       }
 
       const ctx = resolveProject(workspaceDir, project.id);
-      // Output the project directory (parent of dataDir)
-      const projectDir = ctx.dataDir.replace(/\/data\/?$/, "");
+      // Output the project directory
+      const projectDir = join(ctx.workspaceDir, "projects", ctx.id);
       console.log(projectDir);
     } catch {
       process.exit(1);

@@ -2,6 +2,7 @@ import { Command } from "commander";
 import {
   resolveProjectFromCwd,
   createProjectModules,
+  createStorageProvider,
   type Eval,
   type EvalWithRelations,
 } from "@evalstudio/core";
@@ -30,7 +31,8 @@ export const evalCommand = new Command("eval")
         ) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const { connectors, scenarios, evals } = createProjectModules(ctx);
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const { connectors, scenarios, evals } = createProjectModules(storage, ctx.id);
 
             const connector = await connectors.get(options.connector) ?? await connectors.getByName(options.connector);
             if (!connector) {
@@ -85,7 +87,8 @@ export const evalCommand = new Command("eval")
       .option("--json", "Output as JSON")
       .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { evals } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { evals } = createProjectModules(storage, ctx.id);
         const evalList = await evals.list();
 
         if (options.json) {
@@ -120,7 +123,8 @@ export const evalCommand = new Command("eval")
           options: { expand?: boolean; json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { evals, scenarios } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { evals, scenarios } = createProjectModules(storage, ctx.id);
 
           const evalItem = options.expand
             ? await evals.getWithRelations(id)
@@ -198,7 +202,8 @@ export const evalCommand = new Command("eval")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { evals, scenarios, connectors } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { evals, scenarios, connectors } = createProjectModules(storage, ctx.id);
 
           const existing = await evals.get(id);
 
@@ -277,7 +282,8 @@ export const evalCommand = new Command("eval")
       .option("--json", "Output as JSON")
       .action(async (id: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { evals } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { evals } = createProjectModules(storage, ctx.id);
         const existing = await evals.get(id);
 
         if (!existing) {

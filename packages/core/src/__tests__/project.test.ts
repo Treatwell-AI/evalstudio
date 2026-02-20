@@ -9,10 +9,12 @@ import {
   updateWorkspaceConfig,
   redactApiKey,
 } from "../project.js";
-import type { ProjectContext } from "../project-resolver.js";
+import { createFilesystemStorage } from "../filesystem-storage.js";
+import type { StorageProvider } from "../storage-provider.js";
 
+const projectId = "proj1";
 let tempDir: string;
-let ctx: ProjectContext;
+let storage: StorageProvider;
 
 /**
  * Helper to set up the workspace structure:
@@ -26,7 +28,6 @@ function setupWorkspace(
   wsOverrides: Record<string, unknown> = {},
   projOverrides: Record<string, unknown> = {},
 ) {
-  const projectId = "proj1";
   const projectDir = join(tempDir, "projects", projectId);
   const dataDir = join(projectDir, "data");
   mkdirSync(dataDir, { recursive: true });
@@ -43,12 +44,7 @@ function setupWorkspace(
     JSON.stringify(wsConfig, null, 2),
   );
 
-  ctx = {
-    id: projectId,
-    name: "Test Project",
-    dataDir,
-    workspaceDir: tempDir,
-  };
+  storage = createFilesystemStorage(tempDir);
 }
 
 describe("project config", () => {
@@ -62,37 +58,37 @@ describe("project config", () => {
   });
 
   describe("getProjectConfig", () => {
-    it("returns project config", () => {
-      const config = getProjectConfig(ctx);
+    it("returns project config", async () => {
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.version).toBe(3);
       expect(config.name).toBe("Test Project");
     });
 
-    it("returns config with llmSettings from project override", () => {
+    it("returns config with llmSettings from project override", async () => {
       setupWorkspace({}, {
         llmSettings: { provider: "openai", apiKey: "sk-test" },
       });
 
-      const config = getProjectConfig(ctx);
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.llmSettings?.provider).toBe("openai");
       expect(config.llmSettings?.apiKey).toBe("sk-test");
     });
 
-    it("inherits llmSettings from workspace when project does not override", () => {
+    it("inherits llmSettings from workspace when project does not override", async () => {
       setupWorkspace(
         { llmSettings: { provider: "openai", apiKey: "sk-workspace" } },
         {},
       );
 
-      const config = getProjectConfig(ctx);
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.llmSettings?.provider).toBe("openai");
       expect(config.llmSettings?.apiKey).toBe("sk-workspace");
     });
 
-    it("returns config with llmSettings models when set", () => {
+    it("returns config with llmSettings models when set", async () => {
       setupWorkspace({}, {
         llmSettings: {
           provider: "openai",
@@ -101,22 +97,22 @@ describe("project config", () => {
         },
       });
 
-      const config = getProjectConfig(ctx);
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.llmSettings?.models?.evaluation).toBe("gpt-4o");
     });
   });
 
   describe("updateProjectConfig", () => {
-    it("updates project name", () => {
-      const updated = updateProjectConfig(ctx, { name: "new-name" });
+    it("updates project name", async () => {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { name: "new-name" });
 
       expect(updated.name).toBe("new-name");
       expect(updated.version).toBe(3);
     });
 
-    it("updates llmSettings", () => {
-      const updated = updateProjectConfig(ctx, {
+    it("updates llmSettings", async () => {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, {
         llmSettings: { provider: "openai", apiKey: "sk-test" },
       });
 
@@ -124,21 +120,21 @@ describe("project config", () => {
       expect(updated.llmSettings?.apiKey).toBe("sk-test");
     });
 
-    it("clears llmSettings when set to null (inherits from workspace)", () => {
+    it("clears llmSettings when set to null (inherits from workspace)", async () => {
       setupWorkspace(
         { llmSettings: { provider: "anthropic", apiKey: "sk-ws" } },
         { llmSettings: { provider: "openai", apiKey: "sk-proj" } },
       );
 
-      const updated = updateProjectConfig(ctx, { llmSettings: null });
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { llmSettings: null });
 
       // After clearing, should inherit from workspace
       expect(updated.llmSettings?.provider).toBe("anthropic");
       expect(updated.llmSettings?.apiKey).toBe("sk-ws");
     });
 
-    it("updates llmSettings with models", () => {
-      const updated = updateProjectConfig(ctx, {
+    it("updates llmSettings with models", async () => {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, {
         llmSettings: {
           provider: "openai",
           apiKey: "sk-test",
@@ -149,7 +145,7 @@ describe("project config", () => {
       expect(updated.llmSettings?.models?.evaluation).toBe("gpt-4o");
     });
 
-    it("preserves existing fields when updating partially", () => {
+    it("preserves existing fields when updating partially", async () => {
       setupWorkspace({}, {
         llmSettings: {
           provider: "openai",
@@ -158,35 +154,35 @@ describe("project config", () => {
         },
       });
 
-      const updated = updateProjectConfig(ctx, { name: "updated-name" });
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { name: "updated-name" });
 
       expect(updated.name).toBe("updated-name");
       expect(updated.llmSettings?.provider).toBe("openai");
       expect(updated.llmSettings?.models?.evaluation).toBe("gpt-4o");
     });
 
-    it("validates llmSettings requires provider type", () => {
-      expect(() =>
-        updateProjectConfig(ctx, {
+    it("validates llmSettings requires provider type", async () => {
+      await expect(
+        updateProjectConfig(storage, tempDir, projectId, {
           llmSettings: { provider: "" as "openai", apiKey: "sk-test" },
         })
-      ).toThrow("LLM provider type is required");
+      ).rejects.toThrow("LLM provider type is required");
     });
 
-    it("validates llmSettings requires apiKey", () => {
-      expect(() =>
-        updateProjectConfig(ctx, {
+    it("validates llmSettings requires apiKey", async () => {
+      await expect(
+        updateProjectConfig(storage, tempDir, projectId, {
           llmSettings: { provider: "openai", apiKey: "" },
         })
-      ).toThrow("LLM provider API key is required");
+      ).rejects.toThrow("LLM provider API key is required");
     });
 
-    it("keeps existing project apiKey when apiKey is omitted from update", () => {
+    it("keeps existing project apiKey when apiKey is omitted from update", async () => {
       setupWorkspace({}, {
         llmSettings: { provider: "openai", apiKey: "sk-existing-key-1234" },
       });
 
-      const updated = updateProjectConfig(ctx, {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, {
         llmSettings: {
           provider: "anthropic",
           apiKey: "",
@@ -199,13 +195,13 @@ describe("project config", () => {
       expect(updated.llmSettings?.models?.evaluation).toBe("claude-sonnet-4-5-20250929");
     });
 
-    it("keeps workspace apiKey when project has no key and apiKey is omitted", () => {
+    it("keeps workspace apiKey when project has no key and apiKey is omitted", async () => {
       setupWorkspace(
         { llmSettings: { provider: "openai", apiKey: "sk-workspace-key" } },
         {},
       );
 
-      const updated = updateProjectConfig(ctx, {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, {
         llmSettings: {
           provider: "openai",
           apiKey: "",
@@ -216,69 +212,69 @@ describe("project config", () => {
       expect(updated.llmSettings?.apiKey).toBe("sk-workspace-key");
     });
 
-    it("throws when apiKey is omitted and no existing key exists", () => {
-      expect(() =>
-        updateProjectConfig(ctx, {
+    it("throws when apiKey is omitted and no existing key exists", async () => {
+      await expect(
+        updateProjectConfig(storage, tempDir, projectId, {
           llmSettings: { provider: "openai", apiKey: "" },
         })
-      ).toThrow("LLM provider API key is required");
+      ).rejects.toThrow("LLM provider API key is required");
     });
   });
 
   describe("maxConcurrency", () => {
-    it("returns config with maxConcurrency from project override", () => {
+    it("returns config with maxConcurrency from project override", async () => {
       setupWorkspace({}, { maxConcurrency: 5 });
 
-      const config = getProjectConfig(ctx);
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.maxConcurrency).toBe(5);
     });
 
-    it("inherits maxConcurrency from workspace when project does not override", () => {
+    it("inherits maxConcurrency from workspace when project does not override", async () => {
       setupWorkspace({ maxConcurrency: 8 }, {});
 
-      const config = getProjectConfig(ctx);
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.maxConcurrency).toBe(8);
     });
 
-    it("returns undefined maxConcurrency when not set", () => {
-      const config = getProjectConfig(ctx);
+    it("returns undefined maxConcurrency when not set", async () => {
+      const config = await getProjectConfig(storage, tempDir, projectId);
 
       expect(config.maxConcurrency).toBeUndefined();
     });
 
-    it("updates maxConcurrency", () => {
-      const updated = updateProjectConfig(ctx, { maxConcurrency: 10 });
+    it("updates maxConcurrency", async () => {
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { maxConcurrency: 10 });
 
       expect(updated.maxConcurrency).toBe(10);
       expect(updated.name).toBe("Test Project");
     });
 
-    it("clears maxConcurrency when set to null (inherits from workspace)", () => {
+    it("clears maxConcurrency when set to null (inherits from workspace)", async () => {
       setupWorkspace({ maxConcurrency: 7 }, { maxConcurrency: 5 });
 
-      const updated = updateProjectConfig(ctx, { maxConcurrency: null });
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { maxConcurrency: null });
 
       // After clearing, should inherit from workspace
       expect(updated.maxConcurrency).toBe(7);
     });
 
-    it("preserves maxConcurrency when not included in update", () => {
+    it("preserves maxConcurrency when not included in update", async () => {
       setupWorkspace({}, { maxConcurrency: 7 });
 
-      const updated = updateProjectConfig(ctx, { name: "new-name" });
+      const updated = await updateProjectConfig(storage, tempDir, projectId, { name: "new-name" });
 
       expect(updated.name).toBe("new-name");
       expect(updated.maxConcurrency).toBe(7);
     });
 
-    it("throws when maxConcurrency is less than 1", () => {
-      expect(() => updateProjectConfig(ctx, { maxConcurrency: 0 })).toThrow(
+    it("throws when maxConcurrency is less than 1", async () => {
+      await expect(updateProjectConfig(storage, tempDir, projectId, { maxConcurrency: 0 })).rejects.toThrow(
         "maxConcurrency must be at least 1"
       );
 
-      expect(() => updateProjectConfig(ctx, { maxConcurrency: -1 })).toThrow(
+      await expect(updateProjectConfig(storage, tempDir, projectId, { maxConcurrency: -1 })).rejects.toThrow(
         "maxConcurrency must be at least 1"
       );
     });

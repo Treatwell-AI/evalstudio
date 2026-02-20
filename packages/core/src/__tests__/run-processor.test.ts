@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createProjectModules } from "../index.js";
 import { RunProcessor } from "../run-processor.js";
-import type { ProjectContext } from "../project-resolver.js";
+import { createFilesystemStorage } from "../filesystem-storage.js";
+import type { StorageProvider } from "../storage-provider.js";
 
 // Mock the evaluator to return success on first evaluation
 vi.mock("../evaluator.js", () => ({
@@ -29,7 +30,7 @@ function setupWorkspace(
   projectId: string,
   wsOverrides: Record<string, unknown> = {},
   projOverrides: Record<string, unknown> = {},
-): ProjectContext {
+): StorageProvider {
   const projectDir = join(workspaceDir, "projects", projectId);
   const dataDir = join(projectDir, "data");
   mkdirSync(dataDir, { recursive: true });
@@ -54,16 +55,11 @@ function setupWorkspace(
     JSON.stringify(wsConfig, null, 2),
   );
 
-  return {
-    id: projectId,
-    name: "Test Project",
-    dataDir,
-    workspaceDir,
-  };
+  return createFilesystemStorage(workspaceDir);
 }
 
 let workspaceDir: string;
-let ctx: ProjectContext;
+let storage: StorageProvider;
 
 describe("RunProcessor", () => {
   let evalId: string;
@@ -74,9 +70,9 @@ describe("RunProcessor", () => {
 
   beforeAll(async () => {
     workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-processor-test-"));
-    ctx = setupWorkspace(workspaceDir, projectId);
+    storage = setupWorkspace(workspaceDir, projectId);
 
-    const modules = createProjectModules(ctx);
+    const modules = createProjectModules(storage, projectId);
 
     await modules.personas.create({
       name: "Test Persona",
@@ -115,12 +111,13 @@ describe("RunProcessor", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
     // Clear runs before each test
-    const runsPath = join(ctx.dataDir, "runs.json");
+    const dataDir = join(workspaceDir, "projects", projectId, "data");
+    const runsPath = join(dataDir, "runs.json");
     if (existsSync(runsPath)) {
       rmSync(runsPath);
     }
     // Clear executions before each test
-    const executionsPath = join(ctx.dataDir, "executions.json");
+    const executionsPath = join(dataDir, "executions.json");
     if (existsSync(executionsPath)) {
       rmSync(executionsPath);
     }
@@ -133,14 +130,14 @@ describe("RunProcessor", () => {
 
   describe("constructor", () => {
     it("creates processor with default options", () => {
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       expect(processor.isRunning()).toBe(false);
       expect(processor.getActiveRunCount()).toBe(0);
     });
 
     it("creates processor with custom options", () => {
       const processor = new RunProcessor({
-        workspaceDir,
+        storage,
         pollIntervalMs: 1000,
         maxConcurrent: 5,
       });
@@ -159,7 +156,7 @@ describe("RunProcessor", () => {
         }, null, 2)
       );
 
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
 
       // Create 8 queued runs
       for (let i = 0; i < 8; i++) {
@@ -176,7 +173,7 @@ describe("RunProcessor", () => {
       }));
 
       // Processor should read maxConcurrency=7 from workspace config
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       const started = await processor.processOnce();
       expect(started).toBe(7);
 
@@ -203,7 +200,7 @@ describe("RunProcessor", () => {
         }, null, 2)
       );
 
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
 
       // Create 5 queued runs
       for (let i = 0; i < 5; i++) {
@@ -220,7 +217,7 @@ describe("RunProcessor", () => {
       }));
 
       // Explicit maxConcurrent=2 should override workspace config's 10
-      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 2 });
+      const processor = new RunProcessor({ workspaceDir, storage, maxConcurrent: 2 });
       const started = await processor.processOnce();
       expect(started).toBe(2);
 
@@ -238,7 +235,7 @@ describe("RunProcessor", () => {
 
   describe("start/stop", () => {
     it("starts and stops the processor", async () => {
-      const processor = new RunProcessor({ workspaceDir, pollIntervalMs: 100 });
+      const processor = new RunProcessor({ workspaceDir, storage, pollIntervalMs: 100 });
 
       processor.start();
       expect(processor.isRunning()).toBe(true);
@@ -248,7 +245,7 @@ describe("RunProcessor", () => {
     });
 
     it("does not start twice", () => {
-      const processor = new RunProcessor({ workspaceDir, pollIntervalMs: 100 });
+      const processor = new RunProcessor({ workspaceDir, storage, pollIntervalMs: 100 });
 
       processor.start();
       processor.start(); // Should be a no-op
@@ -261,7 +258,7 @@ describe("RunProcessor", () => {
 
   describe("processOnce", () => {
     it("processes queued runs", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({
         evalId,
       });
@@ -275,7 +272,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       const started = await processor.processOnce();
 
       expect(started).toBe(1);
@@ -293,7 +290,7 @@ describe("RunProcessor", () => {
     });
 
     it("respects maxConcurrent limit", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
 
       // Create multiple queued runs
       await runMod.create({ evalId });
@@ -311,7 +308,7 @@ describe("RunProcessor", () => {
         };
       });
 
-      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 2 });
+      const processor = new RunProcessor({ workspaceDir, storage, maxConcurrent: 2 });
       const started = await processor.processOnce();
 
       // Should only start 2 due to maxConcurrent (processOnce processes one batch)
@@ -322,7 +319,7 @@ describe("RunProcessor", () => {
   describe("callbacks", () => {
     it("calls onRunStart callback", async () => {
       const onRunStart = vi.fn();
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -334,7 +331,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir, onRunStart });
+      const processor = new RunProcessor({ workspaceDir, storage, onRunStart });
       await processor.processOnce();
 
       expect(onRunStart).toHaveBeenCalledTimes(1);
@@ -343,7 +340,7 @@ describe("RunProcessor", () => {
 
     it("calls onRunComplete callback on success", async () => {
       const onRunComplete = vi.fn();
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -355,7 +352,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir, onRunComplete });
+      const processor = new RunProcessor({ workspaceDir, storage, onRunComplete });
       await processor.processOnce();
 
       expect(onRunComplete).toHaveBeenCalledTimes(1);
@@ -367,12 +364,12 @@ describe("RunProcessor", () => {
 
     it("calls onRunError callback on failure", async () => {
       const onRunError = vi.fn();
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const processor = new RunProcessor({ workspaceDir, onRunError });
+      const processor = new RunProcessor({ workspaceDir, storage, onRunError });
       await processor.processOnce();
 
       expect(onRunError).toHaveBeenCalledTimes(1);
@@ -384,7 +381,7 @@ describe("RunProcessor", () => {
 
     it("calls onStatusChange callback", async () => {
       const onStatusChange = vi.fn();
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -396,7 +393,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir, onStatusChange });
+      const processor = new RunProcessor({ workspaceDir, storage, onStatusChange });
       await processor.processOnce();
 
       expect(onStatusChange).toHaveBeenCalledTimes(2); // running + completed
@@ -417,7 +414,7 @@ describe("RunProcessor", () => {
 
   describe("error handling", () => {
     it("marks run as error when connector invocation fails", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -426,7 +423,7 @@ describe("RunProcessor", () => {
         text: async () => "Internal Server Error",
       });
 
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       await processor.processOnce();
 
       const updatedRun = await runMod.get(run.id);
@@ -435,7 +432,7 @@ describe("RunProcessor", () => {
     });
 
     it("processes run successfully when eval exists", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -447,7 +444,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       await processor.processOnce();
 
       // Run should be completed since eval exists
@@ -458,13 +455,13 @@ describe("RunProcessor", () => {
 
   describe("atomic claiming", () => {
     it("prevents duplicate processing of the same run", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
       // Manually set status to running (simulating another processor claimed it)
       await runMod.update(run.id, { status: "running" });
 
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       const started = await processor.processOnce();
 
       // Should not claim the already-running run
@@ -474,14 +471,14 @@ describe("RunProcessor", () => {
 
   describe("crash recovery", () => {
     it("resets running runs to queued on start", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       // Create a run and set it to "running" (simulating crash)
       const run = await runMod.create({ evalId });
       await runMod.update(run.id, { status: "running" });
 
       // Use maxConcurrent: 0 to prevent tick() from claiming the run
       // This allows us to verify recovery happened before processing
-      const processor = new RunProcessor({ workspaceDir, maxConcurrent: 0 });
+      const processor = new RunProcessor({ workspaceDir, storage, maxConcurrent: 0 });
       processor.start();
 
       // Give recovery a moment to complete (it's fire-and-forget async)
@@ -497,7 +494,7 @@ describe("RunProcessor", () => {
 
   describe("seed flow routing", () => {
     it("invokes connector when last seed message is from user", async () => {
-      const runMod = createProjectModules(ctx).runs;
+      const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
       mockFetch.mockResolvedValueOnce({
@@ -509,7 +506,7 @@ describe("RunProcessor", () => {
           }),
       });
 
-      const processor = new RunProcessor({ workspaceDir });
+      const processor = new RunProcessor({ workspaceDir, storage });
       await processor.processOnce();
 
       // Connector should have been called
@@ -524,16 +521,16 @@ describe("RunProcessor", () => {
 
 describe("listRuns with options", () => {
   let tempDir: string;
-  let ctx: ProjectContext;
+  let storage: StorageProvider;
   let evalId: string;
 
   const projectId = "listruns-project";
 
   beforeAll(async () => {
     tempDir = mkdtempSync(join(tmpdir(), "evalstudio-listruns-test-"));
-    ctx = setupWorkspace(tempDir, projectId);
+    storage = setupWorkspace(tempDir, projectId);
 
-    const modules = createProjectModules(ctx);
+    const modules = createProjectModules(storage, projectId);
 
     const scenario = await modules.scenarios.create({ name: "List Test Scenario" });
 
@@ -559,18 +556,19 @@ describe("listRuns with options", () => {
   });
 
   beforeEach(() => {
-    const runsPath = join(ctx.dataDir, "runs.json");
+    const dataDir = join(tempDir, "projects", projectId, "data");
+    const runsPath = join(dataDir, "runs.json");
     if (existsSync(runsPath)) {
       rmSync(runsPath);
     }
-    const executionsPath = join(ctx.dataDir, "executions.json");
+    const executionsPath = join(dataDir, "executions.json");
     if (existsSync(executionsPath)) {
       rmSync(executionsPath);
     }
   });
 
   it("filters by status", async () => {
-    const runMod = createProjectModules(ctx).runs;
+    const runMod = createProjectModules(storage, projectId).runs;
     const run1 = await runMod.create({ evalId });
     const run2 = await runMod.create({ evalId });
     await runMod.update(run1.id, { status: "running" });
@@ -585,7 +583,7 @@ describe("listRuns with options", () => {
   });
 
   it("applies limit", async () => {
-    const runMod = createProjectModules(ctx).runs;
+    const runMod = createProjectModules(storage, projectId).runs;
     await runMod.create({ evalId });
     await runMod.create({ evalId });
     await runMod.create({ evalId });
@@ -596,7 +594,7 @@ describe("listRuns with options", () => {
   });
 
   it("combines multiple filters", async () => {
-    const runMod = createProjectModules(ctx).runs;
+    const runMod = createProjectModules(storage, projectId).runs;
     await runMod.create({ evalId });
     const run2 = await runMod.create({ evalId });
     await runMod.create({ evalId });

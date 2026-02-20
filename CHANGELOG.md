@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`@evalstudio/postgres` package** — Optional PostgreSQL storage backend for EvalStudio
+  - New `@evalstudio/postgres` package with `pg` driver, connection pooling, and JSONB-based entity storage
+  - `createPostgresStorage(connectionString)` creates a `StorageProvider` backed by PostgreSQL with eager connection verification
+  - `initSchema(connectionString)` creates all tables, indexes, and foreign key constraints
+  - Schema: `projects`, `personas`, `scenarios`, `connectors`, `evals`, `executions`, `runs` tables with JSONB `data` columns and reference columns for relational integrity
+  - Reference columns (eval_id, scenario_id, persona_id, etc.) duplicated from JSONB for indexing and foreign key constraints
+  - Transactional `saveAll()` using BEGIN/COMMIT/ROLLBACK for data consistency
+- **`evalstudio db init` CLI command** — Initialize PostgreSQL schema and seed a default project
+  - Creates all tables if they don't exist (idempotent, safe to re-run)
+  - Creates a "default" project if the database is empty
+  - Connection string resolved from: `--connection-string` CLI option → workspace config → `EVALSTUDIO_DATABASE_URL` env var
+- **Storage configuration in workspace config** — New `storage` field in `evalstudio.config.json`
+  - `StorageType`: `"filesystem"` (default) or `"postgres"`
+  - `StorageConfig`: discriminated union with `FilesystemStorageConfig` and `PostgresStorageConfig`
+  - `PostgresStorageConfig.connectionString` supports `${VAR}` placeholder syntax for environment variable resolution
+  - `resolveConnectionString()` exported from core for CLI/API reuse
+- **Storage factory** — `createStorageProvider(workspaceDir)` dynamically selects the backend
+  - Reads `storage.type` from workspace config; defaults to filesystem when omitted
+  - Dynamically imports `@evalstudio/postgres` only when postgres is configured (optional dependency)
+  - Logs `[Storage] Connecting to PostgreSQL...` / `[Storage] PostgreSQL connected` at startup
+- **Docker Compose for local development** — `docker-compose.yml` at repository root
+  - PostgreSQL 17 Alpine with `--profile postgres` pattern for opt-in dev services
+  - Port 5433:5432 to avoid conflicts with local PostgreSQL installations
+- **VSCode launch configurations** — "API Server (Postgres)" and "Full Stack Web (Postgres)" configs
+  - `preLaunchTask` starts Docker PostgreSQL before launching the API server
+  - `.vscode/tasks.json` with "Start PostgreSQL" task
+
+### Changed
+
+- **`createProjectModules()` now uses `StorageProvider`** — Accepts `(storage, projectId)` instead of `ProjectContext`
+  - Entity modules are fully decoupled from the filesystem; repositories created via `StorageProvider.createRepository()`
+  - All CLI commands, API routes, and tests updated to pass `StorageProvider` + `projectId`
+- **`getProjectConfig()` and `updateProjectConfig()` are now async** — Use `StorageProvider` for project entry lookup
+  - Filesystem provider reads from workspace config file; Postgres provider queries the `projects` table
+  - Update logic (llmSettings merge, apiKey fallback, maxConcurrency validation) moved into `StorageProvider.updateProjectEntry()`
+- **`StorageProvider` interface extended** — Added `listProjects()`, `createProject()`, `deleteProject()`, `getProjectEntry()`, `updateProjectEntry()` for full project lifecycle management
+  - `FilesystemStorageProvider` implements project operations via workspace config file
+  - `PostgresStorageProvider` implements project operations via `projects` table
+- **API project routes use `StorageProvider`** — List, create, delete, get/update config all delegate to storage provider
+- **CLI project commands use `createStorageProvider()`** — `projects show`, `projects update` resolve storage dynamically
+
 ### Changed
 
 - **Consolidated project config** - Removed `project.config.json` in favor of storing all per-project settings in `evalstudio.config.json`

@@ -34,14 +34,14 @@ interface EvalQuerystring {
 
 export async function evalsRoute(fastify: FastifyInstance) {
   fastify.get("/evals", async (request) => {
-    const { evals } = createProjectModules(request.projectCtx!);
+    const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
     return await evals.list();
   });
 
   fastify.get<{ Params: EvalParams; Querystring: EvalQuerystring }>(
     "/evals/:id",
     async (request, reply) => {
-      const { evals } = createProjectModules(request.projectCtx!);
+      const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
       const expand = request.query.expand === "true";
 
       const evalItem = expand
@@ -83,7 +83,7 @@ export async function evalsRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const { evals } = createProjectModules(request.projectCtx!);
+        const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const evalItem = await evals.create({
           name,
           input,
@@ -117,7 +117,7 @@ export async function evalsRoute(fastify: FastifyInstance) {
       } = request.body;
 
       try {
-        const { evals } = createProjectModules(request.projectCtx!);
+        const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const evalItem = await evals.update(request.params.id, {
           name,
           input,
@@ -148,7 +148,7 @@ export async function evalsRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: EvalParams }>(
     "/evals/:id",
     async (request, reply) => {
-      const { evals } = createProjectModules(request.projectCtx!);
+      const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
       const deleted = await evals.delete(request.params.id);
 
       if (!deleted) {

@@ -1,11 +1,10 @@
-import { createJsonRepository } from "./repository.js";
 import { createPersonaModule, type PersonaModule, type Persona } from "./persona.js";
 import { createScenarioModule, type ScenarioModule, type Scenario } from "./scenario.js";
 import { createConnectorModule, type ConnectorModule, type Connector } from "./connector.js";
 import { createExecutionModule, type ExecutionModule, type Execution } from "./execution.js";
 import { createEvalModule, type EvalModule, type Eval } from "./eval.js";
 import { createRunModule, type RunModule, type Run } from "./run.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { StorageProvider } from "./storage-provider.js";
 
 /**
  * All entity modules for a project, fully wired with dependencies.
@@ -22,16 +21,16 @@ export interface ProjectModules {
 /**
  * Creates all entity modules for a project, wired together with proper dependencies.
  *
- * Uses createJsonRepository directly (filesystem storage).
- * In Phase 2, callers will use StorageProvider.createRepository() instead.
+ * Repositories are created via the StorageProvider — entity modules never know
+ * whether they're backed by JSON files, PostgreSQL, or anything else.
  */
-export function createProjectModules(ctx: ProjectContext): ProjectModules {
-  const personaRepo = createJsonRepository<Persona>("personas.json", ctx.dataDir);
-  const scenarioRepo = createJsonRepository<Scenario>("scenarios.json", ctx.dataDir);
-  const connectorRepo = createJsonRepository<Connector>("connectors.json", ctx.dataDir);
-  const executionRepo = createJsonRepository<Execution>("executions.json", ctx.dataDir);
-  const evalRepo = createJsonRepository<Eval>("evals.json", ctx.dataDir);
-  const runRepo = createJsonRepository<Run>("runs.json", ctx.dataDir);
+export function createProjectModules(storage: StorageProvider, projectId: string): ProjectModules {
+  const personaRepo = storage.createRepository<Persona>("personas", projectId);
+  const scenarioRepo = storage.createRepository<Scenario>("scenarios", projectId);
+  const connectorRepo = storage.createRepository<Connector>("connectors", projectId);
+  const executionRepo = storage.createRepository<Execution>("executions", projectId);
+  const evalRepo = storage.createRepository<Eval>("evals", projectId);
+  const runRepo = storage.createRepository<Run>("runs", projectId);
 
   const personaMod = createPersonaModule(personaRepo);
   const scenarioMod = createScenarioModule(scenarioRepo);

@@ -110,6 +110,13 @@
 [ ] As an owner, I want to transfer ownership to another user so that I can hand over the project if needed
 [ ] As an owner, I want to delete the project so that I can remove it when no longer needed
 
+### Storage
+
+[x] As a user, I want to configure PostgreSQL as a storage backend so that I can use a proper database for team environments and production
+[x] As a user, I want to initialize the PostgreSQL schema with a CLI command so that database setup is explicit and controlled
+[x] As a user, I want the storage backend to be selected automatically from workspace config so that switching between filesystem and postgres is seamless
+[x] As a user, I want connection string environment variable placeholders so that I can keep credentials out of config files
+
 ### Data Management
 
 [x] As a user, I want to export selected scenarios in JSONL format so that I can back them up or share them with other projects

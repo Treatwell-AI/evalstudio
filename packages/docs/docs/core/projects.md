@@ -32,16 +32,16 @@ import {
   initWorkspace,
   readWorkspaceConfig,
   updateWorkspaceConfig,
-  // Project operations
-  listProjects,
-  createProject,
-  resolveProject,
-  resolveProjectFromCwd,
-  deleteProject,
+  // Storage
+  createStorageProvider,
+  resolveConnectionString,
   // Project config
   getProjectConfig,
   updateProjectConfig,
   // Types
+  type StorageProvider,
+  type StorageType,
+  type StorageConfig,
   type ProjectContext,
   type ProjectConfig,
   type WorkspaceConfig,
@@ -88,8 +88,26 @@ interface ProjectEntry {
 }
 
 interface WorkspaceConfig extends ProjectConfig {
+  storage?: StorageConfig;
   projects: ProjectEntry[];
 }
+```
+
+### StorageConfig
+
+```typescript
+type StorageType = "filesystem" | "postgres";
+
+interface FilesystemStorageConfig {
+  type: "filesystem";
+}
+
+interface PostgresStorageConfig {
+  type: "postgres";
+  connectionString: string;  // Supports ${VAR} placeholders
+}
+
+type StorageConfig = FilesystemStorageConfig | PostgresStorageConfig;
 ```
 
 ### LLMSettings
@@ -138,12 +156,26 @@ Resolve a project by ID (supports prefix matching).
 function resolveProject(workspaceDir: string, projectId: string): ProjectContext;
 ```
 
+### createStorageProvider()
+
+Create the appropriate storage backend based on workspace config.
+
+```typescript
+async function createStorageProvider(workspaceDir: string): Promise<StorageProvider>;
+```
+
+Returns a `FilesystemStorageProvider` by default. When `storage.type` is `"postgres"` in the workspace config, dynamically imports `@evalstudio/postgres` and returns a `PostgresStorageProvider`.
+
 ### getProjectConfig()
 
 Get the effective (merged) configuration for a project.
 
 ```typescript
-function getProjectConfig(ctx: ProjectContext): ProjectConfig;
+async function getProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
+): Promise<ProjectConfig>;
 ```
 
 ### updateProjectConfig()
@@ -151,10 +183,12 @@ function getProjectConfig(ctx: ProjectContext): ProjectConfig;
 Update a project's configuration.
 
 ```typescript
-function updateProjectConfig(
-  ctx: ProjectContext,
+async function updateProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
   input: UpdateProjectConfigInput,
-): ProjectConfig;
+): Promise<ProjectConfig>;
 ```
 
 ### initWorkspace()
@@ -171,12 +205,47 @@ function initWorkspace(
 
 ## Entity Functions
 
-All entity modules (persona, scenario, eval, connector, run, execution) accept a `ProjectContext` parameter:
+All entity modules use `createProjectModules()` which accepts a `StorageProvider` and project ID:
 
 ```typescript
-import { listPersonas, createPersona, type ProjectContext } from "@evalstudio/core";
+import { createStorageProvider, createProjectModules, resolveWorkspace } from "@evalstudio/core";
 
-const ctx: ProjectContext = resolveProjectFromCwd();
-const personas = listPersonas(ctx);
-const persona = createPersona(ctx, { name: "frustrated-customer" });
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
+
+const personas = await modules.personas.list();
+const persona = await modules.personas.create({ name: "frustrated-customer" });
+```
+
+## Storage Configuration
+
+By default, EvalStudio stores data as JSON files in `projects/{uuid}/data/`. To use PostgreSQL, add a `storage` field to `evalstudio.config.json`:
+
+```json
+{
+  "storage": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/evalstudio"
+  }
+}
+```
+
+The connection string supports `${VAR}` placeholders for environment variable substitution:
+
+```json
+{
+  "storage": {
+    "type": "postgres",
+    "connectionString": "postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:5432/evalstudio"
+  }
+}
+```
+
+If `connectionString` is not set in the config, `EVALSTUDIO_DATABASE_URL` environment variable is used as a fallback.
+
+Before using PostgreSQL storage, initialize the schema:
+
+```bash
+evalstudio db init
 ```

@@ -1,7 +1,25 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ProviderType } from "./llm-provider.js";
-import { CONFIG_FILENAME, type ProjectContext } from "./project-resolver.js";
+import { CONFIG_FILENAME } from "./project-resolver.js";
+import type { StorageProvider } from "./storage-provider.js";
+
+// ---------------------------------------------------------------------------
+// Storage config types
+// ---------------------------------------------------------------------------
+
+export type StorageType = "filesystem" | "postgres";
+
+export interface FilesystemStorageConfig {
+  type: "filesystem";
+}
+
+export interface PostgresStorageConfig {
+  type: "postgres";
+  connectionString: string;
+}
+
+export type StorageConfig = FilesystemStorageConfig | PostgresStorageConfig;
 
 /**
  * Masks an API key for safe display: shows first 4 and last 4 characters.
@@ -63,6 +81,8 @@ export interface ProjectConfig {
  * Contains the project registry and workspace-level defaults.
  */
 export interface WorkspaceConfig extends ProjectConfig {
+  /** Storage backend configuration. Defaults to filesystem when omitted. */
+  storage?: StorageConfig;
   projects: ProjectEntry[];
 }
 
@@ -156,27 +176,24 @@ export function updateWorkspaceConfig(
 // ---------------------------------------------------------------------------
 
 /**
- * Finds the project entry in the workspace config's projects[] array.
- */
-function findProjectEntry(wsConfig: WorkspaceConfig, projectId: string): ProjectEntry {
-  const entry = wsConfig.projects.find((p) => p.id === projectId);
-  if (!entry) {
-    throw new Error(`Project "${projectId}" not found in workspace config`);
-  }
-  return entry;
-}
-
-/**
  * Reads the effective project config: workspace defaults merged with per-project overrides.
+ *
+ * Uses StorageProvider to fetch the per-project entry (works for both
+ * filesystem and postgres backends). Workspace-level defaults always
+ * come from the config file.
  *
  * Merge rules:
  * - Scalar fields: project value wins if present
  * - Objects (llmSettings): project replaces entire object if present
  * - version, projects: workspace-only, not in per-project entries
  */
-export function getProjectConfig(ctx: ProjectContext): ProjectConfig {
-  const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
-  const entry = findProjectEntry(wsConfig, ctx.id);
+export async function getProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
+): Promise<ProjectConfig> {
+  const wsConfig = readWorkspaceConfig(workspaceDir);
+  const entry = await storage.getProjectEntry(projectId);
 
   return {
     version: wsConfig.version,
@@ -195,71 +212,23 @@ export interface UpdateProjectConfigInput {
 }
 
 /**
- * Updates the per-project config in the workspace config's projects[] array.
+ * Updates the per-project config via StorageProvider.
  * Returns the new effective config (merged with workspace defaults).
  */
-export function updateProjectConfig(
-  ctx: ProjectContext,
+export async function updateProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
   input: UpdateProjectConfigInput,
-): ProjectConfig {
-  const wsConfig = readWorkspaceConfig(ctx.workspaceDir);
-  const entry = findProjectEntry(wsConfig, ctx.id);
-
-  if (input.llmSettings) {
-    if (!input.llmSettings.provider) {
-      throw new Error("LLM provider type is required");
-    }
-    // apiKey is optional on update — if not provided, keep existing
-    if (!input.llmSettings.apiKey) {
-      const existingKey =
-        entry.llmSettings?.apiKey ||
-        wsConfig.llmSettings?.apiKey;
-      if (!existingKey) {
-        throw new Error("LLM provider API key is required");
-      }
-      input = {
-        ...input,
-        llmSettings: { ...input.llmSettings, apiKey: existingKey },
-      };
-    }
-  }
-
-  // Handle llmSettings
-  let newLLMSettings: LLMSettings | undefined;
-  if (input.llmSettings === null) {
-    newLLMSettings = undefined; // Clear → inherit from workspace
-  } else if (input.llmSettings !== undefined) {
-    newLLMSettings = input.llmSettings;
-  } else {
-    newLLMSettings = entry.llmSettings;
-  }
-
-  // Handle maxConcurrency
-  let newMaxConcurrency: number | undefined;
-  if (input.maxConcurrency === null) {
-    newMaxConcurrency = undefined; // Clear → inherit from workspace
-  } else if (input.maxConcurrency !== undefined) {
-    if (input.maxConcurrency < 1) {
-      throw new Error("maxConcurrency must be at least 1");
-    }
-    newMaxConcurrency = input.maxConcurrency;
-  } else {
-    newMaxConcurrency = entry.maxConcurrency;
-  }
-
-  // Update the project entry in workspace config
-  const newName = input.name ?? entry.name;
-  entry.name = newName;
-  entry.llmSettings = newLLMSettings;
-  entry.maxConcurrency = newMaxConcurrency;
-
-  writeWorkspaceConfig(ctx.workspaceDir, wsConfig);
+): Promise<ProjectConfig> {
+  const wsConfig = readWorkspaceConfig(workspaceDir);
+  const entry = await storage.updateProjectEntry(projectId, input);
 
   // Return the effective (merged) config
   return {
     version: wsConfig.version,
-    name: newName,
-    llmSettings: newLLMSettings ?? wsConfig.llmSettings,
-    maxConcurrency: newMaxConcurrency ?? wsConfig.maxConcurrency,
+    name: entry.name,
+    llmSettings: entry.llmSettings ?? wsConfig.llmSettings,
+    maxConcurrency: entry.maxConcurrency ?? wsConfig.maxConcurrency,
   };
 }

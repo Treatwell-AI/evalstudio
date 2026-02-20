@@ -31,6 +31,10 @@ export {
   getProjectConfig,
   updateProjectConfig,
   redactApiKey,
+  type StorageType,
+  type StorageConfig,
+  type FilesystemStorageConfig,
+  type PostgresStorageConfig,
   type WorkspaceConfig,
   type ProjectEntry,
   type UpdateWorkspaceConfigInput,
@@ -111,6 +115,7 @@ export {
 } from "./module-factory.js";
 export { type StorageProvider } from "./storage-provider.js";
 export { createFilesystemStorage } from "./filesystem-storage.js";
+export { createStorageProvider, resolveConnectionString } from "./storage-factory.js";
 export {
   buildTestAgentSystemPrompt,
   buildTestAgentMessages,

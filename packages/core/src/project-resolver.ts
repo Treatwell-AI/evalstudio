@@ -17,8 +17,6 @@ export interface ProjectContext {
   id: string;
   /** Display name */
   name: string;
-  /** Absolute path to projects/{uuid}/data/ */
-  dataDir: string;
   /** Absolute path to workspace root */
   workspaceDir: string;
 }
@@ -168,7 +166,7 @@ export function createProject(workspaceDir: string, name: string): ProjectContex
     JSON.stringify(wsConfig, null, 2) + "\n",
   );
 
-  return { id, name, dataDir, workspaceDir };
+  return { id, name, workspaceDir };
 }
 
 /**
@@ -229,7 +227,6 @@ export function resolveProject(workspaceDir: string, projectId: string): Project
   return {
     id: project.id,
     name: project.name,
-    dataDir,
     workspaceDir,
   };
 }
@@ -312,7 +309,6 @@ export function initWorkspace(dir: string, workspaceName: string, projectName: s
   const project: ProjectContext = {
     id: projectId,
     name: projectName,
-    dataDir,
     workspaceDir,
   };
 
@@ -352,13 +348,13 @@ export function resetStorageDir(): void {
 }
 
 /**
- * @deprecated Use ctx.dataDir from ProjectContext instead.
+ * @deprecated Use StorageProvider instead.
  * Returns the data/ storage directory.
  */
 export function getStorageDir(): string {
   if (legacyStorageDir !== null) return ensureDir(legacyStorageDir);
   const ctx = resolveProjectFromCwd();
-  return ensureDir(ctx.dataDir);
+  return ensureDir(join(ctx.workspaceDir, PROJECTS_DIRNAME, ctx.id, LOCAL_STORAGE_DIRNAME));
 }
 
 /**

@@ -3,6 +3,7 @@ import { Command } from "commander";
 import {
   resolveProjectFromCwd,
   createProjectModules,
+  createStorageProvider,
   type Message,
 } from "@evalstudio/core";
 
@@ -53,7 +54,8 @@ export const scenarioCommand = new Command("scenario")
         ) => {
           try {
             const ctx = resolveProjectFromCwd();
-            const { scenarios, personas } = createProjectModules(ctx);
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const { scenarios, personas } = createProjectModules(storage, ctx.id);
 
             const messages = options.messagesFile
               ? loadMessagesFromFile(options.messagesFile)
@@ -128,7 +130,8 @@ export const scenarioCommand = new Command("scenario")
       .option("--json", "Output as JSON")
       .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { scenarios, personas } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { scenarios, personas } = createProjectModules(storage, ctx.id);
         const scenarioList = await scenarios.list();
 
         if (options.json) {
@@ -175,7 +178,8 @@ export const scenarioCommand = new Command("scenario")
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { scenarios, personas } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { scenarios, personas } = createProjectModules(storage, ctx.id);
           const scenario = await scenarios.get(identifier) ?? await scenarios.getByName(identifier);
 
           if (!scenario) {
@@ -252,7 +256,8 @@ export const scenarioCommand = new Command("scenario")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { scenarios, personas } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { scenarios, personas } = createProjectModules(storage, ctx.id);
           const existing = await scenarios.get(identifier);
 
           if (!existing) {
@@ -344,7 +349,8 @@ export const scenarioCommand = new Command("scenario")
       .option("--json", "Output as JSON")
       .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { scenarios } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { scenarios } = createProjectModules(storage, ctx.id);
         const existing = await scenarios.get(identifier);
 
         if (!existing) {

@@ -1,0 +1,15 @@
+services:
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:17-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: evalstudio
+      POSTGRES_USER: evalstudio
+      POSTGRES_PASSWORD: evalstudio
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

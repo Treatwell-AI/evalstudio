@@ -1,5 +1,5 @@
 import { getProjectConfig } from "./project.js";
-import type { ProjectContext } from "./project-resolver.js";
+import type { StorageProvider } from "./storage-provider.js";
 
 export type ProviderType = "openai" | "anthropic";
 
@@ -21,8 +21,12 @@ export interface LLMProvider {
  * Reads the effective project config and returns an LLMProvider object.
  * Throws if no provider is configured.
  */
-export function getLLMProviderFromProjectConfig(ctx: ProjectContext): LLMProvider {
-  const config = getProjectConfig(ctx);
+export async function getLLMProviderFromProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
+): Promise<LLMProvider> {
+  const config = await getProjectConfig(storage, workspaceDir, projectId);
 
   if (!config.llmSettings) {
     throw new Error(

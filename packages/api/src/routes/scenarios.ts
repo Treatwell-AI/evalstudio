@@ -39,14 +39,14 @@ interface ScenarioPromptQuerystring {
 
 export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.get("/scenarios", async (request) => {
-    const { scenarios } = createProjectModules(request.projectCtx!);
+    const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
     return await scenarios.list();
   });
 
   fastify.get<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const { scenarios } = createProjectModules(request.projectCtx!);
+      const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
       const scenario = await scenarios.get(request.params.id);
 
       if (!scenario) {
@@ -62,7 +62,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.get<{ Params: ScenarioParams; Querystring: ScenarioPromptQuerystring }>(
     "/scenarios/:id/prompt",
     async (request, reply) => {
-      const { scenarios, personas } = createProjectModules(request.projectCtx!);
+      const { scenarios, personas } = createProjectModules(fastify.storage, request.projectCtx!.id);
       const scenario = await scenarios.get(request.params.id);
 
       if (!scenario) {
@@ -103,7 +103,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       }
 
       try {
-        const { scenarios } = createProjectModules(request.projectCtx!);
+        const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const scenario = await scenarios.create({
           name,
           instructions,
@@ -132,7 +132,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
       const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
 
       try {
-        const { scenarios } = createProjectModules(request.projectCtx!);
+        const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const scenario = await scenarios.update(request.params.id, {
           name,
           instructions,
@@ -163,7 +163,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.delete<{ Params: ScenarioParams }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const { scenarios } = createProjectModules(request.projectCtx!);
+      const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
       const deleted = await scenarios.delete(request.params.id);
 
       if (!deleted) {

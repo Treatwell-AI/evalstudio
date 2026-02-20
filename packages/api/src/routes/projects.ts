@@ -1,19 +1,17 @@
 import type { FastifyInstance, FastifyPluginOptions } from "fastify";
 import {
-  listProjects,
-  createProject,
-  resolveProject,
-  deleteProject,
   getProjectConfig,
   updateProjectConfig,
   readWorkspaceConfig,
   updateWorkspaceConfig,
   redactApiKey,
   type LLMSettings,
+  type StorageProvider,
 } from "@evalstudio/core";
 
 interface ProjectsPluginOptions extends FastifyPluginOptions {
   workspaceDir: string;
+  storage: StorageProvider;
 }
 
 interface ProjectIdParams {
@@ -49,13 +47,13 @@ function redactConfig<T extends { llmSettings?: { apiKey: string } }>(config: T)
 }
 
 export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPluginOptions) {
-  const { workspaceDir } = opts;
+  const { workspaceDir, storage } = opts;
 
   // --- Workspace-level endpoints ---
 
   // GET /api/projects — List all projects
   fastify.get("/projects", async () => {
-    return listProjects(workspaceDir);
+    return storage.listProjects();
   });
 
   // POST /api/projects — Create a new project
@@ -69,7 +67,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
         return { error: "Name is required" };
       }
 
-      const ctx = createProject(workspaceDir, name);
+      const ctx = await storage.createProject(name);
       reply.code(201);
       return { id: ctx.id, name: ctx.name };
     }
@@ -110,8 +108,8 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
     "/projects/:projectId/config",
     async (request, reply) => {
       try {
-        const ctx = resolveProject(workspaceDir, request.params.projectId);
-        return redactConfig(getProjectConfig(ctx));
+        const config = await getProjectConfig(storage, workspaceDir, request.params.projectId);
+        return redactConfig(config);
       } catch (error) {
         if (error instanceof Error) {
           reply.code(404);
@@ -129,8 +127,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
       const { name, llmSettings, maxConcurrency } = request.body;
 
       try {
-        const ctx = resolveProject(workspaceDir, request.params.projectId);
-        const config = updateProjectConfig(ctx, {
+        const config = await updateProjectConfig(storage, workspaceDir, request.params.projectId, {
           name,
           llmSettings,
           maxConcurrency,
@@ -151,7 +148,7 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
     "/projects/:projectId",
     async (request, reply) => {
       try {
-        deleteProject(workspaceDir, request.params.projectId);
+        await storage.deleteProject(request.params.projectId);
         reply.code(204);
         return;
       } catch (error) {

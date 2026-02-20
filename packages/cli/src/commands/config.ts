@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { resolveProjectFromCwd, getProjectConfig, updateProjectConfig, redactApiKey, type ProjectConfig } from "@evalstudio/core";
+import { resolveProjectFromCwd, getProjectConfig, updateProjectConfig, createStorageProvider, redactApiKey, type ProjectConfig } from "@evalstudio/core";
 
 function redactConfig(config: ProjectConfig): ProjectConfig {
   if (!config.llmSettings?.apiKey) return config;
@@ -18,9 +18,10 @@ export const configCommand = new Command("config")
     new Command("show")
       .description("Show current project configuration")
       .option("--json", "Output as JSON")
-      .action((options: { json?: boolean }) => {
+      .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const config = getProjectConfig(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const config = await getProjectConfig(storage, ctx.workspaceDir, ctx.id);
 
         if (options.json) {
           console.log(JSON.stringify(redactConfig(config), null, 2));
@@ -48,9 +49,10 @@ export const configCommand = new Command("config")
       .argument("<key>", "Configuration key (e.g., maxConcurrency, name)")
       .argument("<value>", "Configuration value")
       .option("--json", "Output as JSON")
-      .action((key: string, value: string, options: { json?: boolean }) => {
+      .action(async (key: string, value: string, options: { json?: boolean }) => {
         try {
           const ctx = resolveProjectFromCwd();
+          const storage = await createStorageProvider(ctx.workspaceDir);
           let input: Record<string, unknown> = {};
 
           switch (key) {
@@ -72,7 +74,7 @@ export const configCommand = new Command("config")
               process.exit(1);
           }
 
-          const config = updateProjectConfig(ctx, input);
+          const config = await updateProjectConfig(storage, ctx.workspaceDir, ctx.id, input);
 
           if (options.json) {
             console.log(JSON.stringify(redactConfig(config), null, 2));

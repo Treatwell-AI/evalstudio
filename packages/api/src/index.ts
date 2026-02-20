@@ -6,8 +6,9 @@ import {
   ERR_NO_PROJECT,
   RunProcessor,
   resolveWorkspace,
-  resolveProject,
+  createStorageProvider,
   type ProjectContext,
+  type StorageProvider,
 } from "@evalstudio/core";
 import { connectorsRoute } from "./routes/connectors.js";
 import { evalsRoute } from "./routes/evals.js";
@@ -18,8 +19,11 @@ import { runsRoute } from "./routes/runs.js";
 import { scenariosRoute } from "./routes/scenarios.js";
 import { statusRoute } from "./routes/status.js";
 
-// Extend Fastify request with project context
+// Extend Fastify with storage provider and project context
 declare module "fastify" {
+  interface FastifyInstance {
+    storage: StorageProvider;
+  }
   interface FastifyRequest {
     projectCtx: ProjectContext | null;
   }
@@ -49,11 +53,14 @@ interface ProjectIdParams {
 export async function createServer(options: ServerOptions = {}) {
   const workspaceDir = options.workspaceDir ?? resolveWorkspace();
 
+  const storage = await createStorageProvider(workspaceDir);
+
   const fastify = Fastify({
     logger: options.logger ?? false,
   });
 
-  // Decorate request with projectCtx (null initial value required by Fastify)
+  // Decorate instance with storage provider and request with projectCtx
+  fastify.decorate("storage", storage);
   fastify.decorateRequest("projectCtx", null);
 
   // Handle "no project found" errors with a helpful message
@@ -71,15 +78,16 @@ export async function createServer(options: ServerOptions = {}) {
       // Workspace-level routes (no project context needed)
       await api.register(statusRoute);
       await api.register(llmProvidersRoute);
-      await api.register(projectsRoute, { workspaceDir });
+      await api.register(projectsRoute, { workspaceDir, storage });
 
       // Project-scoped routes under /projects/:projectId/
       await api.register(
         async (scoped) => {
-          // Resolve project context from URL param
+          // Validate project exists and set context from URL param
           scoped.addHook("preHandler", async (request) => {
             const { projectId } = request.params as ProjectIdParams;
-            request.projectCtx = resolveProject(workspaceDir, projectId);
+            const entry = await storage.getProjectEntry(projectId);
+            request.projectCtx = { id: projectId, name: entry.name, workspaceDir };
           });
 
           await scoped.register(connectorsRoute);
@@ -121,6 +129,7 @@ export async function createServer(options: ServerOptions = {}) {
 
     runProcessor = new RunProcessor({
       workspaceDir,
+      storage,
       pollIntervalMs: pollMs,
       ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
       onRunStart: (run) => {

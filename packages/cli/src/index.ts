@@ -2,6 +2,7 @@
 import { createRequire } from "module";
 import { Command } from "commander";
 import { configCommand } from "./commands/config.js";
+import { dbCommand } from "./commands/db.js";
 import { connectorCommand } from "./commands/connector.js";
 import { evalCommand } from "./commands/eval.js";
 import { initCommand } from "./commands/init.js";
@@ -25,6 +26,7 @@ program
   .version(packageJson.version);
 
 program.addCommand(configCommand);
+program.addCommand(dbCommand);
 program.addCommand(initCommand);
 program.addCommand(connectorCommand);
 program.addCommand(evalCommand);

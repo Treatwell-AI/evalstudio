@@ -2,6 +2,7 @@ import { Command } from "commander";
 import {
   resolveProjectFromCwd,
   createProjectModules,
+  createStorageProvider,
   getConnectorTypes,
   type ConnectorType,
 } from "@evalstudio/core";
@@ -54,7 +55,8 @@ export const connectorCommand = new Command("connector")
             const headers = parseHeaders(options.header);
 
             const ctx = resolveProjectFromCwd();
-            const { connectors } = createProjectModules(ctx);
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const { connectors } = createProjectModules(storage, ctx.id);
 
             const connector = await connectors.create({
               name,
@@ -96,7 +98,8 @@ export const connectorCommand = new Command("connector")
       .option("--json", "Output as JSON")
       .action(async (options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { connectors } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { connectors } = createProjectModules(storage, ctx.id);
         const connectorList = await connectors.list();
 
         if (options.json) {
@@ -128,7 +131,8 @@ export const connectorCommand = new Command("connector")
           options: { json?: boolean }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { connectors } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { connectors } = createProjectModules(storage, ctx.id);
           const connector = await connectors.get(identifier) ?? await connectors.getByName(identifier);
 
           if (!connector) {
@@ -180,7 +184,8 @@ export const connectorCommand = new Command("connector")
           }
         ) => {
           const ctx = resolveProjectFromCwd();
-          const { connectors } = createProjectModules(ctx);
+          const storage = await createStorageProvider(ctx.workspaceDir);
+          const { connectors } = createProjectModules(storage, ctx.id);
           const existing = await connectors.get(identifier);
 
           if (!existing) {
@@ -257,7 +262,8 @@ export const connectorCommand = new Command("connector")
       .option("--json", "Output as JSON")
       .action(async (identifier: string, options: { json?: boolean }) => {
         const ctx = resolveProjectFromCwd();
-        const { connectors } = createProjectModules(ctx);
+        const storage = await createStorageProvider(ctx.workspaceDir);
+        const { connectors } = createProjectModules(storage, ctx.id);
         const existing = await connectors.get(identifier);
 
         if (!existing) {
