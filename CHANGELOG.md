@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`evalstudio db init` now runs migrations** instead of executing raw SQL — behavior is identical but schema changes are tracked
+- **FK delete strategy** — Only project deletion cascades (via `ON DELETE CASCADE`); all other foreign keys use `ON DELETE SET NULL` so any entity can be deleted without blocking
+  - Removed code-level cascade delete from `eval.delete()` (no longer deletes associated runs)
+  - Removed unused `deleteByEval()` methods from run and execution modules
+  - Made `Eval.connectorId`, `Execution.evalId`, and `Run.scenarioId` optional to match nullable DB columns
 
 ## [0.4.0] - 2026-02-20
 

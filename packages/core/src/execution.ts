@@ -8,7 +8,7 @@ export interface Execution {
   /** Auto-increment integer ID (1, 2, 3, ...) */
   id: number;
   /** The eval that triggered this execution */
-  evalId: string;
+  evalId?: string;
   /** When this execution was created */
   createdAt: string;
 }
@@ -71,18 +71,7 @@ export function createExecutionModule(repo: Repository<Execution>) {
       return true;
     },
 
-    async deleteByEval(evalId: string): Promise<number> {
-      const executions = await repo.findAll();
-      const filtered = executions.filter((e) => e.evalId !== evalId);
-      const deletedCount = executions.length - filtered.length;
-
-      if (deletedCount > 0) {
-        await repo.saveAll(filtered);
-      }
-
-      return deletedCount;
-    },
-  };
+};
 }
 
 export type ExecutionModule = ReturnType<typeof createExecutionModule>;

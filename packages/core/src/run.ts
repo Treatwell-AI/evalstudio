@@ -35,7 +35,7 @@ export interface Run {
   id: string;
   evalId?: string;
   personaId?: string;
-  scenarioId: string;
+  scenarioId?: string;
   connectorId?: string;
   executionId?: number;
   status: RunStatus;
@@ -303,18 +303,6 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
       await repo.saveAll(runs);
 
       return true;
-    },
-
-    async deleteByEval(evalId: string): Promise<number> {
-      const runs = await repo.findAll();
-      const filtered = runs.filter((r) => r.evalId !== evalId);
-      const deletedCount = runs.length - filtered.length;
-
-      if (deletedCount > 0) {
-        await repo.saveAll(filtered);
-      }
-
-      return deletedCount;
     },
 
     async retry(id: string): Promise<Run | undefined> {

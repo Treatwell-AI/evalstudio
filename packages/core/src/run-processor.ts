@@ -309,6 +309,9 @@ export class RunProcessor {
       };
 
       // Get scenario and persona from stored IDs
+      if (!currentRun.scenarioId) {
+        throw new Error(`Run ${currentRun.id} has no scenario`);
+      }
       const scenario = await modules.scenarios.get(currentRun.scenarioId);
       if (!scenario) {
         throw new Error(`Scenario not found: ${currentRun.scenarioId}`);

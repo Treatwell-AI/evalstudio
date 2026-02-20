@@ -20,6 +20,10 @@ export const ALL_MIGRATIONS: Migration[] = [
     version: 1,
     name: "001_initial",
     sql: `
+-- FK strategy:
+--   project_id → ON DELETE CASCADE (deleting a project removes all its data)
+--   all other FKs → ON DELETE SET NULL (referenced entities can always be deleted)
+
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY,
   name TEXT NOT NULL,
@@ -53,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_connectors_project ON connectors(project_id);
 CREATE TABLE IF NOT EXISTS evals (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  connector_id UUID NOT NULL REFERENCES connectors(id),
+  connector_id UUID REFERENCES connectors(id) ON DELETE SET NULL,
   data JSONB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_evals_project ON evals(project_id);
@@ -62,7 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_evals_connector ON evals(connector_id);
 CREATE TABLE IF NOT EXISTS executions (
   id INTEGER NOT NULL,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  eval_id UUID NOT NULL REFERENCES evals(id),
+  eval_id UUID REFERENCES evals(id) ON DELETE SET NULL,
   data JSONB NOT NULL,
   PRIMARY KEY (project_id, id)
 );
@@ -72,10 +76,10 @@ CREATE INDEX IF NOT EXISTS idx_executions_eval ON executions(eval_id);
 CREATE TABLE IF NOT EXISTS runs (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  eval_id UUID REFERENCES evals(id),
-  scenario_id UUID NOT NULL REFERENCES scenarios(id),
-  persona_id UUID REFERENCES personas(id),
-  connector_id UUID REFERENCES connectors(id),
+  eval_id UUID REFERENCES evals(id) ON DELETE SET NULL,
+  scenario_id UUID REFERENCES scenarios(id) ON DELETE SET NULL,
+  persona_id UUID REFERENCES personas(id) ON DELETE SET NULL,
+  connector_id UUID REFERENCES connectors(id) ON DELETE SET NULL,
   execution_id INTEGER,
   status TEXT NOT NULL,
   data JSONB NOT NULL

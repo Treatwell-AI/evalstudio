@@ -108,7 +108,7 @@ With filesystem storage, the project registry lives in `evalstudio.config.json` 
 This means:
 - `createProject()` inserts a row instead of appending to the JSON array
 - `listProjects()` queries the table instead of reading the config file
-- `deleteProject()` deletes the row (and cascades to entity tables) instead of removing from the array and deleting a directory
+- `deleteProject()` deletes the row (cascades to all entity tables via `ON DELETE CASCADE`) instead of removing from the array and deleting a directory
 - Per-project config overrides (`llmSettings`, `maxConcurrency`) are columns on the `projects` table
 
 ### Entities: tables instead of JSON files
@@ -144,7 +144,11 @@ interface ProjectContext {
 
 ### Approach: reference columns + JSONB data
 
-Foreign key references are real columns — this gives us `REFERENCES` constraints, cascade deletes, and indexable lookups. The rest of the entity payload lives in a JSONB `data` column to avoid mapping every field upfront.
+Foreign key references are real columns — this gives us `REFERENCES` constraints, indexable lookups, and controlled delete behavior. The rest of the entity payload lives in a JSONB `data` column to avoid mapping every field upfront.
+
+FK delete strategy:
+- `project_id` → `ON DELETE CASCADE` (deleting a project removes all its data)
+- All other FKs → `ON DELETE SET NULL` (referenced entities can always be deleted; the FK column is set to NULL)
 
 The `data` column stores the full entity object (same shape as the JSON files). The reference columns are duplicated from `data` for relational integrity — the repository writes both when saving.
 
@@ -186,7 +190,7 @@ CREATE INDEX idx_connectors_project ON connectors(project_id);
 CREATE TABLE evals (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  connector_id UUID NOT NULL REFERENCES connectors(id),
+  connector_id UUID REFERENCES connectors(id) ON DELETE SET NULL,
   data JSONB NOT NULL
 );
 CREATE INDEX idx_evals_project ON evals(project_id);
@@ -196,7 +200,7 @@ CREATE INDEX idx_evals_connector ON evals(connector_id);
 CREATE TABLE executions (
   id INTEGER NOT NULL,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  eval_id UUID NOT NULL REFERENCES evals(id),
+  eval_id UUID REFERENCES evals(id) ON DELETE SET NULL,
   data JSONB NOT NULL,
   PRIMARY KEY (project_id, id)
 );
@@ -207,10 +211,10 @@ CREATE INDEX idx_executions_eval ON executions(eval_id);
 CREATE TABLE runs (
   id UUID PRIMARY KEY,
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  eval_id UUID REFERENCES evals(id),
-  scenario_id UUID NOT NULL REFERENCES scenarios(id),
-  persona_id UUID REFERENCES personas(id),
-  connector_id UUID REFERENCES connectors(id),
+  eval_id UUID REFERENCES evals(id) ON DELETE SET NULL,
+  scenario_id UUID REFERENCES scenarios(id) ON DELETE SET NULL,
+  persona_id UUID REFERENCES personas(id) ON DELETE SET NULL,
+  connector_id UUID REFERENCES connectors(id) ON DELETE SET NULL,
   execution_id INTEGER,
   status TEXT NOT NULL,
   data JSONB NOT NULL

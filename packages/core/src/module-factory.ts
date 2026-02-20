@@ -37,11 +37,9 @@ export function createProjectModules(storage: StorageProvider, projectId: string
   const connectorMod = createConnectorModule(connectorRepo);
   const executionMod = createExecutionModule(executionRepo);
 
-  // Eval gets runRepo for cascade deletes (avoids circular dep with RunModule)
   const evalMod = createEvalModule(evalRepo, {
     scenarios: scenarioMod,
     connectors: connectorMod,
-    runRepo,
   });
 
   // Run gets all modules for FK validation

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import type { Repository } from "./repository.js";
 import type { ConnectorModule } from "./connector.js";
 import type { ScenarioModule, FailureCriteriaMode } from "./scenario.js";
-import type { Run } from "./run.js";
 import type { Message } from "./types.js";
 
 export type { Message };
@@ -12,7 +11,7 @@ export interface Eval {
   name: string;
   input: Message[];
   scenarioIds: string[];
-  connectorId: string;
+  connectorId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,12 +54,10 @@ export interface EvalWithRelations extends Eval {
 export interface EvalModuleDeps {
   scenarios: ScenarioModule;
   connectors: ConnectorModule;
-  /** Run repo for cascade deletes (avoids circular dep with RunModule) */
-  runRepo: Repository<Run>;
 }
 
 export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
-  const { scenarios, connectors, runRepo } = deps;
+  const { scenarios, connectors } = deps;
 
   return {
     async create(input: CreateEvalInput): Promise<Eval> {
@@ -134,7 +131,9 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
 
       const result: EvalWithRelations = { ...evalItem, scenarios: scenarioList };
 
-      const connector = await connectors.get(evalItem.connectorId);
+      const connector = evalItem.connectorId
+        ? await connectors.get(evalItem.connectorId)
+        : undefined;
       if (connector) {
         result.connector = {
           id: connector.id,
@@ -193,13 +192,6 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
       const index = evals.findIndex((e) => e.id === id);
 
       if (index === -1) return false;
-
-      // Cascade delete runs via run repo (avoids circular dependency with RunModule)
-      const runs = await runRepo.findAll();
-      const filteredRuns = runs.filter((r) => r.evalId !== id);
-      if (filteredRuns.length < runs.length) {
-        await runRepo.saveAll(filteredRuns);
-      }
 
       evals.splice(index, 1);
       await repo.saveAll(evals);

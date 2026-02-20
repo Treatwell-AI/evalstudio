@@ -46,7 +46,9 @@ export const runCommand = new Command("run")
             const createdRuns = await runs.createMany({ evalId: evalItem.id });
 
             // Get connector info from eval
-            const connector = await connectors.get(evalItem.connectorId);
+            const connector = evalItem.connectorId
+              ? await connectors.get(evalItem.connectorId)
+              : undefined;
 
             if (options.json) {
               console.log(JSON.stringify(createdRuns, null, 2));
@@ -123,8 +125,10 @@ export const runCommand = new Command("run")
               if (run.evalId) {
                 const evalItem = await evals.get(run.evalId);
                 if (evalItem) {
-                  const connector = await connectors.get(evalItem.connectorId);
-                  console.log(`    Connector: ${connector?.name ?? evalItem.connectorId}`);
+                  const connector = evalItem.connectorId
+                    ? await connectors.get(evalItem.connectorId)
+                    : undefined;
+                  console.log(`    Connector: ${connector?.name ?? evalItem.connectorId ?? "unknown"}`);
                 }
               } else if (run.connectorId) {
                 const connector = await connectors.get(run.connectorId);
@@ -164,8 +168,10 @@ export const runCommand = new Command("run")
           console.log(`  Status:    ${formatRunStatus(run)}`);
           console.log(`  Eval:      ${run.evalId ?? "Playground"}`);
           // Show scenario and persona
-          const scenario = await scenarios.get(run.scenarioId);
-          console.log(`  Scenario:  ${scenario?.name ?? run.scenarioId}`);
+          const scenario = run.scenarioId
+            ? await scenarios.get(run.scenarioId)
+            : undefined;
+          console.log(`  Scenario:  ${scenario?.name ?? run.scenarioId ?? "unknown"}`);
           if (run.personaId) {
             const persona = await personas.get(run.personaId);
             console.log(`  Persona:   ${persona?.name ?? run.personaId}`);
@@ -174,8 +180,10 @@ export const runCommand = new Command("run")
           if (run.evalId) {
             const evalItem = await evals.get(run.evalId);
             if (evalItem) {
-              const connector = await connectors.get(evalItem.connectorId);
-              console.log(`  Connector: ${connector?.name ?? evalItem.connectorId}`);
+              const connector = evalItem.connectorId
+                ? await connectors.get(evalItem.connectorId)
+                : undefined;
+              console.log(`  Connector: ${connector?.name ?? evalItem.connectorId ?? "unknown"}`);
             }
           } else if (run.connectorId) {
             const connector = await connectors.get(run.connectorId);
