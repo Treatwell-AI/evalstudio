@@ -61,6 +61,8 @@ export interface ProjectEntry {
   name: string;
   llmSettings?: LLMSettings;
   maxConcurrency?: number;
+  /** Image IDs used as style references for persona image generation */
+  styleReferenceImageIds?: string[];
 }
 
 /**
@@ -74,6 +76,8 @@ export interface ProjectConfig {
   llmSettings?: LLMSettings;
   /** Maximum concurrent run executions (default: 3) */
   maxConcurrency?: number;
+  /** Image IDs used as style references for persona image generation */
+  styleReferenceImageIds?: string[];
 }
 
 /**
@@ -200,6 +204,7 @@ export async function getProjectConfig(
     name: entry.name,
     llmSettings: entry.llmSettings ?? wsConfig.llmSettings,
     maxConcurrency: entry.maxConcurrency ?? wsConfig.maxConcurrency,
+    styleReferenceImageIds: entry.styleReferenceImageIds,
   };
 }
 
@@ -209,6 +214,8 @@ export interface UpdateProjectConfigInput {
   llmSettings?: LLMSettings | null;
   /** Set to null to clear (inherit from workspace) */
   maxConcurrency?: number | null;
+  /** Set to null to clear style references */
+  styleReferenceImageIds?: string[] | null;
 }
 
 /**
@@ -230,5 +237,6 @@ export async function updateProjectConfig(
     name: entry.name,
     llmSettings: entry.llmSettings ?? wsConfig.llmSettings,
     maxConcurrency: entry.maxConcurrency ?? wsConfig.maxConcurrency,
+    styleReferenceImageIds: entry.styleReferenceImageIds,
   };
 }

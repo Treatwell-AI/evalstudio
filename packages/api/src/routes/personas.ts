@@ -1,5 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import { createProjectModules } from "@evalstudio/core";
+import {
+  createProjectModules,
+  getLLMProviderFromProjectConfig,
+  generatePersonaImage,
+} from "@evalstudio/core";
 
 interface CreatePersonaBody {
   name: string;
@@ -11,6 +15,7 @@ interface UpdatePersonaBody {
   name?: string;
   description?: string;
   systemPrompt?: string;
+  imageUrl?: string;
 }
 
 interface PersonaParams {
@@ -70,7 +75,7 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.put<{ Params: PersonaParams; Body: UpdatePersonaBody }>(
     "/personas/:id",
     async (request, reply) => {
-      const { name, description, systemPrompt } = request.body;
+      const { name, description, systemPrompt, imageUrl } = request.body;
 
       try {
         const { personas } = createProjectModules(fastify.storage, request.projectCtx!.id);
@@ -78,6 +83,7 @@ export async function personasRoute(fastify: FastifyInstance) {
           name,
           description,
           systemPrompt,
+          imageUrl,
         });
 
         if (!persona) {
@@ -109,6 +115,73 @@ export async function personasRoute(fastify: FastifyInstance) {
 
       reply.code(204);
       return;
+    }
+  );
+
+  // ── Generate persona image with AI ─────────────────────────────────
+
+  fastify.post<{ Params: PersonaParams }>(
+    "/personas/:id/generate-image",
+    async (request, reply) => {
+      const ctx = request.projectCtx!;
+      const { personas } = createProjectModules(fastify.storage, ctx.id);
+      const persona = await personas.get(request.params.id);
+
+      if (!persona) {
+        reply.code(404);
+        return { error: "Persona not found" };
+      }
+
+      if (!persona.systemPrompt) {
+        reply.code(400);
+        return { error: "Persona must have a system prompt to generate an image" };
+      }
+
+      // Get LLM provider — must be OpenAI for image generation
+      let provider;
+      try {
+        provider = await getLLMProviderFromProjectConfig(
+          fastify.storage,
+          ctx.workspaceDir,
+          ctx.id,
+        );
+      } catch {
+        reply.code(400);
+        return { error: "No LLM provider configured. Configure one in Settings > LLM Providers." };
+      }
+
+      if (provider.provider !== "openai") {
+        reply.code(400);
+        return { error: "Image generation requires an OpenAI provider. Switch to OpenAI in Settings > LLM Providers." };
+      }
+
+      // Load style reference buffers from project config
+      const entry = await fastify.storage.getProjectEntry(ctx.id);
+      const imageStore = fastify.storage.createImageStore(ctx.id);
+
+      let styleReferenceImages: Buffer[] | undefined;
+      if (entry.styleReferenceImageIds && entry.styleReferenceImageIds.length > 0) {
+        const buffers: Buffer[] = [];
+        for (const imageId of entry.styleReferenceImageIds) {
+          const img = await imageStore.get(imageId);
+          if (img) buffers.push(img.buffer);
+        }
+        if (buffers.length > 0) styleReferenceImages = buffers;
+      }
+
+      // Generate the image
+      const result = await generatePersonaImage({
+        apiKey: provider.apiKey,
+        systemPrompt: persona.systemPrompt,
+        personaName: persona.name,
+        styleReferenceImages,
+      });
+
+      // Save via image store and update persona
+      const imageId = await imageStore.save(result.imageBase64, `${persona.id}.png`);
+      const updated = await personas.update(persona.id, { imageUrl: imageId });
+
+      return updated;
     }
   );
 }

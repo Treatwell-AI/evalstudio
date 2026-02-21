@@ -1,4 +1,6 @@
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { join, extname } from "node:path";
+import { randomUUID } from "node:crypto";
 import { createJsonRepository } from "./repository.js";
 import {
   listProjects as listProjectsFromResolver,
@@ -12,7 +14,54 @@ import {
   type UpdateProjectConfigInput,
   type LLMSettings,
 } from "./project.js";
-import type { StorageProvider } from "./storage-provider.js";
+import type { StorageProvider, ImageStore } from "./storage-provider.js";
+
+// ── Filesystem image helpers ─────────────────────────────────────────
+
+function mimeFromExt(ext: string): string {
+  const map: Record<string, string> = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+  };
+  return map[ext.toLowerCase()] ?? "application/octet-stream";
+}
+
+/**
+ * Filesystem image store. Images live as flat files under {dataDir}/images/.
+ * Each image is named {uuid}.{ext}.
+ */
+function createFilesystemImageStore(dataDir: string): ImageStore {
+  const imagesDir = join(dataDir, "images");
+
+  return {
+    async save(imageBase64: string, originalFilename?: string): Promise<string> {
+      if (!existsSync(imagesDir)) mkdirSync(imagesDir, { recursive: true });
+      const ext = originalFilename ? extname(originalFilename) || ".png" : ".png";
+      const id = `${randomUUID()}${ext}`;
+      const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+      writeFileSync(join(imagesDir, id), Buffer.from(base64Data, "base64"));
+      return id;
+    },
+
+    async get(id: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+      const filepath = join(imagesDir, id);
+      if (!filepath.startsWith(imagesDir)) return null;
+      if (!existsSync(filepath)) return null;
+      return { buffer: readFileSync(filepath), mimeType: mimeFromExt(extname(filepath)) };
+    },
+
+    async delete(id: string): Promise<boolean> {
+      const filepath = join(imagesDir, id);
+      if (!existsSync(filepath)) return false;
+      unlinkSync(filepath);
+      return true;
+    },
+  };
+}
 
 /**
  * Filesystem-based StorageProvider.
@@ -27,6 +76,11 @@ export function createFilesystemStorage(workspaceDir: string): StorageProvider {
     createRepository<T>(entity: string, projectId: string) {
       const dataDir = join(workspaceDir, "projects", projectId, "data");
       return createJsonRepository<T>(`${entity}.json`, dataDir);
+    },
+
+    createImageStore(projectId: string): ImageStore {
+      const dataDir = join(workspaceDir, "projects", projectId, "data");
+      return createFilesystemImageStore(dataDir);
     },
 
     async listProjects() {
@@ -91,10 +145,20 @@ export function createFilesystemStorage(workspaceDir: string): StorageProvider {
         newMaxConcurrency = entry.maxConcurrency;
       }
 
+      let newStyleReferenceImageIds: string[] | undefined;
+      if (input.styleReferenceImageIds === null) {
+        newStyleReferenceImageIds = undefined;
+      } else if (input.styleReferenceImageIds !== undefined) {
+        newStyleReferenceImageIds = input.styleReferenceImageIds;
+      } else {
+        newStyleReferenceImageIds = entry.styleReferenceImageIds;
+      }
+
       const newName = input.name ?? entry.name;
       entry.name = newName;
       entry.llmSettings = newLLMSettings;
       entry.maxConcurrency = newMaxConcurrency;
+      entry.styleReferenceImageIds = newStyleReferenceImageIds;
 
       writeWorkspaceConfig(workspaceDir, wsConfig);
 

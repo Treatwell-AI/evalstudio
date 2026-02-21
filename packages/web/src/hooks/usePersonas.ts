@@ -57,3 +57,15 @@ export function useDeletePersona() {
     },
   });
 }
+
+export function useGeneratePersonaImage() {
+  const projectId = useProjectId();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => api.personas.generateImage(projectId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["personas", projectId] });
+    },
+  });
+}

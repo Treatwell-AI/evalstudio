@@ -32,6 +32,7 @@ interface Persona {
   name: string;          // Persona name (unique)
   description?: string;  // Short description of the persona
   systemPrompt?: string; // Full description / system prompt for this persona
+  imageUrl?: string;     // Image ID referencing a stored image
   createdAt: string;     // ISO 8601 timestamp
   updatedAt: string;     // ISO 8601 timestamp
 }
@@ -54,6 +55,7 @@ interface UpdatePersonaInput {
   name?: string;
   description?: string;
   systemPrompt?: string;
+  imageUrl?: string;
 }
 ```
 

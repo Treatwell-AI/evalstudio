@@ -28,12 +28,14 @@ export interface ProjectConfig {
   name: string;
   llmSettings?: LLMSettings;
   maxConcurrency?: number;
+  styleReferenceImageIds?: string[];
 }
 
 export interface UpdateProjectConfigInput {
   name?: string;
   llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
+  styleReferenceImageIds?: string[] | null;
 }
 
 export interface ProjectInfo {
@@ -54,6 +56,7 @@ export interface Persona {
   name: string;
   description?: string;
   systemPrompt?: string;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,7 +71,9 @@ export interface UpdatePersonaInput {
   name?: string;
   description?: string;
   systemPrompt?: string;
+  imageUrl?: string;
 }
+
 
 export type FailureCriteriaMode = "every_turn" | "on_max_messages";
 
@@ -397,6 +402,11 @@ function projectBase(projectId: string): string {
   return `${API_BASE}/projects/${projectId}`;
 }
 
+/** Build a URL for serving a project image by its ID */
+export function projectImageUrl(projectId: string, imageId: string): string {
+  return `${projectBase(projectId)}/images/${imageId}`;
+}
+
 export const api = {
   // Workspace-level endpoints (no project scope)
   status: {
@@ -491,6 +501,31 @@ export const api = {
 
     delete: async (projectId: string, id: string): Promise<void> => {
       const response = await fetch(`${projectBase(projectId)}/personas/${id}`, {
+        method: "DELETE",
+      });
+      return handleResponse(response);
+    },
+
+    generateImage: async (projectId: string, id: string): Promise<Persona> => {
+      const response = await fetch(`${projectBase(projectId)}/personas/${id}/generate-image`, {
+        method: "POST",
+      });
+      return handleResponse(response);
+    },
+  },
+
+  images: {
+    upload: async (projectId: string, imageBase64: string, filename?: string): Promise<{ id: string }> => {
+      const response = await fetch(`${projectBase(projectId)}/images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, filename }),
+      });
+      return handleResponse(response);
+    },
+
+    delete: async (projectId: string, id: string): Promise<void> => {
+      const response = await fetch(`${projectBase(projectId)}/images/${id}`, {
         method: "DELETE",
       });
       return handleResponse(response);

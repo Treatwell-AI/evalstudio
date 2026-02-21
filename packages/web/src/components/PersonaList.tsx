@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePersonas, useDeletePersona } from "../hooks/usePersonas";
-import { Persona } from "../lib/api";
+import { Persona, projectImageUrl } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 
 export function PersonaList() {
   const navigate = useNavigate();
+  const projectId = useProjectId();
   const { data: personas, isLoading, error } = usePersonas();
   const deletePersona = useDeletePersona();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -54,6 +56,16 @@ export function PersonaList() {
           className="persona-row persona-row-clickable"
           onClick={() => handleRowClick(persona)}
         >
+          <div className="persona-avatar-sm">
+            {persona.imageUrl ? (
+              <img
+                src={`${projectImageUrl(projectId, persona.imageUrl)}?t=${persona.updatedAt}`}
+                alt={persona.name}
+              />
+            ) : (
+              <span>{persona.name.charAt(0).toUpperCase()}</span>
+            )}
+          </div>
           <span className="persona-name">{persona.name}</span>
           {persona.description && (
             <span className="persona-description">{persona.description}</span>

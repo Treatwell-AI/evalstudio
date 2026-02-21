@@ -61,7 +61,10 @@ curl -X PUT ${base}/${persona.id} \\
   }'
 
 # Delete this persona
-curl -X DELETE ${base}/${persona.id}`;
+curl -X DELETE ${base}/${persona.id}
+
+# Generate AI portrait for this persona
+curl -X POST ${base}/${persona.id}/generate-image`;
 
   const handleCopy = async (text: string, tab: SnippetTab) => {
     try {

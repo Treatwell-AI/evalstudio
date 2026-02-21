@@ -15,6 +15,7 @@ REST endpoints for managing personas. Personas define a description and system p
 | GET | `/api/projects/:projectId/personas/:id` | Get a persona by ID |
 | PUT | `/api/projects/:projectId/personas/:id` | Update a persona |
 | DELETE | `/api/projects/:projectId/personas/:id` | Delete a persona |
+| POST | `/api/projects/:projectId/personas/:id/generate-image` | Generate AI portrait |
 
 ---
 
@@ -141,6 +142,7 @@ Update an existing persona.
 | `name` | string | No | New persona name |
 | `description` | string | No | New short description |
 | `systemPrompt` | string | No | New system prompt |
+| `imageUrl` | string | No | Image ID referencing a stored image |
 
 ```json
 {
@@ -196,4 +198,43 @@ Empty response on success.
 
 ```bash
 curl -X DELETE http://localhost:3000/api/projects/PROJECT_ID/personas/987fcdeb-51a2-3bc4-d567-890123456789
+```
+
+---
+
+## POST /api/projects/:projectId/personas/:id/generate-image
+
+Generate an AI portrait image for a persona using OpenAI's `gpt-image-1` model. The image is generated from the persona's `systemPrompt` and optionally styled to match the project's style reference images.
+
+Requires an OpenAI LLM provider configured in project settings.
+
+### Response (200 OK)
+
+Returns the updated persona with `imageUrl` set to the generated image ID.
+
+```json
+{
+  "id": "987fcdeb-51a2-3bc4-d567-890123456789",
+  "name": "impatient-user",
+  "description": "A user who wants quick answers",
+  "systemPrompt": "You are an impatient user who values brevity...",
+  "imageUrl": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.png",
+  "createdAt": "2026-01-28T10:00:00.000Z",
+  "updatedAt": "2026-01-28T10:30:00.000Z"
+}
+```
+
+### Errors
+
+| Status | Description |
+|--------|-------------|
+| 400 | Persona has no system prompt |
+| 400 | No LLM provider configured |
+| 400 | LLM provider is not OpenAI |
+| 404 | Persona not found |
+
+### Example
+
+```bash
+curl -X POST http://localhost:3000/api/projects/PROJECT_ID/personas/987fcdeb/generate-image
 ```

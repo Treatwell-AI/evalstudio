@@ -170,6 +170,7 @@ Update project-specific configuration. Fields set to `null` are cleared (inherit
 | `name` | string | No | Project name |
 | `llmSettings` | object \| null | No | LLM config (null to inherit from workspace) |
 | `maxConcurrency` | number \| null | No | Max concurrent runs (null to inherit) |
+| `styleReferenceImageIds` | string[] \| null | No | Image IDs for persona image style references (null to clear) |
 
 When updating `llmSettings`, the `apiKey` field is optional. Omit it to keep the existing stored key — only provide it when setting a new key.
 
@@ -195,11 +196,49 @@ curl -X DELETE http://localhost:3000/api/projects/a1b2c3d4
 
 ---
 
+## Project Images
+
+Generic blob store for project images (persona portraits, style references, etc.).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/projects/:projectId/images` | Upload an image |
+| GET | `/api/projects/:projectId/images/:id` | Serve an image |
+| DELETE | `/api/projects/:projectId/images/:id` | Delete an image |
+
+### POST /api/projects/:projectId/images
+
+Upload an image. Returns a generated image ID.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `imageBase64` | string | Yes | Base64-encoded image data |
+| `filename` | string | No | Original filename (for mime type detection) |
+
+**Response (201 Created):**
+
+```json
+{ "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.png" }
+```
+
+### GET /api/projects/:projectId/images/:id
+
+Serve an image with appropriate `Content-Type` header and caching.
+
+### DELETE /api/projects/:projectId/images/:id
+
+Delete an image. Returns 204 on success, 404 if not found.
+
+---
+
 ## Project-Scoped Entity Routes
 
 All entity endpoints are nested under a project:
 
 ```
+/api/projects/:projectId/images
 /api/projects/:projectId/personas
 /api/projects/:projectId/scenarios
 /api/projects/:projectId/evals

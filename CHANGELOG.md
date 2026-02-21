@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Persona images** — Optional AI-generated portrait images for personas
+  - Core: `ImageStore` interface on `StorageProvider` — generic blob store with `save(base64, filename?) → id`, `get(id)`, `delete(id)`
+  - Core: `imageUrl?: string` field on `Persona` and `UpdatePersonaInput` to reference stored images
+  - Core: `styleReferenceImageIds?: string[]` on `ProjectEntry`/`ProjectConfig` for project-level style references
+  - Core: `generatePersonaImage()` uses OpenAI `gpt-image-1` — `/v1/images/edits` with style references or `/v1/images/generations` without
+  - Core: Filesystem backend stores images as flat files in `{dataDir}/images/`
+  - Postgres: `project_images` table with `BYTEA` storage, `style_reference_image_ids TEXT[]` column on projects (migration 002)
+  - API: `POST /images` (upload), `GET /images/:id` (serve), `DELETE /images/:id` (remove)
+  - API: `POST /personas/:id/generate-image` generates a portrait from persona's system prompt, saves it, and updates `imageUrl`
+  - Web: Persona avatars shown in list and detail page, with "Generate Image" button
+  - Web: Style Reference Manager in Settings for uploading reference images that define the artistic style
+
 ### Changed
 
 - **Eval page scenario list** — Compact rows with search filtering and scrollable container

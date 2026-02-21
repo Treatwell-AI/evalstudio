@@ -1,20 +1,24 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { usePersona, useUpdatePersona, useDeletePersona } from "../hooks/usePersonas";
+import { usePersona, useUpdatePersona, useDeletePersona, useGeneratePersonaImage } from "../hooks/usePersonas";
 import { useRunsByPersona } from "../hooks/useRuns";
 import { RunList } from "../components/RunList";
 import { PersonaCodeSnippets } from "../components/PersonaCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { projectImageUrl } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 
 type PersonaTab = "runs" | "code";
 type ViewMode = "time" | "execution";
 
 export function PersonaDetailPage() {
   const navigate = useNavigate();
+  const projectId = useProjectId();
   const { personaId } = useParams<{ personaId: string }>();
   const { data: persona, isLoading, error } = usePersona(personaId ?? null);
   const updatePersona = useUpdatePersona();
   const deletePersona = useDeletePersona();
+  const generateImage = useGeneratePersonaImage();
 
   // Load runs for performance chart
   const { data: runs = [] } = useRunsByPersona(personaId ?? "");
@@ -28,6 +32,7 @@ export function PersonaDetailPage() {
   const [systemPrompt, setSystemPrompt] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Load persona data into form when it changes
   useEffect(() => {
@@ -102,6 +107,19 @@ export function PersonaDetailPage() {
     setSaveError(null);
     setHasChanges(false);
   };
+
+  const handleGenerateImage = async () => {
+    setGenerateError(null);
+    try {
+      await generateImage.mutateAsync(persona.id);
+    } catch (err) {
+      setGenerateError(err instanceof Error ? err.message : "Failed to generate image");
+    }
+  };
+
+  const imageUrl = persona.imageUrl
+    ? projectImageUrl(projectId, persona.imageUrl)
+    : null;
 
   return (
     <div className="page persona-detail-page">
@@ -191,6 +209,36 @@ export function PersonaDetailPage() {
       {saveError && <div className="form-error">{saveError}</div>}
 
       <div className="persona-detail-content">
+        <div className="persona-image-section">
+          <div className="persona-image-preview">
+            {imageUrl ? (
+              <img
+                src={`${imageUrl}?t=${persona.updatedAt}`}
+                alt={`${persona.name} avatar`}
+                className="persona-image"
+              />
+            ) : (
+              <div className="persona-image-placeholder">
+                <span>{persona.name.charAt(0).toUpperCase()}</span>
+              </div>
+            )}
+          </div>
+          <div className="persona-image-actions">
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={handleGenerateImage}
+              disabled={generateImage.isPending || !persona.systemPrompt}
+              title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
+            >
+              {generateImage.isPending ? "Generating..." : imageUrl ? "Regenerate Image" : "Generate Image"}
+            </button>
+            {generateError && <div className="form-error">{generateError}</div>}
+            {generateImage.isPending && (
+              <p className="form-hint">This may take a few seconds...</p>
+            )}
+          </div>
+        </div>
+
         <div className="persona-edit-form">
           <div className="form-group">
             <label htmlFor="persona-description">Description</label>

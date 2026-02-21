@@ -6,6 +6,8 @@ export interface Persona {
   name: string;
   description?: string;
   systemPrompt?: string;
+  /** Relative path to the persona's generated image (e.g. "images/personas/{id}.png") */
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,6 +22,7 @@ export interface UpdatePersonaInput {
   name?: string;
   description?: string;
   systemPrompt?: string;
+  imageUrl?: string;
 }
 
 export function createPersonaModule(repo: Repository<Persona>) {
@@ -81,6 +84,7 @@ export function createPersonaModule(repo: Repository<Persona>) {
         name: input.name ?? persona.name,
         description: input.description ?? persona.description,
         systemPrompt: input.systemPrompt ?? persona.systemPrompt,
+        imageUrl: input.imageUrl ?? persona.imageUrl,
         updatedAt: new Date().toISOString(),
       };
 

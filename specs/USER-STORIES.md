@@ -18,6 +18,8 @@
 
 [x] As a user, I want to create multiple personas that interact with the agent I'm testing so that I can run various scenarios against them
 [x] As a user, I want to describe each persona in natural language so that it's easy to understand and maintain
+[x] As a user, I want to generate AI portrait images for personas so that they have visual identities in the UI
+[x] As a user, I want to upload style reference images at the project level so that all generated persona portraits share a consistent visual style
 
 ### Test Scenarios
 

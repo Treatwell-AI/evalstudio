@@ -91,4 +91,20 @@ CREATE INDEX IF NOT EXISTS idx_runs_scenario ON runs(project_id, scenario_id);
 CREATE INDEX IF NOT EXISTS idx_runs_execution ON runs(project_id, execution_id);
     `,
   },
+  {
+    version: 2,
+    name: "002_project_images",
+    sql: `
+CREATE TABLE IF NOT EXISTS project_images (
+  id TEXT PRIMARY KEY,
+  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  mime_type TEXT NOT NULL DEFAULT 'image/png',
+  data BYTEA NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_project_images_project ON project_images(project_id);
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS style_reference_image_ids TEXT[];
+    `,
+  },
 ];

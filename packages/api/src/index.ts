@@ -17,6 +17,7 @@ import { personasRoute } from "./routes/personas.js";
 import { projectsRoute } from "./routes/projects.js";
 import { runsRoute } from "./routes/runs.js";
 import { scenariosRoute } from "./routes/scenarios.js";
+import { imagesRoute } from "./routes/images.js";
 import { statusRoute } from "./routes/status.js";
 
 // Extend Fastify with storage provider and project context
@@ -92,6 +93,7 @@ export async function createServer(options: ServerOptions = {}) {
 
           await scoped.register(connectorsRoute);
           await scoped.register(evalsRoute);
+          await scoped.register(imagesRoute);
           await scoped.register(personasRoute);
           await scoped.register(runsRoute);
           await scoped.register(scenariosRoute);

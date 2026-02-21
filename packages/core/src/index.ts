@@ -113,7 +113,7 @@ export {
   createProjectModules,
   type ProjectModules,
 } from "./module-factory.js";
-export { type StorageProvider } from "./storage-provider.js";
+export { type StorageProvider, type ImageStore } from "./storage-provider.js";
 export { createFilesystemStorage } from "./filesystem-storage.js";
 export { createStorageProvider, resolveConnectionString } from "./storage-factory.js";
 export {
@@ -139,3 +139,8 @@ export {
   type ChatCompletionOptions,
   type ChatCompletionResult,
 } from "./llm-client.js";
+export {
+  generatePersonaImage,
+  type GeneratePersonaImageInput,
+  type GeneratePersonaImageResult,
+} from "./image-generator.js";
