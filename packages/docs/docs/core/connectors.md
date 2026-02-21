@@ -101,6 +101,8 @@ interface ConnectorTestResult {
 interface ConnectorInvokeInput {
   messages: Message[];  // Array of messages to send
   runId?: string;       // Optional run ID to use as thread_id (LangGraph only)
+  threadMessageCount?: number; // Number of messages already in thread (LangGraph only)
+  extraHeaders?: Record<string, string>; // Extra headers merged with connector headers (take precedence)
 }
 ```
 

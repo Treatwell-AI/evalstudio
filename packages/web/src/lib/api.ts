@@ -57,6 +57,7 @@ export interface Persona {
   description?: string;
   systemPrompt?: string;
   imageUrl?: string;
+  headers?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,6 +66,7 @@ export interface CreatePersonaInput {
   name: string;
   description?: string;
   systemPrompt?: string;
+  headers?: Record<string, string>;
 }
 
 export interface UpdatePersonaInput {
@@ -72,6 +74,7 @@ export interface UpdatePersonaInput {
   description?: string;
   systemPrompt?: string;
   imageUrl?: string;
+  headers?: Record<string, string>;
 }
 
 

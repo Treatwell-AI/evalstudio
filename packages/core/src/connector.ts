@@ -54,6 +54,8 @@ export interface ConnectorInvokeInput {
   messages: Message[];
   runId?: string;
   threadMessageCount?: number;
+  /** Extra headers to merge with connector headers (take precedence over connector headers) */
+  extraHeaders?: Record<string, string>;
 }
 
 export interface ConnectorInvokeResult {
@@ -92,10 +94,11 @@ interface ConnectorStrategy {
   parseInvokeResponse(responseText: string, inputMessageCount: number): Message[];
 }
 
-function buildRequestHeaders(connector: Connector): Record<string, string> {
+function buildRequestHeaders(connector: Connector, extraHeaders?: Record<string, string>): Record<string, string> {
   return {
     "Content-Type": "application/json",
     ...connector.headers,
+    ...extraHeaders,
   };
 }
 
@@ -131,7 +134,7 @@ const langGraphStrategy: ConnectorStrategy = {
     return {
       url,
       method: "POST",
-      headers: buildRequestHeaders(connector),
+      headers: buildRequestHeaders(connector, input.extraHeaders),
       body: JSON.stringify({
         assistant_id: assistantId,
         input: { messages: messagesToSend },
@@ -214,7 +217,7 @@ const httpStrategy: ConnectorStrategy = {
     return {
       url: connector.baseUrl + path,
       method,
-      headers: buildRequestHeaders(connector),
+      headers: buildRequestHeaders(connector, input.extraHeaders),
       body: JSON.stringify({ messages: input.messages }),
     };
   },

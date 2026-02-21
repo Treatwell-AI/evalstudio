@@ -33,6 +33,7 @@ interface Persona {
   description?: string;  // Short description of the persona
   systemPrompt?: string; // Full description / system prompt for this persona
   imageUrl?: string;     // Image ID referencing a stored image
+  headers?: Record<string, string>; // HTTP headers merged with connector headers
   createdAt: string;     // ISO 8601 timestamp
   updatedAt: string;     // ISO 8601 timestamp
 }
@@ -45,6 +46,7 @@ interface CreatePersonaInput {
   name: string;
   description?: string;
   systemPrompt?: string;
+  headers?: Record<string, string>;
 }
 ```
 
@@ -56,6 +58,7 @@ interface UpdatePersonaInput {
   description?: string;
   systemPrompt?: string;
   imageUrl?: string;
+  headers?: Record<string, string>;
 }
 ```
 
@@ -76,6 +79,10 @@ const persona = createPersona({
   name: "impatient-user",
   description: "A user who wants quick answers",
   systemPrompt: "You are an impatient user who values brevity and expects quick, concise responses.",
+  headers: {
+    "X-User-Language": "en",
+    "X-User-Tier": "premium",
+  },
 });
 ```
 

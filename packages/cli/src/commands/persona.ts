@@ -9,6 +9,7 @@ export const personaCommand = new Command("persona")
       .argument("<name>", "Persona name")
       .option("-d, --description <description>", "Persona description")
       .option("-s, --system-prompt <prompt>", "System prompt for this persona")
+      .option("--header <key:value...>", "HTTP headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
         async (
@@ -16,6 +17,7 @@ export const personaCommand = new Command("persona")
           options: {
             description?: string;
             systemPrompt?: string;
+            header?: string[];
             json?: boolean;
           }
         ) => {
@@ -23,10 +25,12 @@ export const personaCommand = new Command("persona")
             const ctx = resolveProjectFromCwd();
             const storage = await createStorageProvider(ctx.workspaceDir);
             const { personas } = createProjectModules(storage, ctx.id);
+            const headers = parseHeaders(options.header);
             const persona = await personas.create({
               name,
               description: options.description,
               systemPrompt: options.systemPrompt,
+              headers,
             });
 
             if (options.json) {
@@ -128,6 +132,7 @@ export const personaCommand = new Command("persona")
       .option("-n, --name <name>", "New persona name")
       .option("-d, --description <description>", "New persona description")
       .option("-s, --system-prompt <prompt>", "New system prompt")
+      .option("--header <key:value...>", "HTTP headers as key:value pairs (repeatable)")
       .option("--json", "Output as JSON")
       .action(
         async (
@@ -136,6 +141,7 @@ export const personaCommand = new Command("persona")
             name?: string;
             description?: string;
             systemPrompt?: string;
+            header?: string[];
             json?: boolean;
           }
         ) => {
@@ -150,10 +156,12 @@ export const personaCommand = new Command("persona")
           }
 
           try {
+            const headers = parseHeaders(options.header);
             const updated = await personas.update(existing.id, {
               name: options.name,
               description: options.description,
               systemPrompt: options.systemPrompt,
+              headers,
             });
 
             if (!updated) {
@@ -215,3 +223,19 @@ export const personaCommand = new Command("persona")
         }
       })
   );
+
+function parseHeaders(headerArgs?: string[]): Record<string, string> | undefined {
+  if (!headerArgs || headerArgs.length === 0) return undefined;
+  const headers: Record<string, string> = {};
+  for (const h of headerArgs) {
+    const colonIndex = h.indexOf(":");
+    if (colonIndex === -1) {
+      console.error(`Error: Invalid header format "${h}". Use key:value`);
+      process.exit(1);
+    }
+    const key = h.slice(0, colonIndex).trim();
+    const value = h.slice(colonIndex + 1).trim();
+    headers[key] = value;
+  }
+  return headers;
+}

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Persona headers** — Optional HTTP headers per persona that merge with connector headers at request time
+  - Core: `headers?: Record<string, string>` field on `Persona`, `CreatePersonaInput`, and `UpdatePersonaInput`
+  - Core: `extraHeaders` on `ConnectorInvokeInput`, merged last (persona headers take precedence over connector headers)
+  - Core: RunProcessor passes persona headers as `extraHeaders` when invoking connectors
+  - CLI: `--header <key:value>` option on `persona create` and `persona update` commands
+  - API: `headers` field accepted on `POST /personas` and `PUT /personas/:id`
+  - Web: Shared `HeadersEditor` component used in both Persona detail and Connector form
+  - Web: Improved Persona detail layout with larger image on the right and form fields on the left
+  - Web: Confirmation dialog when regenerating an existing persona image
 - **Persona images** — Optional AI-generated portrait images for personas
   - Core: `ImageStore` interface on `StorageProvider` — generic blob store with `save(base64, filename?) → id`, `get(id)`, `delete(id)`
   - Core: `imageUrl?: string` field on `Persona` and `UpdatePersonaInput` to reference stored images

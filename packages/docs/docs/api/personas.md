@@ -57,12 +57,14 @@ Create a new persona.
 | `name` | string | Yes | Persona name |
 | `description` | string | No | Short description of the persona |
 | `systemPrompt` | string | No | Full description / system prompt for this persona |
+| `headers` | object | No | HTTP headers merged with connector headers (persona headers take precedence) |
 
 ```json
 {
   "name": "impatient-user",
   "description": "A user who wants quick answers",
-  "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses."
+  "systemPrompt": "You are an impatient user who values brevity and expects quick, concise responses.",
+  "headers": { "X-User-Language": "en" }
 }
 ```
 
@@ -143,6 +145,7 @@ Update an existing persona.
 | `description` | string | No | New short description |
 | `systemPrompt` | string | No | New system prompt |
 | `imageUrl` | string | No | Image ID referencing a stored image |
+| `headers` | object | No | HTTP headers merged with connector headers (persona headers take precedence) |
 
 ```json
 {

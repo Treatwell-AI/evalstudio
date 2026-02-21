@@ -449,6 +449,7 @@ export class RunProcessor {
         messages: conversationMessages,
         runId: this.getThreadId(currentRun),
         threadMessageCount,
+        extraHeaders: persona?.headers,
       });
       lastResult = result;
 

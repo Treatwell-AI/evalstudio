@@ -8,6 +8,8 @@ export interface Persona {
   systemPrompt?: string;
   /** Relative path to the persona's generated image (e.g. "images/personas/{id}.png") */
   imageUrl?: string;
+  /** HTTP headers to merge with connector headers when making requests (persona headers take precedence) */
+  headers?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +18,7 @@ export interface CreatePersonaInput {
   name: string;
   description?: string;
   systemPrompt?: string;
+  headers?: Record<string, string>;
 }
 
 export interface UpdatePersonaInput {
@@ -23,6 +26,7 @@ export interface UpdatePersonaInput {
   description?: string;
   systemPrompt?: string;
   imageUrl?: string;
+  headers?: Record<string, string>;
 }
 
 export function createPersonaModule(repo: Repository<Persona>) {
@@ -40,6 +44,7 @@ export function createPersonaModule(repo: Repository<Persona>) {
         name: input.name,
         description: input.description,
         systemPrompt: input.systemPrompt,
+        headers: input.headers,
         createdAt: now,
         updatedAt: now,
       };
@@ -85,6 +90,7 @@ export function createPersonaModule(repo: Repository<Persona>) {
         description: input.description ?? persona.description,
         systemPrompt: input.systemPrompt ?? persona.systemPrompt,
         imageUrl: input.imageUrl ?? persona.imageUrl,
+        headers: input.headers !== undefined ? input.headers : persona.headers,
         updatedAt: new Date().toISOString(),
       };
 

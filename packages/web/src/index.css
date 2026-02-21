@@ -457,14 +457,24 @@ body {
   box-shadow: var(--shadow);
 }
 
+.persona-detail-top {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.persona-detail-left {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Persona Image Section */
 .persona-image-section {
   display: flex;
-  align-items: flex-start;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--color-border);
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .persona-image-preview {
@@ -472,31 +482,31 @@ body {
 }
 
 .persona-image {
-  width: 96px;
-  height: 96px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--color-border);
 }
 
 .persona-image-placeholder {
-  width: 96px;
-  height: 96px;
+  width: 160px;
+  height: 160px;
   border-radius: 50%;
   background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
+  font-size: 3.5rem;
   font-weight: 600;
 }
 
 .persona-image-actions {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
-  padding-top: 0.5rem;
 }
 
 /* Style Reference Manager */

@@ -25,13 +25,15 @@ evalstudio persona show ${persona.id}
 evalstudio persona create \\
   --name "New Persona" \\
   --description "Brief description" \\
-  --system-prompt "Full character instructions..."
+  --system-prompt "Full character instructions..." \\
+  --header "X-User-Language:en"
 
 # Update this persona
 evalstudio persona update ${persona.id} \\
   --name "Updated Name" \\
   --description "Updated description" \\
-  --system-prompt "Updated instructions..."
+  --system-prompt "Updated instructions..." \\
+  --header "X-User-Language:en"
 
 # Delete this persona
 evalstudio persona delete ${persona.id}`;
@@ -48,7 +50,8 @@ curl -X POST ${base} \\
   -d '{
     "name": "New Persona",
     "description": "Brief description",
-    "systemPrompt": "Full character instructions..."
+    "systemPrompt": "Full character instructions...",
+    "headers": { "X-User-Language": "en" }
   }'
 
 # Update this persona
@@ -57,7 +60,8 @@ curl -X PUT ${base}/${persona.id} \\
   -d '{
     "name": "Updated Name",
     "description": "Updated description",
-    "systemPrompt": "Updated instructions..."
+    "systemPrompt": "Updated instructions...",
+    "headers": { "X-User-Language": "en" }
   }'
 
 # Delete this persona

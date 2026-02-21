@@ -6,6 +6,7 @@ import {
   useDeleteConnector,
 } from "../hooks/useConnectors";
 import { ConnectorType, HttpConnectorConfig, LangGraphConnectorConfig } from "../lib/api";
+import { HeadersEditor } from "./HeadersEditor";
 
 interface ConnectorFormProps {
   connectorId: string | null;
@@ -266,53 +267,11 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
             </>
           )}
 
-          <div className="form-group">
-            <label>Headers</label>
-            <span className="form-hint">
-              Custom headers sent with every request (e.g. Authorization, API keys)
-            </span>
-            {customHeaders.map((header, index) => (
-              <div key={index} className="header-row" style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                <input
-                  type="text"
-                  value={header.key}
-                  onChange={(e) => {
-                    const updated = [...customHeaders];
-                    updated[index] = { ...updated[index], key: e.target.value };
-                    setCustomHeaders(updated);
-                  }}
-                  placeholder="Header name"
-                  style={{ flex: 1 }}
-                />
-                <input
-                  type="text"
-                  value={header.value}
-                  onChange={(e) => {
-                    const updated = [...customHeaders];
-                    updated[index] = { ...updated[index], value: e.target.value };
-                    setCustomHeaders(updated);
-                  }}
-                  placeholder="Value"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-danger btn-sm"
-                  onClick={() => setCustomHeaders(customHeaders.filter((_, i) => i !== index))}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setCustomHeaders([...customHeaders, { key: "", value: "" }])}
-              style={{ marginTop: "0.5rem" }}
-            >
-              + Add Header
-            </button>
-          </div>
+          <HeadersEditor
+            headers={customHeaders}
+            onChange={setCustomHeaders}
+            hint="Custom headers sent with every request (e.g. Authorization, API keys)"
+          />
 
           <div className="form-actions">
             {isEditing && (

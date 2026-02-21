@@ -26,6 +26,7 @@ evalstudio persona create <name> [options]
 |--------|-------------|
 | `-d, --description <text>` | Short description of the persona |
 | `-s, --system-prompt <prompt>` | Full description / system prompt for this persona |
+| `--header <key:value>` | HTTP header as key:value pair (repeatable) |
 | `--json` | Output as JSON |
 
 **Example:**
@@ -33,7 +34,8 @@ evalstudio persona create <name> [options]
 ```bash
 evalstudio persona create impatient-user \
   -d "A user who wants quick answers" \
-  -s "You are an impatient user who values brevity and expects quick, concise responses."
+  -s "You are an impatient user who values brevity and expects quick, concise responses." \
+  --header "X-User-Language:en" --header "X-User-Tier:premium"
 ```
 
 Output:
@@ -119,6 +121,7 @@ evalstudio persona update <identifier> [options]
 | `-n, --name <name>` | New persona name |
 | `-d, --description <text>` | New short description |
 | `-s, --system-prompt <prompt>` | New system prompt |
+| `--header <key:value>` | HTTP header as key:value pair (repeatable) |
 | `--json` | Output as JSON |
 
 **Example:**

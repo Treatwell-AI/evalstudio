@@ -7,6 +7,7 @@ import { PersonaCodeSnippets } from "../components/PersonaCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
 import { projectImageUrl } from "../lib/api";
 import { useProjectId } from "../hooks/useProjectId";
+import { HeadersEditor } from "../components/HeadersEditor";
 
 type PersonaTab = "runs" | "code";
 type ViewMode = "time" | "execution";
@@ -30,6 +31,7 @@ export function PersonaDetailPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
@@ -40,6 +42,11 @@ export function PersonaDetailPage() {
       setName(persona.name);
       setDescription(persona.description || "");
       setSystemPrompt(persona.systemPrompt || "");
+      setCustomHeaders(
+        persona.headers && Object.keys(persona.headers).length > 0
+          ? Object.entries(persona.headers).map(([key, value]) => ({ key, value }))
+          : []
+      );
       setHasChanges(false);
     }
   }, [persona]);
@@ -85,12 +92,19 @@ export function PersonaDetailPage() {
     }
 
     try {
+      const headersWithValues = customHeaders.filter((h) => h.key.trim());
+      const headers: Record<string, string> | undefined =
+        headersWithValues.length > 0
+          ? Object.fromEntries(headersWithValues.map((h) => [h.key.trim(), h.value]))
+          : undefined;
+
       await updatePersona.mutateAsync({
         id: persona.id,
         input: {
           name,
           description: description || undefined,
           systemPrompt: systemPrompt || undefined,
+          headers,
         },
       });
       setHasChanges(false);
@@ -104,11 +118,17 @@ export function PersonaDetailPage() {
     setName(persona.name);
     setDescription(persona.description || "");
     setSystemPrompt(persona.systemPrompt || "");
+    setCustomHeaders(
+      persona.headers && Object.keys(persona.headers).length > 0
+        ? Object.entries(persona.headers).map(([key, value]) => ({ key, value }))
+        : []
+    );
     setSaveError(null);
     setHasChanges(false);
   };
 
   const handleGenerateImage = async () => {
+    if (imageUrl && !confirm("Regenerate this persona's image?")) return;
     setGenerateError(null);
     try {
       await generateImage.mutateAsync(persona.id);
@@ -209,69 +229,80 @@ export function PersonaDetailPage() {
       {saveError && <div className="form-error">{saveError}</div>}
 
       <div className="persona-detail-content">
-        <div className="persona-image-section">
-          <div className="persona-image-preview">
-            {imageUrl ? (
-              <img
-                src={`${imageUrl}?t=${persona.updatedAt}`}
-                alt={`${persona.name} avatar`}
-                className="persona-image"
+        <div className="persona-detail-top">
+          <div className="persona-detail-left">
+            <div className="form-group">
+              <label htmlFor="persona-description">Description</label>
+              <p className="form-hint">
+                A brief description of this persona (shown in lists and dropdowns).
+              </p>
+              <input
+                id="persona-description"
+                type="text"
+                value={description}
+                onChange={(e) => handleChange(setDescription)(e.target.value)}
+                placeholder="Impatient customer who wants quick answers"
               />
-            ) : (
-              <div className="persona-image-placeholder">
-                <span>{persona.name.charAt(0).toUpperCase()}</span>
-              </div>
-            )}
-          </div>
-          <div className="persona-image-actions">
-            <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleGenerateImage}
-              disabled={generateImage.isPending || !persona.systemPrompt}
-              title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
-            >
-              {generateImage.isPending ? "Generating..." : imageUrl ? "Regenerate Image" : "Generate Image"}
-            </button>
-            {generateError && <div className="form-error">{generateError}</div>}
-            {generateImage.isPending && (
-              <p className="form-hint">This may take a few seconds...</p>
-            )}
-          </div>
-        </div>
+            </div>
 
-        <div className="persona-edit-form">
-          <div className="form-group">
-            <label htmlFor="persona-description">Description</label>
-            <p className="form-hint">
-              A brief description of this persona (shown in lists and dropdowns).
-            </p>
-            <input
-              id="persona-description"
-              type="text"
-              value={description}
-              onChange={(e) => handleChange(setDescription)(e.target.value)}
-              placeholder="Impatient customer who wants quick answers"
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="persona-system-prompt">System Prompt</label>
-            <p className="form-hint">
-              Full character instructions for the LLM. Describe personality, behavior patterns, communication style, and any specific traits this persona should exhibit.
-            </p>
-            <textarea
-              id="persona-system-prompt"
-              value={systemPrompt}
-              onChange={(e) => handleChange(setSystemPrompt)(e.target.value)}
-              rows={10}
-              placeholder="You are an impatient customer who values their time. You tend to:
+            <div className="form-group">
+              <label htmlFor="persona-system-prompt">System Prompt</label>
+              <p className="form-hint">
+                Full character instructions for the LLM. Describe personality, behavior patterns, communication style, and any specific traits this persona should exhibit.
+              </p>
+              <textarea
+                id="persona-system-prompt"
+                value={systemPrompt}
+                onChange={(e) => handleChange(setSystemPrompt)(e.target.value)}
+                rows={10}
+                placeholder="You are an impatient customer who values their time. You tend to:
 - Get frustrated with long explanations
 - Ask direct questions and expect quick answers
 - Express urgency in your messages
 - Appreciate when issues are resolved efficiently"
-            />
+              />
+            </div>
+          </div>
+
+          <div className="persona-image-section">
+            <div className="persona-image-preview">
+              {imageUrl ? (
+                <img
+                  src={`${imageUrl}?t=${persona.updatedAt}`}
+                  alt={`${persona.name} avatar`}
+                  className="persona-image"
+                />
+              ) : (
+                <div className="persona-image-placeholder">
+                  <span>{persona.name.charAt(0).toUpperCase()}</span>
+                </div>
+              )}
+            </div>
+            <div className="persona-image-actions">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={handleGenerateImage}
+                disabled={generateImage.isPending || !persona.systemPrompt}
+                title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
+              >
+                {generateImage.isPending ? "Generating..." : imageUrl ? "Regenerate Image" : "Generate Image"}
+              </button>
+              {generateError && <div className="form-error">{generateError}</div>}
+              {generateImage.isPending && (
+                <p className="form-hint">This may take a few seconds...</p>
+              )}
+            </div>
           </div>
         </div>
+
+        <HeadersEditor
+          headers={customHeaders}
+          onChange={(updated) => {
+            setCustomHeaders(updated);
+            setHasChanges(true);
+          }}
+          hint="HTTP headers merged with connector headers when making requests. Persona headers take precedence over connector headers."
+        />
       </div>
 
       <div className="dashboard-card dashboard-card-wide">

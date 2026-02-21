@@ -9,6 +9,7 @@ interface CreatePersonaBody {
   name: string;
   description?: string;
   systemPrompt?: string;
+  headers?: Record<string, string>;
 }
 
 interface UpdatePersonaBody {
@@ -16,6 +17,7 @@ interface UpdatePersonaBody {
   description?: string;
   systemPrompt?: string;
   imageUrl?: string;
+  headers?: Record<string, string>;
 }
 
 interface PersonaParams {
@@ -46,7 +48,7 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreatePersonaBody }>(
     "/personas",
     async (request, reply) => {
-      const { name, description, systemPrompt } = request.body;
+      const { name, description, systemPrompt, headers } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -59,6 +61,7 @@ export async function personasRoute(fastify: FastifyInstance) {
           name,
           description,
           systemPrompt,
+          headers,
         });
         reply.code(201);
         return persona;
@@ -75,7 +78,7 @@ export async function personasRoute(fastify: FastifyInstance) {
   fastify.put<{ Params: PersonaParams; Body: UpdatePersonaBody }>(
     "/personas/:id",
     async (request, reply) => {
-      const { name, description, systemPrompt, imageUrl } = request.body;
+      const { name, description, systemPrompt, imageUrl, headers } = request.body;
 
       try {
         const { personas } = createProjectModules(fastify.storage, request.projectCtx!.id);
@@ -84,6 +87,7 @@ export async function personasRoute(fastify: FastifyInstance) {
           description,
           systemPrompt,
           imageUrl,
+          headers,
         });
 
         if (!persona) {
