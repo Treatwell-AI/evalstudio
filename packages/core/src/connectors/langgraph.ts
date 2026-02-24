@@ -30,13 +30,16 @@ export const langGraphStrategy: ConnectorStrategy = {
       ? input.messages.filter((msg) => !msg.id || !input.seenMessageIds!.has(msg.id))
       : input.messages;
 
+    // Strip internal metadata before sending to LangGraph, but keep id for dedup
+    const cleanMessages = messagesToSend.map(({ metadata, ...rest }) => rest);
+
     return {
       url,
       method: "POST",
       headers: buildRequestHeaders(connector, input.extraHeaders),
       body: JSON.stringify({
         assistant_id: assistantId,
-        input: { messages: messagesToSend },
+        input: { messages: cleanMessages },
         multitask_strategy: "enqueue",
         if_not_exists: "create",
         ...(lgConfig?.configurable && {
@@ -75,10 +78,13 @@ export const langGraphStrategy: ConnectorStrategy = {
     try {
       const data = JSON.parse(responseText);
 
-      // Extract messages, filtering out messages we've already seen
+      // LangGraph returns ALL thread messages in responses. We need to extract only
+      // the NEW messages added by this invocation. Filter by seenMessageIds which
+      // contains IDs of all messages we've sent and received so far.
       if (data.messages && Array.isArray(data.messages)) {
-        // Filter raw messages first to identify which are new
-        const rawNewMessages = (data.messages as Array<Record<string, unknown>>).filter((msg) => {
+        const allMessages = data.messages as Array<Record<string, unknown>>;
+
+        const rawNewMessages = allMessages.filter((msg) => {
           const msgId = typeof msg.id === "string" ? msg.id : undefined;
           return !msgId || !seenMessageIds.has(msgId);
         });
@@ -92,7 +98,22 @@ export const langGraphStrategy: ConnectorStrategy = {
 
           const message: Message = { role, content: (msg.content as string) ?? "" };
 
-          if (Array.isArray(msg.tool_calls)) message.tool_calls = msg.tool_calls as Message["tool_calls"];
+          if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+            // Normalize LangGraph tool_call format {name, args, type, id}
+            // to OpenAI format {id, type: "function", function: {name, arguments}}
+            message.tool_calls = (msg.tool_calls as Array<Record<string, unknown>>).map((tc) => ({
+              id: (tc.id as string) || "",
+              type: "function" as const,
+              function: {
+                name: (tc.name as string) || (tc.function as Record<string, unknown>)?.name as string || "",
+                arguments: typeof tc.args === "string"
+                  ? tc.args
+                  : typeof tc.args === "object"
+                    ? JSON.stringify(tc.args)
+                    : (tc.function as Record<string, unknown>)?.arguments as string || "{}",
+              },
+            }));
+          }
           if (typeof msg.tool_call_id === "string") message.tool_call_id = msg.tool_call_id;
           if (typeof msg.name === "string") message.name = msg.name;
           if (typeof msg.id === "string") message.id = msg.id;

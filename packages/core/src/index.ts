@@ -122,9 +122,23 @@ export {
 export { RunProcessor, type RunProcessorOptions } from "./run-processor.js";
 export {
   evaluateCriteria,
+  runEvaluators,
   type CriteriaEvaluationResult,
   type EvaluateCriteriaInput,
+  type EvaluatorDefinition,
+  type EvaluatorContext,
+  type EvaluationResult,
+  type ScenarioEvaluator,
+  type EvaluatorResultEntry,
+  type AggregatedEvaluationResult,
+  type JsonSchema,
 } from "./evaluator.js";
+export {
+  EvaluatorRegistry,
+  createEvaluatorRegistry,
+  defineEvaluator,
+  loadCustomEvaluators,
+} from "./evaluator-registry.js";
 export {
   generatePersonaMessage,
   type GeneratePersonaMessageInput,

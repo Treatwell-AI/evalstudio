@@ -5,6 +5,7 @@ import {
   createProjectModules,
   type FailureCriteriaMode,
   type Message,
+  type ScenarioEvaluator,
 } from "@evalstudio/core";
 
 interface CreateScenarioBody {
@@ -15,6 +16,7 @@ interface CreateScenarioBody {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 
@@ -26,6 +28,7 @@ interface UpdateScenarioBody {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 
@@ -95,7 +98,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.post<{ Body: CreateScenarioBody }>(
     "/scenarios",
     async (request, reply) => {
-      const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
+      const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, evaluators, personaIds } = request.body;
 
       if (!name) {
         reply.code(400);
@@ -112,6 +115,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
           successCriteria,
           failureCriteria,
           failureCriteriaMode,
+          evaluators,
           personaIds,
         });
         reply.code(201);
@@ -129,7 +133,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
   fastify.put<{ Params: ScenarioParams; Body: UpdateScenarioBody }>(
     "/scenarios/:id",
     async (request, reply) => {
-      const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, personaIds } = request.body;
+      const { name, instructions, messages, maxMessages, successCriteria, failureCriteria, failureCriteriaMode, evaluators, personaIds } = request.body;
 
       try {
         const { scenarios } = createProjectModules(fastify.storage, request.projectCtx!.id);
@@ -141,6 +145,7 @@ export async function scenariosRoute(fastify: FastifyInstance) {
           successCriteria,
           failureCriteria,
           failureCriteriaMode,
+          evaluators,
           personaIds,
         });
 

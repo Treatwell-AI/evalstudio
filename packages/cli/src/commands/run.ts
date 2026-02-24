@@ -4,8 +4,10 @@ import {
   resolveWorkspace,
   createProjectModules,
   createStorageProvider,
+  createEvaluatorRegistry,
   RunProcessor,
   type Run,
+  type Message,
 } from "@evalstudio/core";
 
 function formatRunStatus(run: Run): string {
@@ -18,6 +20,22 @@ function formatRunStatus(run: Run): string {
   const reset = "\x1b[0m";
   const color = statusColors[run.status] ?? "";
   return `${color}${run.status}${reset}`;
+}
+
+function printMessage(msg: Message): void {
+  const roleColors: Record<string, string> = {
+    system: "\x1b[90m",    // gray
+    user: "\x1b[34m",      // blue
+    assistant: "\x1b[32m", // green
+    tool: "\x1b[33m",      // yellow
+  };
+  const reset = "\x1b[0m";
+  const color = roleColors[msg.role] ?? "";
+  const content = typeof msg.content === "string"
+    ? msg.content
+    : JSON.stringify(msg.content);
+  const preview = content.length > 300 ? content.slice(0, 300) + "..." : content;
+  console.log(`${color}[${msg.role}]${reset} ${preview}`);
 }
 
 export const runCommand = new Command("run")
@@ -271,6 +289,7 @@ export const runCommand = new Command("run")
             workspaceDir,
             storage,
             pollIntervalMs,
+            evaluatorRegistry: createEvaluatorRegistry(),
             ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
             onRunStart: (run) => {
               console.log(`\x1b[36m▶\x1b[0m Starting run ${run.id}`);
@@ -329,6 +348,126 @@ export const runCommand = new Command("run")
             } else {
               console.log(`\nProcessed ${totalProcessed} run(s)`);
             }
+          }
+        }
+      )
+  )
+  .addCommand(
+    new Command("playground")
+      .description("Create and immediately process a playground run")
+      .requiredOption("-s, --scenario <scenario>", "Scenario ID or name")
+      .requiredOption("-c, --connector <connector>", "Connector ID or name")
+      .option("-p, --persona <persona>", "Persona ID or name")
+      .option("--json", "Output as JSON")
+      .action(
+        async (options: {
+          scenario: string;
+          connector: string;
+          persona?: string;
+          json?: boolean;
+        }) => {
+          try {
+            const ctx = resolveProjectFromCwd();
+            const storage = await createStorageProvider(ctx.workspaceDir);
+            const modules = createProjectModules(storage, ctx.id);
+
+            // Resolve scenario
+            const scenario = await modules.scenarios.get(options.scenario)
+              ?? await modules.scenarios.getByName(options.scenario);
+            if (!scenario) {
+              console.error(`Error: Scenario "${options.scenario}" not found`);
+              process.exit(1);
+            }
+
+            // Resolve connector
+            const connector = await modules.connectors.get(options.connector)
+              ?? await modules.connectors.getByName(options.connector);
+            if (!connector) {
+              console.error(`Error: Connector "${options.connector}" not found`);
+              process.exit(1);
+            }
+
+            // Resolve persona (optional)
+            let personaId: string | undefined;
+            if (options.persona) {
+              const persona = await modules.personas.get(options.persona)
+                ?? await modules.personas.getByName(options.persona);
+              if (!persona) {
+                console.error(`Error: Persona "${options.persona}" not found`);
+                process.exit(1);
+              }
+              personaId = persona.id;
+            }
+
+            // Create the playground run
+            const run = await modules.runs.createPlayground({
+              scenarioId: scenario.id,
+              connectorId: connector.id,
+              personaId,
+            });
+
+            if (!options.json) {
+              console.log(`\x1b[36m▶\x1b[0m Playground run created: ${run.id}`);
+              console.log(`  Scenario:  ${scenario.name}`);
+              console.log(`  Connector: ${connector.name}`);
+              if (personaId) {
+                const p = await modules.personas.get(personaId);
+                console.log(`  Persona:   ${p?.name ?? personaId}`);
+              }
+              console.log(`\nProcessing...\n`);
+            }
+
+            // Process the run immediately
+            const processor = new RunProcessor({
+              workspaceDir: ctx.workspaceDir,
+              storage,
+              maxConcurrent: 1,
+              evaluatorRegistry: createEvaluatorRegistry(),
+            });
+            await processor.processOnce();
+
+            // Fetch the completed run
+            const completedRun = await modules.runs.get(run.id);
+            if (!completedRun) {
+              console.error("Error: Run disappeared after processing");
+              process.exit(1);
+            }
+
+            if (options.json) {
+              console.log(JSON.stringify(completedRun, null, 2));
+            } else {
+              // Print conversation
+              console.log("Conversation:");
+              console.log("─".repeat(60));
+              for (const msg of completedRun.messages) {
+                printMessage(msg);
+              }
+              console.log("─".repeat(60));
+
+              // Print result
+              console.log(`\nStatus:  ${formatRunStatus(completedRun)}`);
+              if (completedRun.latencyMs) {
+                console.log(`Latency: ${completedRun.latencyMs}ms`);
+              }
+              if (completedRun.error) {
+                console.log(`Error:   ${completedRun.error}`);
+              }
+              if (completedRun.result) {
+                console.log(`Result:  ${completedRun.result.success ? "\x1b[32mpassed\x1b[0m" : "\x1b[31mfailed\x1b[0m"}`);
+                if (completedRun.result.score !== undefined) {
+                  console.log(`Score:   ${completedRun.result.score}`);
+                }
+                if (completedRun.result.reason) {
+                  console.log(`Reason:  ${completedRun.result.reason}`);
+                }
+              }
+            }
+          } catch (error) {
+            if (error instanceof Error) {
+              console.error(`Error: ${error.message}`);
+              process.exit(1);
+            }
+            throw error;
           }
         }
       )

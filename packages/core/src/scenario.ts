@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Repository } from "./repository.js";
 import type { Message } from "./types.js";
+import type { ScenarioEvaluator } from "./evaluator.js";
 
 export type { Message };
 
@@ -20,6 +21,8 @@ export interface Scenario {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  /** Custom evaluators (assertions and/or metrics) that run alongside LLM-as-judge. */
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
   createdAt: string;
   updatedAt: string;
@@ -33,6 +36,7 @@ export interface CreateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 
@@ -44,6 +48,7 @@ export interface UpdateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 
@@ -66,6 +71,7 @@ export function createScenarioModule(repo: Repository<Scenario>) {
         successCriteria: input.successCriteria,
         failureCriteria: input.failureCriteria,
         failureCriteriaMode: input.failureCriteriaMode,
+        evaluators: input.evaluators,
         personaIds: input.personaIds,
         createdAt: now,
         updatedAt: now,
@@ -115,6 +121,7 @@ export function createScenarioModule(repo: Repository<Scenario>) {
         successCriteria: input.successCriteria ?? scenario.successCriteria,
         failureCriteria: input.failureCriteria ?? scenario.failureCriteria,
         failureCriteriaMode: input.failureCriteriaMode ?? scenario.failureCriteriaMode,
+        evaluators: input.evaluators ?? scenario.evaluators,
         personaIds: input.personaIds ?? scenario.personaIds,
         updatedAt: new Date().toISOString(),
       };

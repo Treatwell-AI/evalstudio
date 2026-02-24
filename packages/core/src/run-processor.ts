@@ -8,19 +8,17 @@ import { getProjectConfig } from "./project.js";
 import { readWorkspaceConfig } from "./project.js";
 import type { Message } from "./types.js";
 import { buildTestAgentSystemPrompt } from "./prompt.js";
-import { evaluateCriteria, type CriteriaEvaluationResult } from "./evaluator.js";
+import {
+  evaluateCriteria,
+  runEvaluators,
+  type CriteriaEvaluationResult,
+  type AggregatedEvaluationResult,
+  type EvaluatorDefinition,
+} from "./evaluator.js";
 import { generatePersonaMessage } from "./persona-generator.js";
 import { createProjectModules, type ProjectModules } from "./module-factory.js";
 import type { StorageProvider } from "./storage-provider.js";
-
-/**
- * Resolved LLM configuration for evaluation and persona generation
- */
-interface ResolvedLLMConfig {
-  llmProvider: LLMProvider;
-  evaluationModel?: string;
-  personaModel?: string;
-}
+import type { EvaluatorRegistry } from "./evaluator-registry.js";
 
 export type { RunStatus };
 
@@ -33,6 +31,8 @@ export interface RunProcessorOptions {
   pollIntervalMs?: number;
   /** Maximum concurrent run executions (default: from workspace config, then 3) */
   maxConcurrent?: number;
+  /** Evaluator registry for custom evaluators (optional — if not provided, only LLM-as-judge runs) */
+  evaluatorRegistry?: EvaluatorRegistry;
   /** Callback for status changes */
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   /** Callback when a run starts */
@@ -48,10 +48,88 @@ interface InternalOptions {
   storage: StorageProvider;
   pollIntervalMs: number;
   maxConcurrent: number;
+  evaluatorRegistry?: EvaluatorRegistry;
   onStatusChange?: (runId: string, status: RunStatus, run: Run) => void;
   onRunStart?: (run: Run) => void;
   onRunComplete?: (run: Run, result: ConnectorInvokeResult) => void;
   onRunError?: (run: Run, error: Error) => void;
+}
+
+/** All resolved dependencies needed to execute a run */
+interface RunContext {
+  modules: ProjectModules;
+  run: Run;
+  connectorId: string;
+  llmProvider: LLMProvider;
+  evaluationModel?: string;
+  personaModel?: string;
+  scenario: Scenario;
+  persona: Persona | undefined;
+  maxMessages: number;
+  hasCriteria: boolean;
+  resolvedEvaluators: Array<{ definition: EvaluatorDefinition; config: Record<string, unknown> }>;
+}
+
+/** Mutable state accumulated during the evaluation loop */
+class LoopState {
+  messages: Message[];
+  totalLatencyMs = 0;
+  connectorCallCount = 0;
+  totalInputTokens = 0;
+  totalOutputTokens = 0;
+  threadId: string | undefined;
+  lastResult: ConnectorInvokeResult | undefined;
+  lastCriteriaResult: CriteriaEvaluationResult | undefined;
+  lastEvalResult: AggregatedEvaluationResult | undefined;
+
+  // seenMessageIds: INPUT-side filtering only.
+  // Tells buildInvokeRequest which messages have already been sent
+  // so it only sends NEW messages on subsequent connector calls.
+  // Starts EMPTY so the first call sends everything.
+  readonly seenMessageIds = new Set<string>();
+
+  constructor(initialMessages: Message[]) {
+    this.messages = [...initialMessages];
+  }
+
+  /** Count only user and assistant messages (exclude system) */
+  get conversationMessageCount(): number {
+    return this.messages.filter((m) => m.role === "user" || m.role === "assistant").length;
+  }
+
+  /** Record a connector invocation result */
+  recordInvocation(result: ConnectorInvokeResult, sentMessages: Message[]): void {
+    this.lastResult = result;
+    this.totalLatencyMs += result.latencyMs;
+    this.connectorCallCount++;
+
+    if (result.tokensUsage) {
+      this.totalInputTokens += result.tokensUsage.input_tokens;
+      this.totalOutputTokens += result.tokensUsage.output_tokens;
+    }
+
+    if (result.threadId) {
+      this.threadId = result.threadId;
+    }
+
+    // Track all message IDs we've seen (both sent and received) for next iteration
+    for (const msg of sentMessages) {
+      if (msg.id) this.seenMessageIds.add(msg.id);
+    }
+    for (const msg of result.messages!) {
+      if (msg.id) this.seenMessageIds.add(msg.id);
+    }
+  }
+
+  /** Build the token usage object, or undefined if no tokens were tracked */
+  get tokensUsage(): { input_tokens: number; output_tokens: number; total_tokens: number } | undefined {
+    if (this.totalInputTokens === 0 && this.totalOutputTokens === 0) return undefined;
+    return {
+      input_tokens: this.totalInputTokens,
+      output_tokens: this.totalOutputTokens,
+      total_tokens: this.totalInputTokens + this.totalOutputTokens,
+    };
+  }
 }
 
 /**
@@ -60,24 +138,6 @@ interface InternalOptions {
  * A single RunProcessor serves all projects in a workspace.
  * On each poll cycle, it iterates over all projects to find queued runs
  * and executes them using each project's effective config.
- *
- * @example
- * ```typescript
- * const processor = new RunProcessor({
- *   workspaceDir: '/path/to/workspace',
- *   storage: await createStorageProvider(workspaceDir),
- *   pollIntervalMs: 5000,
- *   maxConcurrent: 3,
- *   onStatusChange: (runId, status, run) => {
- *     console.log(`Run ${runId} is now ${status}`);
- *   },
- * });
- *
- * processor.start();
- *
- * // Later: graceful shutdown
- * await processor.stop();
- * ```
  */
 export class RunProcessor {
   private running = false;
@@ -102,6 +162,7 @@ export class RunProcessor {
       storage: options.storage,
       pollIntervalMs: options.pollIntervalMs ?? 5000,
       maxConcurrent: options.maxConcurrent ?? configMaxConcurrency ?? 3,
+      evaluatorRegistry: options.evaluatorRegistry,
       onStatusChange: options.onStatusChange,
       onRunStart: options.onRunStart,
       onRunComplete: options.onRunComplete,
@@ -109,84 +170,50 @@ export class RunProcessor {
     };
   }
 
-  /**
-   * Starts the processor loop.
-   * Call this on server/CLI startup.
-   */
   start(): void {
     if (this.running) return;
-
     this.running = true;
-
-    // Reset any "running" runs to "queued" (recovery from crash)
     this.recoverStuckRuns();
-
-    // Start polling loop
     this.intervalId = setInterval(() => this.tick(), this.options.pollIntervalMs);
-
-    // Immediate first tick
     this.tick();
   }
 
-  /**
-   * Stops the processor gracefully.
-   * Waits for active runs to complete.
-   */
   async stop(): Promise<void> {
     this.running = false;
-
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
-
-    // Wait for active runs to complete
     await Promise.all(this.activeRuns.values());
   }
 
-  /**
-   * Process a single tick (useful for testing or one-shot processing).
-   * Returns the number of runs started and waits for them to complete.
-   */
   async processOnce(): Promise<number> {
     return this.tick(true);
   }
 
-  /**
-   * Returns true if the processor is currently running.
-   */
   isRunning(): boolean {
     return this.running;
   }
 
-  /**
-   * Returns the number of currently active runs.
-   */
   getActiveRunCount(): number {
     return this.activeRuns.size;
   }
 
-  /**
-   * Main processing tick - iterates over all projects to pick up queued runs.
-   * Returns the number of runs started.
-   * @param oneShot If true, waits for runs to complete before returning
-   */
+  // ── Tick / scheduling ────────────────────────────────────────────────────
+
   private async tick(oneShot = false): Promise<number> {
-    // Skip if not running and no active runs (unless one-shot mode)
     if (!oneShot && !this.running && this.activeRuns.size === 0) return 0;
 
-    // Calculate available slots
     const availableSlots = this.options.maxConcurrent - this.activeRuns.size;
     if (availableSlots <= 0) return 0;
 
     const { storage } = this.options;
 
-    // Iterate over all projects to find queued runs
     let projects: Array<{ id: string; name: string }>;
     try {
       projects = await storage.listProjects();
     } catch {
-      return 0; // No workspace config yet
+      return 0;
     }
 
     let started = 0;
@@ -203,28 +230,19 @@ export class RunProcessor {
         if (remaining <= 0) break;
         if (this.activeRuns.has(run.id)) continue;
 
-        // Attempt to claim the run atomically
         const claimed = await this.claimRun(modules, run.id);
-        if (!claimed) {
-          continue; // Already claimed by another processor
-        }
+        if (!claimed) continue;
 
-        // Start execution
         const promise = this.executeRun(project.id, modules, run);
         this.activeRuns.set(run.id, promise);
         started++;
         remaining--;
 
-        if (oneShot) {
-          promises.push(promise);
-        }
-
-        // Clean up when done
+        if (oneShot) promises.push(promise);
         promise.finally(() => this.activeRuns.delete(run.id));
       }
     }
 
-    // In one-shot mode, wait for all runs to complete
     if (oneShot && promises.length > 0) {
       await Promise.all(promises);
     }
@@ -232,125 +250,29 @@ export class RunProcessor {
     return started;
   }
 
-  /**
-   * Atomically claims a run for processing.
-   * Returns true if successful, false if already claimed.
-   */
   private async claimRun(modules: ProjectModules, runId: string): Promise<boolean> {
     const run = await modules.runs.get(runId);
-    if (!run || run.status !== "queued") {
-      return false; // Already claimed or doesn't exist
-    }
+    if (!run || run.status !== "queued") return false;
 
-    // Update status atomically
     const updated = await modules.runs.update(runId, {
       status: "running",
       startedAt: new Date().toISOString(),
     });
-
     return updated !== undefined;
   }
 
-  /**
-   * Executes a single run with the evaluation loop.
-   *
-   * The loop:
-   * 1. Sends conversation to tested agent
-   * 2. Evaluates agent response against success/failure criteria
-   * 3. If success criteria met or failure criteria met, finish the run
-   * 4. If max messages reached, finish the run
-   * 5. Otherwise, generate a new persona message and continue
-   */
-  private async executeRun(projectId: string, modules: ProjectModules, run: Run): Promise<void> {
-    // Re-fetch run to get updated state after claim
-    let currentRun = await modules.runs.get(run.id);
-    if (!currentRun) {
-      return;
-    }
+  // ── Run execution ────────────────────────────────────────────────────────
 
-    const { storage, workspaceDir } = this.options;
+  private async executeRun(projectId: string, modules: ProjectModules, run: Run): Promise<void> {
+    let currentRun = await modules.runs.get(run.id);
+    if (!currentRun) return;
 
     try {
-      // Notify start
       this.options.onStatusChange?.(currentRun.id, "running", currentRun);
       this.options.onRunStart?.(currentRun);
 
-      // Determine connector ID
-      let connectorId: string;
-
-      if (currentRun.evalId) {
-        // Eval-based run
-        const evalItem = await modules.evals.get(currentRun.evalId);
-        if (!evalItem) {
-          throw new Error(`Eval not found: ${currentRun.evalId}`);
-        }
-        if (!evalItem.connectorId) {
-          throw new Error("Eval has no connector assigned");
-        }
-        connectorId = evalItem.connectorId;
-      } else {
-        // Playground run - connector stored on run
-        if (!currentRun.connectorId) {
-          throw new Error("Playground run has no connector assigned");
-        }
-        connectorId = currentRun.connectorId;
-      }
-
-      // Get project config for LLM settings
-      const config = await getProjectConfig(storage, workspaceDir, projectId);
-      const llmProvider = await getLLMProviderFromProjectConfig(storage, workspaceDir, projectId);
-      const models = config.llmSettings?.models;
-      const evaluationModel = models?.evaluation;
-      const personaModel = models?.persona || evaluationModel;
-
-      const llmConfig: ResolvedLLMConfig = {
-        llmProvider,
-        evaluationModel,
-        personaModel,
-      };
-
-      // Get scenario and persona from stored IDs
-      if (!currentRun.scenarioId) {
-        throw new Error(`Run ${currentRun.id} has no scenario`);
-      }
-      const scenario = await modules.scenarios.get(currentRun.scenarioId);
-      if (!scenario) {
-        throw new Error(`Scenario not found: ${currentRun.scenarioId}`);
-      }
-
-      const persona = currentRun.personaId
-        ? await modules.personas.get(currentRun.personaId)
-        : undefined;
-
-      // Build all messages including system prompt
-      const allMessages = this.buildAllMessages(scenario, persona);
-
-      // Store all initial messages in the run (so they're visible in UI)
-      const runWithMessages = await modules.runs.update(currentRun.id, {
-        messages: allMessages,
-      });
-      if (runWithMessages) {
-        currentRun = runWithMessages;
-      }
-
-      // Determine max messages (default to 10 if not specified)
-      const maxMessages = scenario.maxMessages ?? 10;
-
-      // Check if we have criteria to evaluate against
-      if (!scenario.successCriteria && !scenario.failureCriteria) {
-        throw new Error("Scenario must have success or failure criteria defined");
-      }
-
-      // Run the evaluation loop
-      await this.executeEvaluationLoop(
-        modules,
-        currentRun,
-        connectorId,
-        llmConfig,
-        scenario,
-        persona,
-        maxMessages
-      );
+      const ctx = await this.resolveRunContext(projectId, modules, currentRun);
+      await this.executeEvaluationLoop(ctx);
     } catch (error) {
       const err = error instanceof Error ? error : new Error("Unknown error");
       const updatedRun = await modules.runs.update(currentRun.id, {
@@ -366,294 +288,298 @@ export class RunProcessor {
     }
   }
 
-  /**
-   * Gets the thread ID for LangGraph.
-   * Uses the stored threadId if available (set on retry), otherwise uses run.id.
-   */
-  private getThreadId(run: Run): string {
-    return run.threadId ?? run.id;
-  }
-
-  /**
-   * Gets the role of the last non-system message.
-   * Used to determine if we need to generate a persona message before invoking the connector.
-   */
-  private getLastMessageRole(messages: Message[]): Message["role"] | undefined {
-    const nonSystemMessages = messages.filter((m) => m.role !== "system");
-    if (nonSystemMessages.length === 0) return undefined;
-    return nonSystemMessages[nonSystemMessages.length - 1].role;
-  }
-
-  /**
-   * Executes the main evaluation loop.
-   * Both success and failure criteria are evaluated at every turn.
-   * The loop stops when:
-   * - Success criteria is met (run succeeds)
-   * - Failure criteria is met AND failureCriteriaMode is "every_turn" (run fails early)
-   * - Max messages reached without success (run fails; default mode "on_max_messages")
-   */
-  private async executeEvaluationLoop(
+  /** Resolves all dependencies needed for a run into a RunContext */
+  private async resolveRunContext(
+    projectId: string,
     modules: ProjectModules,
-    currentRun: Run,
-    connectorId: string,
-    llmConfig: ResolvedLLMConfig,
-    scenario: Scenario,
-    persona: Persona | undefined,
-    maxMessages: number
-  ): Promise<void> {
-    let messages = [...currentRun.messages];
-    let totalLatencyMs = 0;
-    let connectorCallCount = 0;
-    let lastResult: ConnectorInvokeResult | undefined;
-    let finalEvaluation: CriteriaEvaluationResult | undefined;
+    currentRun: Run
+  ): Promise<RunContext> {
+    const { storage, workspaceDir } = this.options;
 
-    // Track message IDs we've already sent (for filtering on subsequent calls)
-    const seenMessageIds = new Set<string>();
-
-    // Accumulate token usage across all connector calls
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    let threadId: string | undefined;
-
-    // Count only user and assistant messages for the limit (exclude system)
-    const countConversationMessages = () =>
-      messages.filter((m) => m.role === "user" || m.role === "assistant").length;
-
-    // Generate an initial user message if there are no conversation messages
-    // or the last seed message is from the assistant
-    const lastRole = this.getLastMessageRole(messages);
-    if (!lastRole || lastRole === "assistant") {
-      const personaResponse = await generatePersonaMessage({
-        messages,
-        persona,
-        scenario,
-        llmProvider: llmConfig.llmProvider,
-        model: llmConfig.personaModel,
-      });
-
-      const userMessage: Message = {
-        role: "user",
-        content: personaResponse.content,
-        id: `persona_${randomUUID()}`,
-      };
-      messages = [...messages, userMessage];
-
-      // Update run with the generated persona message
-      await modules.runs.update(currentRun.id, { messages });
+    // Determine connector ID
+    let connectorId: string;
+    if (currentRun.evalId) {
+      const evalItem = await modules.evals.get(currentRun.evalId);
+      if (!evalItem) throw new Error(`Eval not found: ${currentRun.evalId}`);
+      if (!evalItem.connectorId) throw new Error("Eval has no connector assigned");
+      connectorId = evalItem.connectorId;
+    } else {
+      if (!currentRun.connectorId) throw new Error("Playground run has no connector assigned");
+      connectorId = currentRun.connectorId;
     }
 
-    while (countConversationMessages() < maxMessages) {
-      // Build conversation messages (without system prompt) for connector
-      const conversationMessages = messages.filter((m) => m.role !== "system");
+    // Resolve LLM config
+    const config = await getProjectConfig(storage, workspaceDir, projectId);
+    const llmProvider = await getLLMProviderFromProjectConfig(storage, workspaceDir, projectId);
+    const models = config.llmSettings?.models;
+    const evaluationModel = models?.evaluation;
+    const personaModel = models?.persona || evaluationModel;
 
-      // Invoke the connector (send to tested agent, pass thread ID for LangGraph)
-      // seenMessageIds contains connector-assigned IDs from previous responses (for filtering duplicates)
+    // Resolve scenario and persona
+    if (!currentRun.scenarioId) throw new Error(`Run ${currentRun.id} has no scenario`);
+    const scenario = await modules.scenarios.get(currentRun.scenarioId);
+    if (!scenario) throw new Error(`Scenario not found: ${currentRun.scenarioId}`);
+
+    const persona = currentRun.personaId
+      ? await modules.personas.get(currentRun.personaId)
+      : undefined;
+
+    // Build initial messages and store in run
+    const allMessages = this.buildAllMessages(scenario, persona);
+    const runWithMessages = await modules.runs.update(currentRun.id, { messages: allMessages });
+    const run = runWithMessages ?? currentRun;
+
+    // Resolve evaluators: always-active first, then scenario-specific
+    const hasCriteria = !!(scenario.successCriteria || scenario.failureCriteria);
+    const resolvedEvaluators: RunContext["resolvedEvaluators"] = [];
+    const resolvedTypes = new Set<string>();
+
+    // Inject auto evaluators from registry
+    if (this.options.evaluatorRegistry) {
+      for (const info of this.options.evaluatorRegistry.list()) {
+        if (info.auto) {
+          const def = this.options.evaluatorRegistry.get(info.type)!;
+          resolvedEvaluators.push({ definition: def, config: {} });
+          resolvedTypes.add(info.type);
+        }
+      }
+    }
+
+    // Add scenario-specific evaluators (skip if already injected as auto)
+    if (scenario.evaluators && scenario.evaluators.length > 0 && this.options.evaluatorRegistry) {
+      for (const se of scenario.evaluators) {
+        if (resolvedTypes.has(se.type)) continue;
+        const def = this.options.evaluatorRegistry.get(se.type);
+        if (!def) throw new Error(`Unknown evaluator type: "${se.type}"`);
+        resolvedEvaluators.push({ definition: def, config: se.config ?? {} });
+      }
+    }
+
+    if (!hasCriteria && resolvedEvaluators.length === 0) {
+      throw new Error("Scenario must have success/failure criteria or evaluators defined");
+    }
+
+    return {
+      modules,
+      run,
+      connectorId,
+      llmProvider,
+      evaluationModel,
+      personaModel,
+      scenario,
+      persona,
+      maxMessages: scenario.maxMessages ?? 10,
+      hasCriteria,
+      resolvedEvaluators,
+    };
+  }
+
+  // ── Evaluation loop ──────────────────────────────────────────────────────
+
+  private async executeEvaluationLoop(ctx: RunContext): Promise<void> {
+    const { modules, run, connectorId, scenario, persona, maxMessages, hasCriteria, resolvedEvaluators } = ctx;
+    const state = new LoopState(run.messages);
+    const failureMode = scenario.failureCriteriaMode ?? "on_max_messages";
+
+    // Generate initial user message if needed
+    await this.ensureInitialUserMessage(ctx, state);
+
+    while (state.conversationMessageCount < maxMessages) {
+      // Invoke connector
+      const conversationMessages = state.messages.filter((m) => m.role !== "system");
       const result = await modules.connectors.invoke(connectorId, {
         messages: conversationMessages,
-        runId: this.getThreadId(currentRun),
-        seenMessageIds,
+        runId: run.threadId ?? run.id,
+        seenMessageIds: state.seenMessageIds,
         extraHeaders: persona?.headers,
       });
-      lastResult = result;
 
       if (!result.success || !result.messages || result.messages.length === 0) {
         throw new Error(result.error || "No response messages from connector");
       }
 
-      // Add all agent response messages (may include tool calls, tool results, and final response)
-      // Note: response is already filtered to exclude messages with IDs in seenMessageIds
-      messages = [...messages, ...result.messages];
+      state.messages = [...state.messages, ...result.messages];
+      state.recordInvocation(result, conversationMessages);
+      await modules.runs.update(run.id, { messages: state.messages });
 
-      // Track all message IDs we've now seen (both sent and received) for next iteration
-      // - Local IDs from messages we sent (for input filtering)
-      // - Connector IDs from messages we received (for response filtering)
-      for (const msg of conversationMessages) {
-        if (msg.id) {
-          seenMessageIds.add(msg.id);
-        }
-      }
-      for (const msg of result.messages) {
-        if (msg.id) {
-          seenMessageIds.add(msg.id);
-        }
-      }
-      totalLatencyMs += result.latencyMs;
-      connectorCallCount++;
-
-      // Accumulate token usage from this connector call
-      if (result.tokensUsage) {
-        totalInputTokens += result.tokensUsage.input_tokens;
-        totalOutputTokens += result.tokensUsage.output_tokens;
-      }
-
-      // Store thread ID from the connector response
-      if (result.threadId) {
-        threadId = result.threadId;
-      }
-
-      // Update run with current messages
-      await modules.runs.update(currentRun.id, { messages });
-
-      // Evaluate the conversation against criteria
-      const evaluation = await evaluateCriteria({
-        messages,
-        successCriteria: scenario.successCriteria,
-        failureCriteria: scenario.failureCriteria,
-        llmProvider: llmConfig.llmProvider,
-        model: llmConfig.evaluationModel,
-      });
-      finalEvaluation = evaluation;
-
-      // Determine failure criteria check mode (default: "every_turn")
-      const failureMode = scenario.failureCriteriaMode ?? "on_max_messages";
-
-      // Stop the loop on success, or on failure when failureCriteriaMode is "every_turn"
-      if (evaluation.successMet || (evaluation.failureMet && failureMode === "every_turn")) {
-        const runResult: RunResult = {
-          success: evaluation.successMet,
-          score: evaluation.confidence,
-          reason: evaluation.successMet
-            ? evaluation.reasoning
-            : `Failure criteria was triggered. ${evaluation.reasoning}`,
-        };
-
-        const updatedRun = await modules.runs.update(currentRun.id, {
-          status: "completed",
-          messages,
-          result: runResult,
-          output: {
-            avgLatencyMs: connectorCallCount > 0 ? Math.round(totalLatencyMs / connectorCallCount) : 0,
-            totalLatencyMs,
-            messageCount: countConversationMessages(),
-            evaluation: {
-              successMet: evaluation.successMet,
-              failureMet: evaluation.failureMet,
-              confidence: evaluation.confidence,
-              reasoning: evaluation.reasoning,
-            },
-          },
-          latencyMs: totalLatencyMs,
-          tokensUsage: totalInputTokens > 0 || totalOutputTokens > 0
-            ? {
-                input_tokens: totalInputTokens,
-                output_tokens: totalOutputTokens,
-                total_tokens: totalInputTokens + totalOutputTokens,
-              }
-            : undefined,
-          threadId,
-          completedAt: new Date().toISOString(),
+      // Evaluate criteria
+      if (hasCriteria) {
+        state.lastCriteriaResult = await evaluateCriteria({
+          messages: state.messages,
+          successCriteria: scenario.successCriteria,
+          failureCriteria: scenario.failureCriteria,
+          llmProvider: ctx.llmProvider,
+          model: ctx.evaluationModel,
         });
+      }
 
-        if (updatedRun && lastResult) {
-          this.options.onStatusChange?.(currentRun.id, "completed", updatedRun);
-          this.options.onRunComplete?.(updatedRun, lastResult);
-        }
+      // Run custom evaluators
+      if (resolvedEvaluators.length > 0) {
+        const criteriaWantsStop = state.lastCriteriaResult && (
+          state.lastCriteriaResult.successMet ||
+          (state.lastCriteriaResult.failureMet && failureMode === "every_turn")
+        );
+        state.lastEvalResult = await runEvaluators(resolvedEvaluators, {
+          messages: state.messages,
+          scenario: { name: scenario.name, instructions: scenario.instructions, maxMessages: scenario.maxMessages },
+          persona: persona ? { name: persona.name, description: persona.description } : undefined,
+          lastInvocation: {
+            latencyMs: result.latencyMs,
+            messages: result.messages,
+            tokensUsage: result.tokensUsage,
+          },
+          turn: state.connectorCallCount,
+          isFinal: state.conversationMessageCount >= maxMessages || !!criteriaWantsStop,
+        });
+      }
+
+      // Check stop conditions
+      const criteriaSuccess = state.lastCriteriaResult?.successMet ?? false;
+      const criteriaFailureEarly = !!(state.lastCriteriaResult?.failureMet && failureMode === "every_turn");
+      const assertionFailed = state.lastEvalResult ? !state.lastEvalResult.success : false;
+
+      if (criteriaSuccess || criteriaFailureEarly || assertionFailed) {
+        const reason = criteriaFailureEarly
+          ? `Failure criteria was triggered. ${state.lastCriteriaResult!.reasoning}`
+          : assertionFailed
+            ? `Evaluator assertion failed. ${state.lastEvalResult!.reason}`
+            : state.lastCriteriaResult?.reasoning ?? state.lastEvalResult?.reason ?? "Evaluation complete";
+
+        const criteriaOk = !hasCriteria || criteriaSuccess;
+        const evaluatorsOk = resolvedEvaluators.length === 0 || !state.lastEvalResult || state.lastEvalResult.success;
+
+        await this.finalizeRun(ctx, state, {
+          success: criteriaOk && evaluatorsOk,
+          score: state.lastCriteriaResult?.confidence ?? state.lastEvalResult?.score,
+          reason,
+        });
         return;
       }
 
-      // Check if we've reached max messages
-      if (countConversationMessages() >= maxMessages) {
-        break;
-      }
+      // Check max messages
+      if (state.conversationMessageCount >= maxMessages) break;
 
-      // Generate a new user message to continue the conversation
-      // If persona is provided, the message will be personalized; otherwise generic
-      const personaResponse = await generatePersonaMessage({
-        messages,
-        persona,
-        scenario,
-        llmProvider: llmConfig.llmProvider,
-        model: llmConfig.personaModel,
-      });
-
-      // Add persona message as user message
-      const userMessage: Message = {
-        role: "user",
-        content: personaResponse.content,
-      };
-      messages = [...messages, userMessage];
-
-      // Update run with new user message
-      await modules.runs.update(currentRun.id, { messages });
+      // Generate next persona message
+      await this.generateAndAppendPersonaMessage(ctx, state);
     }
 
-    // Max messages reached without meeting success criteria
-    const failureTriggered = finalEvaluation?.failureMet ?? false;
-    const runResult: RunResult = {
-      success: false,
-      score: finalEvaluation?.confidence ?? 0,
-      reason: failureTriggered
-        ? `Failure criteria was triggered. ${finalEvaluation?.reasoning || ""}`
-        : `Max messages (${maxMessages}) reached without meeting success criteria. ${finalEvaluation?.reasoning || ""}`,
-    };
+    // Max messages reached — determine final result
+    const failureTriggered = state.lastCriteriaResult?.failureMet ?? false;
+    const evaluatorsOk = !state.lastEvalResult || state.lastEvalResult.success;
+    const success = !hasCriteria && evaluatorsOk;
 
-    const updatedRun = await modules.runs.update(currentRun.id, {
-      status: "completed",
-      messages,
-      result: runResult,
-      output: {
-        avgLatencyMs: connectorCallCount > 0 ? Math.round(totalLatencyMs / connectorCallCount) : 0,
-        totalLatencyMs,
-        messageCount: countConversationMessages(),
-        maxMessagesReached: true,
-        evaluation: finalEvaluation
-          ? {
-              successMet: finalEvaluation.successMet,
-              failureMet: finalEvaluation.failureMet,
-              confidence: finalEvaluation.confidence,
-              reasoning: finalEvaluation.reasoning,
-            }
-          : undefined,
-      },
-      latencyMs: totalLatencyMs,
-      tokensUsage: totalInputTokens > 0 || totalOutputTokens > 0
-        ? {
-            input_tokens: totalInputTokens,
-            output_tokens: totalOutputTokens,
-            total_tokens: totalInputTokens + totalOutputTokens,
-          }
-        : undefined,
-      threadId,
-      completedAt: new Date().toISOString(),
-    });
+    let reason: string;
+    if (failureTriggered) {
+      reason = `Failure criteria was triggered. ${state.lastCriteriaResult?.reasoning || ""}`;
+    } else if (!evaluatorsOk) {
+      reason = `Evaluator assertion failed. ${state.lastEvalResult!.reason}`;
+    } else if (hasCriteria) {
+      reason = `Max messages (${maxMessages}) reached without meeting success criteria. ${state.lastCriteriaResult?.reasoning || ""}`;
+    } else {
+      reason = `Completed ${maxMessages} messages. All evaluators passed.`;
+    }
 
-    if (updatedRun && lastResult) {
-      this.options.onStatusChange?.(currentRun.id, "completed", updatedRun);
-      this.options.onRunComplete?.(updatedRun, lastResult);
+    await this.finalizeRun(ctx, state, {
+      success,
+      score: state.lastCriteriaResult?.confidence ?? state.lastEvalResult?.score ?? 0,
+      reason,
+    }, true);
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /** Generate an initial user message if the conversation needs one */
+  private async ensureInitialUserMessage(ctx: RunContext, state: LoopState): Promise<void> {
+    const nonSystem = state.messages.filter((m) => m.role !== "system");
+    const lastRole = nonSystem.length > 0 ? nonSystem[nonSystem.length - 1].role : undefined;
+
+    if (!lastRole || lastRole === "assistant") {
+      await this.generateAndAppendPersonaMessage(ctx, state);
     }
   }
 
-  /**
-   * Builds all messages including system prompt for a run.
-   * These messages are stored in the run for visibility in the UI.
-   * Seed messages are assigned IDs with "seed_" prefix for tracking.
-   */
-  private buildAllMessages(
-    scenario: Scenario,
-    persona: Persona | undefined
-  ): Message[] {
+  /** Generate a persona message and append it to the loop state */
+  private async generateAndAppendPersonaMessage(ctx: RunContext, state: LoopState): Promise<void> {
+    const personaResponse = await generatePersonaMessage({
+      messages: state.messages,
+      persona: ctx.persona,
+      scenario: ctx.scenario,
+      llmProvider: ctx.llmProvider,
+      model: ctx.personaModel,
+    });
+
+    const userMessage: Message = {
+      role: "user",
+      content: personaResponse.content,
+      id: `persona_${randomUUID()}`,
+    };
+    state.messages = [...state.messages, userMessage];
+    await ctx.modules.runs.update(ctx.run.id, { messages: state.messages });
+  }
+
+  /** Persist final run result and fire callbacks */
+  private async finalizeRun(
+    ctx: RunContext,
+    state: LoopState,
+    result: RunResult,
+    maxMessagesReached = false
+  ): Promise<void> {
+    const output: Record<string, unknown> = {
+      avgLatencyMs: state.connectorCallCount > 0 ? Math.round(state.totalLatencyMs / state.connectorCallCount) : 0,
+      totalLatencyMs: state.totalLatencyMs,
+      messageCount: state.conversationMessageCount,
+    };
+
+    if (maxMessagesReached) {
+      output.maxMessagesReached = true;
+    }
+
+    if (state.lastCriteriaResult) {
+      output.evaluation = {
+        successMet: state.lastCriteriaResult.successMet,
+        failureMet: state.lastCriteriaResult.failureMet,
+        confidence: state.lastCriteriaResult.confidence,
+        reasoning: state.lastCriteriaResult.reasoning,
+      };
+    }
+
+    if (state.lastEvalResult) {
+      output.evaluatorResults = state.lastEvalResult.evaluatorResults;
+      if (Object.keys(state.lastEvalResult.metrics).length > 0) {
+        output.metrics = state.lastEvalResult.metrics;
+      }
+    }
+
+    const updatedRun = await ctx.modules.runs.update(ctx.run.id, {
+      status: "completed",
+      messages: state.messages,
+      result,
+      output,
+      latencyMs: state.totalLatencyMs,
+      tokensUsage: state.tokensUsage,
+      threadId: state.threadId,
+      completedAt: new Date().toISOString(),
+    });
+
+    if (updatedRun && state.lastResult) {
+      this.options.onStatusChange?.(ctx.run.id, "completed", updatedRun);
+      this.options.onRunComplete?.(updatedRun, state.lastResult);
+    }
+  }
+
+  private buildAllMessages(scenario: Scenario, persona: Persona | undefined): Message[] {
     const messages: Message[] = [];
 
-    // Add system prompt from persona/scenario
     const systemPrompt = buildTestAgentSystemPrompt({
       persona: persona
-        ? {
-            name: persona.name,
-            description: persona.description,
-            systemPrompt: persona.systemPrompt,
-          }
+        ? { name: persona.name, description: persona.description, systemPrompt: persona.systemPrompt }
         : undefined,
-      scenario: {
-        name: scenario.name,
-        instructions: scenario.instructions,
-        messages: scenario.messages,
-      },
+      scenario: { name: scenario.name, instructions: scenario.instructions, messages: scenario.messages },
     });
     if (systemPrompt.trim()) {
       messages.push({ role: "system", content: systemPrompt });
     }
 
-    // Add scenario seed messages if present, assigning IDs for tracking
     if (scenario.messages) {
       const seedMessages = scenario.messages.map((msg) => ({
         ...msg,
@@ -665,10 +591,6 @@ export class RunProcessor {
     return messages;
   }
 
-  /**
-   * Recovers runs that were interrupted by server crash.
-   * Iterates over all projects to find stuck runs.
-   */
   private async recoverStuckRuns(): Promise<void> {
     const { storage } = this.options;
 
@@ -682,7 +604,6 @@ export class RunProcessor {
     for (const project of projects) {
       try {
         const modules = createProjectModules(storage, project.id);
-
         const stuckRuns = await modules.runs.list({ status: "running" });
         for (const run of stuckRuns) {
           await modules.runs.update(run.id, { status: "queued" });

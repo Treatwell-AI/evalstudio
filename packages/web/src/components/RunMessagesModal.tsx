@@ -1,4 +1,4 @@
-import { Run } from "../lib/api";
+import { Run, EvaluatorResultEntry } from "../lib/api";
 import { usePollingRun } from "../hooks/useRuns";
 import { MessagesDisplay, SimulationError } from "./MessagesDisplay";
 import { RunStatusIndicator } from "./RunStatusIndicator";
@@ -8,18 +8,19 @@ interface RunMessagesModalProps {
   onClose: () => void;
 }
 
-/** Extract evaluation details from run output */
-function getEvaluationDetails(run: Run) {
+/** Extract LLM criteria result from run output */
+function getCriteriaResult(run: Run) {
   const output = run.output as Record<string, unknown> | undefined;
   if (!output) return null;
 
   const evaluation = output.evaluation as Record<string, unknown> | undefined;
+  if (!evaluation) return null;
 
   return {
-    successMet: evaluation?.successMet as boolean | undefined,
-    failureMet: evaluation?.failureMet as boolean | undefined,
-    confidence: evaluation?.confidence as number | undefined,
-    reasoning: evaluation?.reasoning as string | undefined,
+    successMet: evaluation.successMet as boolean | undefined,
+    failureMet: evaluation.failureMet as boolean | undefined,
+    confidence: evaluation.confidence as number | undefined,
+    reasoning: evaluation.reasoning as string | undefined,
     messageCount: output.messageCount as number | undefined,
     avgLatencyMs: output.avgLatencyMs as number | undefined,
     maxMessagesReached: output.maxMessagesReached as boolean | undefined,
@@ -45,7 +46,10 @@ export function RunMessagesModal({ runId, onClose }: RunMessagesModalProps) {
     );
   }
 
-  const evaluationDetails = getEvaluationDetails(run);
+  // Extract evaluator data from run output
+  const output = run.output as Record<string, unknown> | undefined;
+  const evaluatorResults = output?.evaluatorResults as EvaluatorResultEntry[] | undefined;
+  const outputMetrics = output?.metrics as Record<string, number> | undefined;
 
   // Additional content for status indicators
   const additionalContent = (
@@ -68,7 +72,9 @@ export function RunMessagesModal({ runId, onClose }: RunMessagesModalProps) {
           messages={run.messages}
           additionalContent={additionalContent}
           result={run.status === "completed" ? run.result : undefined}
-          evaluationDetails={run.status === "completed" ? evaluationDetails : undefined}
+          criteriaResult={run.status === "completed" ? getCriteriaResult(run) : undefined}
+          evaluatorResults={run.status === "completed" ? evaluatorResults : undefined}
+          evaluatorMetrics={run.status === "completed" ? outputMetrics : undefined}
           emptyMessage="No messages in this run."
         />
 

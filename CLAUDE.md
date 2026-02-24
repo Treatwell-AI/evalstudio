@@ -164,11 +164,18 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 
 ### Evaluators
 
-- **LLM-as-Judge**: Uses direct OpenAI/Anthropic API calls to evaluate responses against natural language criteria
-- **Exact Match**: String comparison
-- **Regex**: Pattern matching
-- **JSON Schema**: Validates response structure
-- **Custom**: User-provided JavaScript functions
+Two evaluation systems run on each conversation turn:
+
+- **LLM-as-Judge (criteria)**: Uses OpenAI/Anthropic API to evaluate against natural language success/failure criteria defined on the scenario. Gates pass/fail.
+- **Custom evaluators**: Pluggable evaluator definitions registered via `EvaluatorRegistry`. Two kinds:
+  - **Assertions**: Pass/fail gates (failure stops the run)
+  - **Metrics**: Measurements only (never cause failure), e.g. tool call count, token usage
+
+Built-in evaluators (in `packages/core/src/evaluators/`):
+- `tool-call-count` — Counts tool calls per turn (metric)
+- `token-usage` — Reports input/output/total tokens per turn (metric, auto)
+
+Evaluators with `auto: true` run on every scenario automatically. Others must be explicitly added to a scenario's `evaluators[]` array. Results are stored on runs as `evaluatorResults[]` and `metrics{}` in the output.
 
 ## Tech Stack Details
 
@@ -221,7 +228,9 @@ All connectors stored in `connectors.json`, referenced by evals via `connectorId
 - `llm-provider.ts` - LLM provider configuration
 - `run-processor.ts` - Background processor for queued runs
 - `llm-client.ts` - Shared LLM client (native fetch to OpenAI/Anthropic APIs)
-- `evaluator.ts` - Evaluation logic (LLM-as-judge, criteria)
+- `evaluator.ts` - Evaluation logic (LLM-as-judge criteria + custom evaluator framework)
+- `evaluator-registry.ts` - Registry for built-in and custom evaluator definitions
+- `evaluators/` - Built-in evaluator implementations (tool-call-count, token-usage)
 - `persona-generator.ts` - Generate persona messages with LLM
 - `prompt.ts` - System prompt building for test agents
 - `storage.ts` - Project directory management
@@ -299,9 +308,10 @@ When adding a field to an entity (e.g., Persona, Scenario, Eval):
 
 ### Adding a New Evaluator
 
-1. Add criteria interface in `packages/core/src/evaluator.ts`
-2. Implement evaluation logic in `evaluateCriteria()` function
-3. Update web UI to show evaluator-specific results
+1. Create a file in `packages/core/src/evaluators/<name>.ts` implementing `EvaluatorDefinition`
+2. Set `kind` to `"assertion"` (pass/fail) or `"metric"` (measurement). Set `auto: true` if it should always run.
+3. Register it in `packages/core/src/evaluators/index.ts` by adding to the `builtinEvaluators` array
+4. The evaluator appears automatically in `GET /api/evaluator-types` and the web UI's evaluator form
 
 ## Custom Skills
 

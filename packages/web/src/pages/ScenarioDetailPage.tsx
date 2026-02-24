@@ -3,9 +3,10 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { useScenario, useUpdateScenario, useDeleteScenario } from "../hooks/useScenarios";
 import { usePersonas } from "../hooks/usePersonas";
 import { useRunsByScenario } from "../hooks/useRuns";
-import { Message } from "../lib/api";
+import { Message, ScenarioEvaluator } from "../lib/api";
 import { ScenarioPlaygroundModal } from "../components/ScenarioPlaygroundModal";
 import { SeedMessagesEditor } from "../components/SeedMessagesEditor";
+import { EvaluatorForm } from "../components/EvaluatorForm";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
@@ -36,6 +37,7 @@ export function ScenarioDetailPage() {
   const [successCriteria, setSuccessCriteria] = useState("");
   const [failureCriteria, setFailureCriteria] = useState("");
   const [failureCriteriaMode, setFailureCriteriaMode] = useState<"every_turn" | "on_max_messages">("on_max_messages");
+  const [evaluators, setEvaluators] = useState<ScenarioEvaluator[]>([]);
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -50,6 +52,7 @@ export function ScenarioDetailPage() {
       setSuccessCriteria(scenario.successCriteria || "");
       setFailureCriteria(scenario.failureCriteria || "");
       setFailureCriteriaMode(scenario.failureCriteriaMode || "on_max_messages");
+      setEvaluators(scenario.evaluators || []);
       setSelectedPersonaIds(scenario.personaIds || []);
       setHasChanges(false);
     }
@@ -106,6 +109,7 @@ export function ScenarioDetailPage() {
           successCriteria: successCriteria || undefined,
           failureCriteria: failureCriteria || undefined,
           failureCriteriaMode,
+          evaluators,
           personaIds: selectedPersonaIds,
         },
       });
@@ -134,6 +138,7 @@ export function ScenarioDetailPage() {
     setSuccessCriteria(scenario.successCriteria || "");
     setFailureCriteria(scenario.failureCriteria || "");
     setFailureCriteriaMode(scenario.failureCriteriaMode || "on_max_messages");
+    setEvaluators(scenario.evaluators || []);
     setSelectedPersonaIds(scenario.personaIds || []);
     setSaveError(null);
     setHasChanges(false);
@@ -250,6 +255,19 @@ export function ScenarioDetailPage() {
           messages={seedMessages}
           onChange={handleChange(setSeedMessages)}
         />
+
+        <div className="form-inline-field">
+          <label htmlFor="scenario-max-messages">Max Messages</label>
+          <input
+            id="scenario-max-messages"
+            type="number"
+            value={maxMessages}
+            onChange={(e) => handleChange(setMaxMessages)(e.target.value)}
+            placeholder="10"
+            min="1"
+          />
+          <span className="form-hint">Maximum conversation turns before the run stops.</span>
+        </div>
       </div>
 
       <div className="dashboard-card scenario-edit-form">
@@ -278,30 +296,17 @@ export function ScenarioDetailPage() {
           />
         </div>
 
-        <div className="form-row form-row-auto">
-          <div className="form-group">
-            <label htmlFor="scenario-failure-mode">Failure Check Mode</label>
-            <select
-              id="scenario-failure-mode"
-              value={failureCriteriaMode}
-              onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
-              disabled={!failureCriteria}
-            >
-              <option value="on_max_messages">On max messages — only at end</option>
-              <option value="every_turn">Every turn — stop on failure</option>
-            </select>
-          </div>
-          <div className="form-group form-group-narrow">
-            <label htmlFor="scenario-max-messages">Max Messages</label>
-            <input
-              id="scenario-max-messages"
-              type="number"
-              value={maxMessages}
-              onChange={(e) => handleChange(setMaxMessages)(e.target.value)}
-              placeholder="10"
-              min="1"
-            />
-          </div>
+        <div className="form-group">
+          <label htmlFor="scenario-failure-mode">Failure Check Mode</label>
+          <select
+            id="scenario-failure-mode"
+            value={failureCriteriaMode}
+            onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
+            disabled={!failureCriteria}
+          >
+            <option value="on_max_messages">On max messages — only at end</option>
+            <option value="every_turn">Every turn — stop on failure</option>
+          </select>
         </div>
 
         <p className="form-hint criteria-recap">
@@ -311,6 +316,17 @@ export function ScenarioDetailPage() {
               ? `The run stops when success criteria is met. After ${maxMessages} messages, failure criteria is checked.`
               : "The run stops when success criteria is met. At max messages, failure criteria is checked."}
         </p>
+      </div>
+
+      <div className="dashboard-card scenario-edit-form">
+        <h3>Evaluators</h3>
+        <p className="form-hint">
+          Add metrics or assertions that run alongside LLM-as-judge evaluation.
+        </p>
+        <EvaluatorForm
+          evaluators={evaluators}
+          onChange={handleChange(setEvaluators)}
+        />
       </div>
 
       <div className="dashboard-card scenario-edit-form">

@@ -80,18 +80,22 @@ describe("RunProcessor", () => {
       text: async () => JSON.stringify({ choices: [{ message: { role: "assistant", content: userMessage } }] }),
     });
 
-    // Mock connector response - only return assistant message
-    // In reality, LangGraph would return all messages, but parseInvokeResponse filters them.
-    // For simplicity, we mock the post-filter result (only new messages).
+    // Mock connector response - LangGraph returns ALL thread messages.
+    // The echoed user message keeps our ID so ID-based filtering removes it.
+    // We use a placeholder that will be matched by the seenMessageIds filter.
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
       text: async () =>
         JSON.stringify({
-          messages: [{ role: "assistant", content: assistantMessage, id: "assistant_resp" }],
+          messages: [
+            { role: "assistant", content: assistantMessage, id: "assistant_resp" },
+          ],
         }),
       json: async () => ({
-        messages: [{ role: "assistant", content: assistantMessage, id: "assistant_resp" }],
+        messages: [
+          { role: "assistant", content: assistantMessage, id: "assistant_resp" },
+        ],
       }),
     });
 

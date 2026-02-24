@@ -1,6 +1,200 @@
-import type { Message } from "./types.js";
+import type { Message, TokensUsage } from "./types.js";
 import type { LLMProvider } from "./llm-provider.js";
 import { chatCompletion, type ChatCompletionMessage } from "./llm-client.js";
+
+// ---------------------------------------------------------------------------
+// Custom evaluator framework
+// ---------------------------------------------------------------------------
+
+/**
+ * JSON Schema type for evaluator config validation and UI form generation.
+ */
+export type JsonSchema = Record<string, unknown>;
+
+/**
+ * Defines a custom evaluator (built-in or user-provided).
+ * Evaluators can be assertions (pass/fail gates) or metrics (measurements).
+ */
+export interface EvaluatorDefinition {
+  /** Unique type identifier, e.g. "tool-call-count", "my-custom-check". */
+  type: string;
+  /** Human-readable label for the UI. */
+  label: string;
+  /** Optional description shown in the UI. */
+  description?: string;
+  /** Assertion = pass/fail gate. Metric = measurement only (never fails). */
+  kind: "assertion" | "metric";
+  /** When true, this evaluator runs on every scenario automatically and cannot be removed. */
+  auto?: boolean;
+  /** JSON Schema for evaluator-specific config. Used for validation and UI form generation. */
+  configSchema?: JsonSchema;
+  /** Run evaluation on a conversation turn. Called after each connector invocation. */
+  evaluate(ctx: EvaluatorContext): Promise<EvaluationResult>;
+}
+
+/**
+ * Context passed to an evaluator's evaluate() function.
+ * Uses existing Message and TokensUsage types — no new shapes.
+ */
+export interface EvaluatorContext {
+  /** Full conversation history (all messages so far). */
+  messages: Message[];
+  /** Evaluator config from the scenario's evaluators[] entry. */
+  config: Record<string, unknown>;
+  /** Scenario metadata. */
+  scenario: {
+    name: string;
+    instructions?: string;
+    maxMessages?: number;
+  };
+  /** Persona metadata, if present. */
+  persona?: {
+    name: string;
+    description?: string;
+  };
+  /** Data from the most recent connector invocation. */
+  lastInvocation: {
+    /** Response time for this invocation (ms). */
+    latencyMs: number;
+    /** New messages returned by the connector in this turn. */
+    messages: Message[];
+    /** Token usage, if the connector provides it. Same TokensUsage type used by connectors and runs. */
+    tokensUsage?: TokensUsage;
+  };
+  /** 1-indexed turn number. */
+  turn: number;
+  /** True if this is the last turn (max messages reached or early exit). */
+  isFinal: boolean;
+}
+
+/**
+ * Result returned by an evaluator's evaluate() function.
+ */
+export interface EvaluationResult {
+  /** Pass/fail. Assertions: false = run fails. Metrics: always true. */
+  success: boolean;
+  /** Numeric value. Metrics: the measured value. Assertions: optional 0-1 score. */
+  value?: number;
+  /** Human-readable explanation. */
+  reason: string;
+  /** Structured data for debugging/analysis. */
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Reference to an evaluator on a scenario.
+ */
+export interface ScenarioEvaluator {
+  /** Evaluator type — references a registered evaluator. */
+  type: string;
+  /** Type-specific config, validated against the evaluator's configSchema. */
+  config?: Record<string, unknown>;
+}
+
+/**
+ * Single evaluator result stored on a run.
+ */
+export interface EvaluatorResultEntry {
+  type: string;
+  label: string;
+  kind: "assertion" | "metric";
+  success: boolean;
+  value?: number;
+  reason: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Aggregated result from running all evaluators on a turn.
+ */
+export interface AggregatedEvaluationResult {
+  /** True if all assertions passed. */
+  success: boolean;
+  /** Min score across assertions, or undefined if no assertions have scores. */
+  score?: number;
+  /** First assertion failure reason, or "All evaluators passed". */
+  reason: string;
+  /** Per-evaluator results. */
+  evaluatorResults: EvaluatorResultEntry[];
+  /** Quick metric lookup: { "tool-call-count": 3, ... } */
+  metrics: Record<string, number>;
+}
+
+/**
+ * Runs all evaluators in parallel and aggregates results.
+ *
+ * - Assertions: all must pass for success. Score = min(assertion scores).
+ * - Metrics: tracked but never cause failure. Values stored in metrics map.
+ */
+export async function runEvaluators(
+  evaluators: Array<{ definition: EvaluatorDefinition; config: Record<string, unknown> }>,
+  context: Omit<EvaluatorContext, "config">
+): Promise<AggregatedEvaluationResult> {
+  const settled = await Promise.allSettled(
+    evaluators.map(async ({ definition, config }) => {
+      const result = await definition.evaluate({ ...context, config });
+      return { definition, result };
+    })
+  );
+
+  const evaluatorResults: EvaluatorResultEntry[] = [];
+  const metrics: Record<string, number> = {};
+  let allAssertionsPassed = true;
+  let minScore: number | undefined;
+  let firstFailureReason: string | undefined;
+
+  for (const outcome of settled) {
+    if (outcome.status === "rejected") {
+      // Evaluator threw — treat as failed assertion
+      const reason = `Evaluator error: ${outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason)}`;
+      evaluatorResults.push({
+        type: "unknown",
+        label: "Unknown",
+        kind: "assertion",
+        success: false,
+        reason,
+      });
+      allAssertionsPassed = false;
+      if (!firstFailureReason) firstFailureReason = reason;
+      continue;
+    }
+
+    const { definition, result } = outcome.value;
+    const entry: EvaluatorResultEntry = {
+      type: definition.type,
+      label: definition.label,
+      kind: definition.kind,
+      success: result.success,
+      value: result.value,
+      reason: result.reason,
+      metadata: result.metadata,
+    };
+    evaluatorResults.push(entry);
+
+    if (definition.kind === "metric") {
+      if (result.value !== undefined) {
+        metrics[definition.type] = result.value;
+      }
+    } else {
+      // Assertion
+      if (!result.success) {
+        allAssertionsPassed = false;
+        if (!firstFailureReason) firstFailureReason = result.reason;
+      }
+      if (result.value !== undefined) {
+        minScore = minScore === undefined ? result.value : Math.min(minScore, result.value);
+      }
+    }
+  }
+
+  return {
+    success: allAssertionsPassed,
+    score: minScore,
+    reason: firstFailureReason ?? "All evaluators passed",
+    evaluatorResults,
+    metrics,
+  };
+}
 
 /**
  * Result of evaluating conversation against success/failure criteria

@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Message, ToolCall, getMessageContent } from "../lib/api";
+import { Message, ToolCall, getMessageContent, type EvaluatorResultEntry } from "../lib/api";
+import { EvaluatorResults, type LLMCriteriaResult } from "./EvaluatorResults";
 
 /** Map of tool_call_id -> ToolCall (input/args) from assistant messages */
 type ToolCallsMap = Map<string, ToolCall>;
@@ -105,16 +106,12 @@ interface MessagesDisplayProps {
     score?: number;
     reason?: string;
   } | null;
-  /** Evaluation details from the run output */
-  evaluationDetails?: {
-    successMet?: boolean;
-    failureMet?: boolean;
-    confidence?: number;
-    reasoning?: string;
-    messageCount?: number;
-    avgLatencyMs?: number;
-    maxMessagesReached?: boolean;
-  } | null;
+  /** LLM-as-judge criteria result */
+  criteriaResult?: LLMCriteriaResult | null;
+  /** Custom evaluator results */
+  evaluatorResults?: EvaluatorResultEntry[];
+  /** Evaluator metrics */
+  evaluatorMetrics?: Record<string, number>;
   /** Error message to display */
   error?: string | null;
   /** Empty state message */
@@ -125,7 +122,9 @@ export function MessagesDisplay({
   messages,
   additionalContent,
   result,
-  evaluationDetails,
+  criteriaResult,
+  evaluatorResults,
+  evaluatorMetrics,
   error,
   emptyMessage = "No messages.",
 }: MessagesDisplayProps) {
@@ -214,50 +213,11 @@ export function MessagesDisplay({
         </div>
       )}
 
-      {evaluationDetails && (
-        <div className="run-evaluation-details">
-          <div className="run-evaluation-header">Evaluation Details</div>
-          <div className="run-evaluation-grid">
-            {evaluationDetails.messageCount !== undefined && (
-              <div className="run-evaluation-item">
-                <span className="run-evaluation-label">Messages</span>
-                <span className="run-evaluation-value">{evaluationDetails.messageCount}</span>
-              </div>
-            )}
-            {evaluationDetails.avgLatencyMs !== undefined && (
-              <div className="run-evaluation-item">
-                <span className="run-evaluation-label">Avg Latency</span>
-                <span className="run-evaluation-value">
-                  {evaluationDetails.avgLatencyMs >= 1000
-                    ? `${(evaluationDetails.avgLatencyMs / 1000).toFixed(1)}s`
-                    : `${evaluationDetails.avgLatencyMs}ms`}
-                </span>
-              </div>
-            )}
-            {evaluationDetails.successMet !== undefined && (
-              <div className="run-evaluation-item">
-                <span className="run-evaluation-label">Success Criteria</span>
-                <span className={`run-evaluation-value ${evaluationDetails.successMet ? "met" : "not-met"}`}>
-                  {evaluationDetails.successMet ? "Met" : "Not Met"}
-                </span>
-              </div>
-            )}
-            {evaluationDetails.failureMet !== undefined && (
-              <div className="run-evaluation-item">
-                <span className="run-evaluation-label">Failure Criteria</span>
-                <span className={`run-evaluation-value ${evaluationDetails.failureMet ? "triggered" : "not-triggered"}`}>
-                  {evaluationDetails.failureMet ? "Triggered" : "Not Triggered"}
-                </span>
-              </div>
-            )}
-            {evaluationDetails.maxMessagesReached && (
-              <div className="run-evaluation-item full-width">
-                <span className="run-evaluation-warning">Max messages limit reached</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <EvaluatorResults
+        criteria={criteriaResult}
+        evaluatorResults={evaluatorResults}
+        metrics={evaluatorMetrics}
+      />
 
       {error && (
         <div className="run-error-panel">

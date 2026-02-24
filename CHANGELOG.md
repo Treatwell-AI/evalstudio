@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Custom evaluator framework** — Pluggable evaluator architecture for assertions and metrics
+  - Core: `EvaluatorDefinition` interface with `type`, `kind` (assertion/metric), `auto` flag, `configSchema`, and `evaluate()` function
+  - Core: `EvaluatorRegistry` class with `register()`, `get()`, `list()` — holds built-in and custom evaluator definitions
+  - Core: `EvaluatorContext` provides full conversation, last invocation data (messages, latency, tokens), turn info to evaluators
+  - Core: `runEvaluators()` runs all evaluators in parallel, aggregates results (assertions gate pass/fail, metrics track values)
+  - Core: `ScenarioEvaluator` reference type on scenarios — `{ type, config? }` to attach evaluators per scenario
+  - Core: `auto` flag on evaluators — auto evaluators always run on every scenario without explicit configuration
+  - Core: Built-in `tool-call-count` metric evaluator — counts tool calls per turn with tool name tracking
+  - Core: Built-in `token-usage` metric evaluator (auto) — reports input/output/total tokens per turn
+  - Core: `defineEvaluator()` helper and `loadCustomEvaluators()` for user-provided evaluator plugins
+  - Core: Evaluator results stored on runs as `evaluatorResults[]` and `metrics{}` in output
+  - API: `GET /evaluator-types` endpoint listing all registered evaluator types
+  - API: `GET /scenarios/:id/evaluators` endpoint for scenario evaluator config
+  - CLI: `evaluatorRegistry` injected into `run process` and `run playground` commands
+  - Web: `EvaluatorForm` component with auto evaluators (non-removable) and add/remove for optional ones
+  - Web: `EvaluatorResults` unified component showing criteria evaluation + custom evaluator results
+  - Web: `useEvaluatorTypes` hook for fetching available evaluator types
+
+### Changed
+
+- **RunProcessor refactoring** — Simplified from ~820 to ~460 lines with clearer architecture
+  - Extracted `RunContext` interface bundling all resolved dependencies for a run
+  - Extracted `LoopState` class tracking invocations, messages, and token usage per run
+  - Extracted `resolveRunContext()`, `finalizeRun()`, `ensureInitialUserMessage()`, `generateAndAppendPersonaMessage()` helpers
+  - Auto evaluators injected in `resolveRunContext()` before scenario-specific evaluators
+- **LangGraph connector** — Improved message handling and tool call normalization
+  - Sends message IDs to LangGraph (previously stripped) enabling pure ID-based deduplication
+  - Removed `knownMessageCount` count-based dedup in favor of ID-based filtering
+  - Normalizes LangGraph tool_call format `{name, args}` to OpenAI format `{id, type: "function", function: {name, arguments}}`
+- **Scenario detail page** — Reorganized form layout
+  - Moved Max Messages input from Evaluation Criteria to Scenario Setup section with inline layout
+  - Evaluator results display unified in single scrollable box (criteria + custom evaluators)
+  - Evaluator save fix: empty evaluator arrays now correctly clear stored evaluators
+
+### Removed
+
+- Removed `knownMessageCount` from `ConnectorInvokeInput` and `ConnectorStrategy` interfaces
+
 - **Persona headers** — Optional HTTP headers per persona that merge with connector headers at request time
   - Core: `headers?: Record<string, string>` field on `Persona`, `CreatePersonaInput`, and `UpdatePersonaInput`
   - Core: `extraHeaders` on `ConnectorInvokeInput`, merged last (persona headers take precedence over connector headers)

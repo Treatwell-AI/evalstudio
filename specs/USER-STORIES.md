@@ -90,6 +90,13 @@
 [x] As a user, I want to choose when failure criteria is checked — at every turn (like success criteria) or only when max messages is reached — so that I can control whether the agent gets a chance to recover from mistakes
 [x] As a user, I want to set a maximum message limit per scenario so that tests don't run indefinitely if no criteria is met
 
+### Custom Evaluators
+
+[x] As a user, I want to attach metric and assertion evaluators to scenarios so that I can measure tool call counts, token usage, and other custom metrics alongside LLM-as-judge evaluation
+[x] As a user, I want built-in evaluators (tool-call-count, token-usage) to run automatically on every scenario so that I always have baseline metrics without manual configuration
+[x] As a user, I want to see evaluator results in the run detail modal alongside criteria evaluation so that all evaluation data is in one place
+[x] As a developer, I want to create custom evaluators by implementing EvaluatorDefinition and registering them in the EvaluatorRegistry so that I can extend evaluation beyond built-in metrics
+
 ### Projects
 
 [x] As a user, I want to initialize a local project directory so that I can keep evaluation data alongside my codebase

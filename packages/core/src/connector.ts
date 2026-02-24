@@ -50,7 +50,7 @@ export interface ConnectorTestResult {
 export interface ConnectorInvokeInput {
   messages: Message[];
   runId?: string;
-  /** IDs of messages that have already been sent (for filtering) */
+  /** IDs of messages already sent/received (for filtering outgoing and incoming messages) */
   seenMessageIds?: Set<string>;
   /** Extra headers to merge with connector headers (take precedence over connector headers) */
   extraHeaders?: Record<string, string>;
@@ -268,6 +268,11 @@ export function createConnectorModule(repo: Repository<Connector>) {
           const responseText = await response.text();
           return { response, responseText };
         });
+
+        // Add sent message IDs before parsing so echoed messages are filtered out
+        for (const msg of input.messages) {
+          if (msg.id) seenMessageIds.add(msg.id);
+        }
 
         const { response, responseText } = result;
         const parsedResponse = strategy.parseInvokeResponse(responseText, seenMessageIds);

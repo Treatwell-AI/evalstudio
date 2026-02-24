@@ -80,6 +80,34 @@ export interface UpdatePersonaInput {
 
 export type FailureCriteriaMode = "every_turn" | "on_max_messages";
 
+/** Reference to an evaluator on a scenario. */
+export interface ScenarioEvaluator {
+  type: string;
+  config?: Record<string, unknown>;
+}
+
+/** Registered evaluator type metadata (returned by GET /api/evaluator-types). */
+export interface EvaluatorTypeInfo {
+  type: string;
+  label: string;
+  description?: string;
+  kind: "assertion" | "metric";
+  configSchema?: Record<string, unknown>;
+  builtin: boolean;
+  auto: boolean;
+}
+
+/** Single evaluator result stored on a run's output. */
+export interface EvaluatorResultEntry {
+  type: string;
+  label: string;
+  kind: "assertion" | "metric";
+  success: boolean;
+  value?: number;
+  reason: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface Scenario {
   id: string;
   name: string;
@@ -89,6 +117,7 @@ export interface Scenario {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   /** IDs of personas associated with this scenario */
   personaIds?: string[];
   createdAt: string;
@@ -103,6 +132,7 @@ export interface CreateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   /** IDs of personas associated with this scenario */
   personaIds?: string[];
 }
@@ -115,6 +145,7 @@ export interface UpdateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   /** IDs of personas associated with this scenario */
   personaIds?: string[];
 }
@@ -402,6 +433,13 @@ export const api = {
   status: {
     get: async (): Promise<Status> => {
       const response = await fetch(`${API_BASE}/status`);
+      return handleResponse(response);
+    },
+  },
+
+  evaluatorTypes: {
+    list: async (): Promise<EvaluatorTypeInfo[]> => {
+      const response = await fetch(`${API_BASE}/evaluator-types`);
       return handleResponse(response);
     },
   },

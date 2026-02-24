@@ -7,6 +7,8 @@ import {
   RunProcessor,
   resolveWorkspace,
   createStorageProvider,
+  createEvaluatorRegistry,
+  type EvaluatorRegistry,
   type ProjectContext,
   type StorageProvider,
 } from "@evalstudio/core";
@@ -18,12 +20,14 @@ import { projectsRoute } from "./routes/projects.js";
 import { runsRoute } from "./routes/runs.js";
 import { scenariosRoute } from "./routes/scenarios.js";
 import { imagesRoute } from "./routes/images.js";
+import { evaluatorTypesRoute } from "./routes/evaluator-types.js";
 import { statusRoute } from "./routes/status.js";
 
-// Extend Fastify with storage provider and project context
+// Extend Fastify with storage provider, evaluator registry, and project context
 declare module "fastify" {
   interface FastifyInstance {
     storage: StorageProvider;
+    evaluatorRegistry: EvaluatorRegistry;
   }
   interface FastifyRequest {
     projectCtx: ProjectContext | null;
@@ -60,8 +64,12 @@ export async function createServer(options: ServerOptions = {}) {
     logger: options.logger ?? false,
   });
 
-  // Decorate instance with storage provider and request with projectCtx
+  // Create evaluator registry with built-in evaluators
+  const evaluatorRegistry = createEvaluatorRegistry();
+
+  // Decorate instance with storage provider, evaluator registry, and request with projectCtx
   fastify.decorate("storage", storage);
+  fastify.decorate("evaluatorRegistry", evaluatorRegistry);
   fastify.decorateRequest("projectCtx", null);
 
   // Handle "no project found" errors with a helpful message
@@ -78,6 +86,7 @@ export async function createServer(options: ServerOptions = {}) {
     async (api) => {
       // Workspace-level routes (no project context needed)
       await api.register(statusRoute);
+      await api.register(evaluatorTypesRoute);
       await api.register(llmProvidersRoute);
       await api.register(projectsRoute, { workspaceDir, storage });
 
@@ -133,6 +142,7 @@ export async function createServer(options: ServerOptions = {}) {
       workspaceDir,
       storage,
       pollIntervalMs: pollMs,
+      evaluatorRegistry,
       ...(maxConcurrent !== undefined ? { maxConcurrent } : {}),
       onRunStart: (run) => {
         console.log(`[RunProcessor] Starting run ${run.id}`);
