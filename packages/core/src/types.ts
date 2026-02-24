@@ -3,13 +3,24 @@
  */
 
 /**
- * A tool call made by an assistant message.
+ * Normalized token usage following industry standards (LangGraph, Anthropic format).
+ */
+export interface TokensUsage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
+
+/**
+ * A tool call made by an assistant message (OpenAI format).
  */
 export interface ToolCall {
-  id?: string;
-  name: string;
-  args: Record<string, unknown>;
-  type?: string;
+  id: string;
+  type: "function";
+  function: {
+    name: string;
+    arguments: string; // JSON string, not parsed object
+  };
 }
 
 /**
@@ -26,29 +37,31 @@ export interface ContentBlock {
  */
 export interface Message {
   role: "user" | "assistant" | "system" | "tool";
-  content: string | ContentBlock[];
+  content: string | ContentBlock[] | null;
   /** Tool calls made by the assistant */
   tool_calls?: ToolCall[];
   /** Tool call ID (for tool response messages) */
   tool_call_id?: string;
   /** Message name (e.g., tool name for tool messages) */
   name?: string;
-  /** Additional metadata from the model/framework */
-  additional_kwargs?: Record<string, unknown>;
-  /** Response metadata from the model */
-  response_metadata?: Record<string, unknown>;
   /** Message ID */
   id?: string;
+  /** Debug/passthrough metadata from external systems (not consumed by application) */
+  metadata?: Record<string, unknown>;
 }
 
 /**
  * Normalizes message content to a string.
  * If content is already a string, returns it as-is.
  * If content is an array of ContentBlocks, extracts and joins text content.
+ * If content is null, returns an empty string.
  */
 export function getMessageContentAsString(
-  content: string | ContentBlock[]
+  content: string | ContentBlock[] | null
 ): string {
+  if (content === null) {
+    return "";
+  }
   if (typeof content === "string") {
     return content;
   }

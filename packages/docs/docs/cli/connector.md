@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # evalstudio connector
 
-Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
+Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors define how to connect to target systems like LangGraph Dev API.
 
 ## Usage
 
@@ -24,7 +24,7 @@ evalstudio connector create <name> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--type <type>` | Connector type: http or langgraph (required) |
+| `--type <type>` | Connector type: langgraph (required) |
 | `--base-url <url>` | Base URL for the API endpoint (required) |
 | `--header <key:value>` | Custom header as key:value pair (repeatable) |
 | `--config <json>` | Configuration as JSON string |
@@ -33,13 +33,6 @@ evalstudio connector create <name> [options]
 **Example:**
 
 ```bash
-# HTTP connector with custom headers
-evalstudio connector create "Production API" \
-  --type http \
-  --base-url https://api.example.com \
-  --header "Authorization:Bearer my-token" \
-  --header "X-Custom:value"
-
 # LangGraph connector (assistantId is required in config)
 evalstudio connector create "LangGraph Dev" \
   --type langgraph \
@@ -85,9 +78,6 @@ Connectors:
   LangGraph Dev (987fcdeb-51a2-3bc4-d567-890123456789)
     Type:     langgraph
     Base URL: http://localhost:8123
-  Production API (abc12345-6789-def0-1234-567890abcdef)
-    Type:     http
-    Base URL: https://api.example.com
 ```
 
 ### show
@@ -135,7 +125,7 @@ evalstudio connector update <identifier> [options]
 | Option | Description |
 |--------|-------------|
 | `-n, --name <name>` | New connector name |
-| `--type <type>` | New connector type (http or langgraph) |
+| `--type <type>` | New connector type (langgraph) |
 | `--base-url <url>` | New base URL |
 | `--header <key:value>` | Custom header as key:value pair (repeatable, replaces existing) |
 | `--config <json>` | New configuration as JSON string |
@@ -195,8 +185,6 @@ Output:
 ```
 Available Connector Types:
 --------------------------
-  http
-    Generic HTTP/REST API connector
   langgraph
     LangGraph Dev API connector for langgraph-backed agents
 ```

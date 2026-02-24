@@ -143,19 +143,17 @@ export interface ContentBlock {
  */
 export interface Message {
   role: "user" | "assistant" | "system" | "tool";
-  content: string | ContentBlock[];
+  content: string | ContentBlock[] | null;
   /** Tool calls made by the assistant */
   tool_calls?: ToolCall[];
   /** Tool call ID (for tool response messages) */
   tool_call_id?: string;
   /** Message name (e.g., tool name for tool messages) */
   name?: string;
-  /** Additional metadata from the model/framework */
-  additional_kwargs?: Record<string, unknown>;
-  /** Response metadata from the model */
-  response_metadata?: Record<string, unknown>;
   /** Message ID */
   id?: string;
+  /** Debug/passthrough metadata from external systems (not consumed by application) */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -195,8 +193,6 @@ export interface Eval {
   id: string;
   /** Display name for the eval */
   name: string;
-  /** Input messages for the eval */
-  input: Message[];
   /** Required: Scenarios define the test contexts and evaluation criteria */
   scenarioIds: string[];
   /** The connector to use for running this eval (required) */
@@ -219,8 +215,6 @@ export interface EvalWithRelations extends Eval {
 export interface CreateEvalInput {
   /** Display name for the eval */
   name: string;
-  /** Initial input messages */
-  input?: Message[];
   /** Required: Scenarios define the test contexts and evaluation criteria */
   scenarioIds: string[];
   /** The connector to use for running this eval (required) */
@@ -230,8 +224,6 @@ export interface CreateEvalInput {
 export interface UpdateEvalInput {
   /** Display name for the eval */
   name?: string;
-  /** Input messages */
-  input?: Message[];
   /** Scenarios define the test contexts and evaluation criteria */
   scenarioIds?: string[];
   /** The connector to use for running this eval */
@@ -248,7 +240,7 @@ export interface DefaultModels {
   anthropic: ModelGroup[];
 }
 
-export type ConnectorType = "http" | "langgraph";
+export type ConnectorType = "langgraph";
 
 /** Configuration for LangGraph Dev API connectors */
 export interface LangGraphConnectorConfig {
@@ -258,16 +250,8 @@ export interface LangGraphConnectorConfig {
   configurable?: Record<string, unknown>;
 }
 
-/** Configuration for generic HTTP/REST API connectors */
-export interface HttpConnectorConfig {
-  /** HTTP method to use (defaults to POST) */
-  method?: "GET" | "POST" | "PUT" | "PATCH";
-  /** Path to append to base URL */
-  path?: string;
-}
-
 /** Union type for connector configurations */
-export type ConnectorConfig = LangGraphConnectorConfig | HttpConnectorConfig;
+export type ConnectorConfig = LangGraphConnectorConfig;
 
 export interface Connector {
   id: string;
@@ -319,6 +303,14 @@ export interface ConnectorInvokeResult {
   messages?: Message[];
   rawResponse?: string;
   error?: string;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
+}
+
+export interface TokensUsage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
 }
 
 /**
@@ -337,15 +329,6 @@ export interface RunResult {
   reason?: string;
 }
 
-export interface RunMetadata {
-  latencyMs?: number;
-  tokenUsage?: {
-    input: number;
-    output: number;
-  };
-  [key: string]: unknown;
-}
-
 export interface Run {
   id: string;
   /** Eval ID (optional for playground runs) */
@@ -359,11 +342,13 @@ export interface Run {
   status: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
   messages: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
   createdAt: string;
   updatedAt: string;
 }
@@ -382,11 +367,13 @@ export interface UpdateRunInput {
   status?: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {

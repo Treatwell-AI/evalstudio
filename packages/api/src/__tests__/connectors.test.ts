@@ -60,7 +60,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "connector-1",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api1.example.com",
         },
       });
@@ -99,7 +100,6 @@ describe("connectors routes", () => {
 
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
-      expect(body.http).toBeDefined();
       expect(body.langgraph).toBeDefined();
 
       await server.close();
@@ -115,7 +115,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });
@@ -123,7 +124,7 @@ describe("connectors routes", () => {
       expect(response.statusCode).toBe(201);
       const body = JSON.parse(response.body);
       expect(body.name).toBe("test-connector");
-      expect(body.type).toBe("http");
+      expect(body.type).toBe("langgraph");
       expect(body.baseUrl).toBe("https://api.example.com");
       expect(body.id).toBeDefined();
 
@@ -162,7 +163,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "headers-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
           headers: {
             "X-Custom": "custom-value",
@@ -188,7 +190,8 @@ describe("connectors routes", () => {
         method: "POST",
         url: `${prefix}/connectors`,
         payload: {
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });
@@ -225,7 +228,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
         },
       });
 
@@ -243,7 +247,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "duplicate-name",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api1.example.com",
         },
       });
@@ -273,7 +278,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });
@@ -313,7 +319,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "old-name",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://old.api.com",
         },
       });
@@ -355,7 +362,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "existing-name",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api1.example.com",
         },
       });
@@ -392,7 +400,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });
@@ -449,7 +458,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "test-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });
@@ -458,7 +468,7 @@ describe("connectors routes", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ response: "Hello!" }),
+        text: async () => JSON.stringify({ version: "0.1.0" }),
       });
 
       const response = await server.inject({
@@ -469,7 +479,7 @@ describe("connectors routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
-      expect(body.response).toBe("Hello!");
+      expect(body.response).toContain("0.1.0");
       expect(body.latencyMs).toBeGreaterThanOrEqual(0);
 
       await server.close();
@@ -499,7 +509,8 @@ describe("connectors routes", () => {
         url: `${prefix}/connectors`,
         payload: {
           name: "fail-connector",
-          type: "http",
+          type: "langgraph",
+          config: { assistantId: "test-assistant" },
           baseUrl: "https://api.example.com",
         },
       });

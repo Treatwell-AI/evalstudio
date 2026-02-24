@@ -57,7 +57,6 @@ describe("eval", () => {
       expect(evalItem.id).toBeDefined();
       expect(evalItem.name).toBe("Test Eval");
       expect(evalItem.scenarioIds).toEqual([scenarioId]);
-      expect(evalItem.input).toEqual([]);
       expect(evalItem.createdAt).toBeDefined();
       expect(evalItem.updatedAt).toBeDefined();
     });
@@ -70,18 +69,6 @@ describe("eval", () => {
       });
 
       expect(evalItem.scenarioIds).toEqual([scenarioId, scenario2Id]);
-    });
-
-    it("creates an eval with input messages", async () => {
-      const evalItem = await evalMod.create({
-        name: "Messages Eval",
-        connectorId,
-        input: [{ role: "user", content: "Hello" }],
-        scenarioIds: [scenarioId],
-      });
-
-      expect(evalItem.input).toEqual([{ role: "user", content: "Hello" }]);
-      expect(evalItem.scenarioIds).toEqual([scenarioId]);
     });
 
     it("throws error for non-existent connector", async () => {
@@ -221,15 +208,6 @@ describe("eval", () => {
       expect(new Date(updated!.updatedAt).getTime()).toBeGreaterThanOrEqual(
         new Date(created.updatedAt).getTime()
       );
-    });
-
-    it("updates eval input", async () => {
-      const created = await evalMod.create({ name: "Test", connectorId, scenarioIds: [scenarioId] });
-      const updated = await evalMod.update(created.id, {
-        input: [{ role: "user", content: "Updated message" }],
-      });
-
-      expect(updated?.input).toEqual([{ role: "user", content: "Updated message" }]);
     });
 
     it("updates eval scenarioIds", async () => {

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ConnectorInvokeResult } from "./connector.js";
 import { getLLMProviderFromProjectConfig, type LLMProvider } from "./llm-provider.js";
 import type { Persona } from "./persona.js";
@@ -321,12 +322,8 @@ export class RunProcessor {
         ? await modules.personas.get(currentRun.personaId)
         : undefined;
 
-      // Get eval input messages if this is an eval-based run
-      const evalForInput = currentRun.evalId ? await modules.evals.get(currentRun.evalId) : undefined;
-      const evalInput = evalForInput?.input;
-
       // Build all messages including system prompt
-      const allMessages = this.buildAllMessages(scenario, persona, evalInput);
+      const allMessages = this.buildAllMessages(scenario, persona);
 
       // Store all initial messages in the run (so they're visible in UI)
       const runWithMessages = await modules.runs.update(currentRun.id, {
@@ -374,7 +371,7 @@ export class RunProcessor {
    * Uses the stored threadId if available (set on retry), otherwise uses run.id.
    */
   private getThreadId(run: Run): string {
-    return run.threadId || run.id;
+    return run.threadId ?? run.id;
   }
 
   /**
@@ -410,8 +407,13 @@ export class RunProcessor {
     let lastResult: ConnectorInvokeResult | undefined;
     let finalEvaluation: CriteriaEvaluationResult | undefined;
 
-    // Track messages already in the LangGraph thread (for continuation calls)
-    let threadMessageCount = 0;
+    // Track message IDs we've already sent (for filtering on subsequent calls)
+    const seenMessageIds = new Set<string>();
+
+    // Accumulate token usage across all connector calls
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let threadId: string | undefined;
 
     // Count only user and assistant messages for the limit (exclude system)
     const countConversationMessages = () =>
@@ -432,6 +434,7 @@ export class RunProcessor {
       const userMessage: Message = {
         role: "user",
         content: personaResponse.content,
+        id: `persona_${randomUUID()}`,
       };
       messages = [...messages, userMessage];
 
@@ -444,11 +447,11 @@ export class RunProcessor {
       const conversationMessages = messages.filter((m) => m.role !== "system");
 
       // Invoke the connector (send to tested agent, pass thread ID for LangGraph)
-      // threadMessageCount tells LangGraph strategy how many messages are already in the thread
+      // seenMessageIds contains connector-assigned IDs from previous responses (for filtering duplicates)
       const result = await modules.connectors.invoke(connectorId, {
         messages: conversationMessages,
         runId: this.getThreadId(currentRun),
-        threadMessageCount,
+        seenMessageIds,
         extraHeaders: persona?.headers,
       });
       lastResult = result;
@@ -458,12 +461,35 @@ export class RunProcessor {
       }
 
       // Add all agent response messages (may include tool calls, tool results, and final response)
+      // Note: response is already filtered to exclude messages with IDs in seenMessageIds
       messages = [...messages, ...result.messages];
 
-      // Update thread message count for next iteration (thread now has all conversation messages)
-      threadMessageCount = messages.filter((m) => m.role !== "system").length;
+      // Track all message IDs we've now seen (both sent and received) for next iteration
+      // - Local IDs from messages we sent (for input filtering)
+      // - Connector IDs from messages we received (for response filtering)
+      for (const msg of conversationMessages) {
+        if (msg.id) {
+          seenMessageIds.add(msg.id);
+        }
+      }
+      for (const msg of result.messages) {
+        if (msg.id) {
+          seenMessageIds.add(msg.id);
+        }
+      }
       totalLatencyMs += result.latencyMs;
       connectorCallCount++;
+
+      // Accumulate token usage from this connector call
+      if (result.tokensUsage) {
+        totalInputTokens += result.tokensUsage.input_tokens;
+        totalOutputTokens += result.tokensUsage.output_tokens;
+      }
+
+      // Store thread ID from the connector response
+      if (result.threadId) {
+        threadId = result.threadId;
+      }
 
       // Update run with current messages
       await modules.runs.update(currentRun.id, { messages });
@@ -506,6 +532,15 @@ export class RunProcessor {
               reasoning: evaluation.reasoning,
             },
           },
+          latencyMs: totalLatencyMs,
+          tokensUsage: totalInputTokens > 0 || totalOutputTokens > 0
+            ? {
+                input_tokens: totalInputTokens,
+                output_tokens: totalOutputTokens,
+                total_tokens: totalInputTokens + totalOutputTokens,
+              }
+            : undefined,
+          threadId,
           completedAt: new Date().toISOString(),
         });
 
@@ -570,6 +605,15 @@ export class RunProcessor {
             }
           : undefined,
       },
+      latencyMs: totalLatencyMs,
+      tokensUsage: totalInputTokens > 0 || totalOutputTokens > 0
+        ? {
+            input_tokens: totalInputTokens,
+            output_tokens: totalOutputTokens,
+            total_tokens: totalInputTokens + totalOutputTokens,
+          }
+        : undefined,
+      threadId,
       completedAt: new Date().toISOString(),
     });
 
@@ -582,11 +626,11 @@ export class RunProcessor {
   /**
    * Builds all messages including system prompt for a run.
    * These messages are stored in the run for visibility in the UI.
+   * Seed messages are assigned IDs with "seed_" prefix for tracking.
    */
   private buildAllMessages(
     scenario: Scenario,
-    persona: Persona | undefined,
-    evalInput?: Message[] | Record<string, unknown>
+    persona: Persona | undefined
   ): Message[] {
     const messages: Message[] = [];
 
@@ -609,14 +653,13 @@ export class RunProcessor {
       messages.push({ role: "system", content: systemPrompt });
     }
 
-    // Add scenario seed messages if present
+    // Add scenario seed messages if present, assigning IDs for tracking
     if (scenario.messages) {
-      messages.push(...scenario.messages);
-    }
-
-    // Add eval input messages (only for eval-based runs)
-    if (Array.isArray(evalInput)) {
-      messages.push(...(evalInput as Message[]));
+      const seedMessages = scenario.messages.map((msg) => ({
+        ...msg,
+        id: msg.id || `seed_${randomUUID()}`,
+      }));
+      messages.push(...seedMessages);
     }
 
     return messages;

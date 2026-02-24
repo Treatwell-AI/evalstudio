@@ -56,9 +56,8 @@ EvalStudio uses a message-based format for conversations:
 
 - **Pluggable Architecture**: Define connectors for different endpoint types
 - **Built-in Connectors**:
-  - Generic HTTP/REST API
   - LangGraph-based agents
-  - Custom connector support via plugin system
+  - Custom connector support via plugin system (future)
 - **Configuration**: Store endpoint URLs, authentication, and connector-specific settings
 
 #### Evaluation Execution

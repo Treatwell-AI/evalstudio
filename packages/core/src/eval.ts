@@ -9,7 +9,6 @@ export type { Message };
 export interface Eval {
   id: string;
   name: string;
-  input: Message[];
   scenarioIds: string[];
   connectorId?: string;
   createdAt: string;
@@ -18,14 +17,12 @@ export interface Eval {
 
 export interface CreateEvalInput {
   name: string;
-  input?: Message[];
   scenarioIds: string[];
   connectorId: string;
 }
 
 export interface UpdateEvalInput {
   name?: string;
-  input?: Message[];
   scenarioIds?: string[];
   connectorId?: string;
 }
@@ -82,7 +79,6 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
       const evalItem: Eval = {
         id: randomUUID(),
         name: input.name,
-        input: input.input ?? [],
         scenarioIds: input.scenarioIds,
         connectorId: input.connectorId,
         createdAt: now,
@@ -175,7 +171,6 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
       const updated: Eval = {
         ...evalItem,
         name: input.name ?? evalItem.name,
-        input: input.input ?? evalItem.input,
         scenarioIds: input.scenarioIds ?? evalItem.scenarioIds,
         connectorId: input.connectorId ?? evalItem.connectorId,
         updatedAt: new Date().toISOString(),

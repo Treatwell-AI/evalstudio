@@ -1,13 +1,9 @@
 import type { FastifyInstance } from "fastify";
-import {
-  createProjectModules,
-  type Message,
-} from "@evalstudio/core";
+import { createProjectModules } from "@evalstudio/core";
 
 interface CreateEvalBody {
   /** Display name for the eval (required) */
   name: string;
-  input?: Message[];
   /** Required: Scenarios define the test contexts and evaluation criteria */
   scenarioIds: string[];
   /** The connector to use for running this eval (required) */
@@ -17,7 +13,6 @@ interface CreateEvalBody {
 interface UpdateEvalBody {
   /** Display name for the eval */
   name?: string;
-  input?: Message[];
   /** Scenarios define the test contexts and evaluation criteria */
   scenarioIds?: string[];
   /** The connector to use for running this eval */
@@ -62,7 +57,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
     async (request, reply) => {
       const {
         name,
-        input,
         scenarioIds,
         connectorId,
       } = request.body;
@@ -86,7 +80,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
         const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const evalItem = await evals.create({
           name,
-          input,
           scenarioIds,
           connectorId,
         });
@@ -111,7 +104,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
     async (request, reply) => {
       const {
         name,
-        input,
         scenarioIds,
         connectorId,
       } = request.body;
@@ -120,7 +112,6 @@ export async function evalsRoute(fastify: FastifyInstance) {
         const { evals } = createProjectModules(fastify.storage, request.projectCtx!.id);
         const evalItem = await evals.update(request.params.id, {
           name,
-          input,
           scenarioIds,
           connectorId,
         });

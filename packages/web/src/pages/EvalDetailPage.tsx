@@ -136,9 +136,6 @@ export function EvalDetailPage() {
     setHasChanges(false);
   };
 
-  // Get selected scenarios for displaying evaluation criteria
-  const selectedScenarios = scenarios.filter(s => scenarioIds.includes(s.id));
-
   return (
     <div className="page eval-detail-page">
       <div className="page-header">
@@ -291,21 +288,6 @@ export function EvalDetailPage() {
             </div>
 
           </div>
-
-          {selectedScenarios.length > 0 && selectedScenarios.some(s => s.maxMessages) && (
-            <div className="eval-scenario-details">
-              <div className="eval-detail-grid">
-                {selectedScenarios.map((s) => s.maxMessages && (
-                  <div key={s.id} className="eval-detail-field">
-                    <label>{s.name} - Max Messages</label>
-                    <div className="eval-detail-value">
-                      {s.maxMessages}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

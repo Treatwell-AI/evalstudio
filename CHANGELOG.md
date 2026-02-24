@@ -32,6 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Connector contract standardization** — Normalized token usage and metadata handling across all connectors
+  - Core: Added `TokensUsage` interface with industry-standard field names (`input_tokens`, `output_tokens`, `total_tokens`)
+  - Core: Updated `Message.metadata` to single catch-all field consolidating `additional_kwargs` and `response_metadata`
+  - Core: Flattened `Run` interface — moved `latencyMs`, `tokensUsage`, `threadId` from nested `metadata` to top-level fields
+  - Core: Updated `ConnectorInvokeResult` to include `tokensUsage` and `threadId` metadata
+  - Core: LangGraph connector now extracts and normalizes token usage from response
+  - API: Updated `UpdateRunBody` to support flattened metadata fields
+  - Web: Synchronized type definitions with core flattened structure
+  - Removed `RunMetadata` interface (fields now at Run top-level)
+- **Connector architecture** — Refactored connector implementation into dedicated folder structure
+  - Core: Moved LangGraph strategy from `connector.ts` into new `connectors/langgraph.ts` module
+  - Core: Created `connectors/base.ts` with shared `ConnectorStrategy` interface and `buildRequestHeaders()` utility
+  - Core: Created `connectors/index.ts` with documentation on how to add new connector types
+  - Architecture now clearly shows how to extend with future connector types while keeping only LangGraph available today
 - **Eval page scenario list** — Compact rows with search filtering and scrollable container
   - Scenario checkbox rows are thinner with smaller text and tighter padding
   - Search input appears when there are more than 5 scenarios, filtering by name
@@ -39,6 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Same improvements applied to the Create/Edit Eval modal
 - **Performance charts default to "By Execution" view** across all pages (Dashboard, Eval, Scenario, Persona)
 - **Performance charts capped to last 20 data points** to keep charts readable
+
+### Removed
+
+- **HTTP connector** — Removed HTTP connector type from available connector types
+  - Core: Removed `HttpConnectorConfig` interface and `httpStrategy` implementation
+  - Core: Changed `ConnectorType` from `"http" | "langgraph"` to `"langgraph"` only
+  - Core: Removed `HttpConnectorConfig` export from public API
+  - CLI: Removed "http" from valid connector types, updated help text to show "langgraph" only
+  - Web: Removed HTTP-specific form fields (method, path) from ConnectorForm
+  - Web: Changed default connector type to "langgraph"
+  - Web: Removed `HttpConnectorConfig` interface from API client types
+  - Docs: Removed HTTP connector examples and configuration documentation from all guides
+  - Tests: Updated all test cases to use LangGraph connector type with assistantId
 
 ## [0.5.0] - 2026-02-20
 

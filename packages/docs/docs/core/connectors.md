@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Connectors
 
-Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors define how to connect to target systems like LangGraph Dev API or generic HTTP endpoints.
+Manage connector configurations for bridging EvalStudio to external API endpoints. Connectors define how to connect to target systems like LangGraph Dev API.
 
 ## Import
 
@@ -23,7 +23,6 @@ import {
   type ConnectorType,
   type ConnectorConfig,
   type LangGraphConnectorConfig,
-  type HttpConnectorConfig,
   type CreateConnectorInput,
   type UpdateConnectorInput,
   type ConnectorTestResult,
@@ -38,11 +37,10 @@ import {
 ### ConnectorType
 
 ```typescript
-type ConnectorType = "http" | "langgraph";
+type ConnectorType = "langgraph";
 ```
 
 Supported connector types:
-- `http` - Generic HTTP/REST API connector
 - `langgraph` - LangGraph Dev API connector for langgraph-backed agents
 
 ### Connector
@@ -51,7 +49,7 @@ Supported connector types:
 interface Connector {
   id: string;              // Unique identifier (UUID)
   name: string;            // Connector name (unique)
-  type: ConnectorType;     // Connector type (http or langgraph)
+  type: ConnectorType;     // Connector type (langgraph)
   baseUrl: string;         // Base URL for the API endpoint
   headers?: Record<string, string>; // Custom headers sent with every request
   config?: ConnectorConfig; // Optional type-specific configuration
@@ -159,23 +157,12 @@ interface LangGraphConnectorConfig {
 }
 ```
 
-### HttpConnectorConfig
-
-Type-safe configuration for generic HTTP/REST API connectors.
-
-```typescript
-interface HttpConnectorConfig {
-  method?: "GET" | "POST" | "PUT" | "PATCH"; // HTTP method (default: POST)
-  path?: string;                             // Path to append to base URL
-}
-```
-
 ### ConnectorConfig
 
-Union type for all connector configurations.
+Type alias for connector configuration.
 
 ```typescript
-type ConnectorConfig = LangGraphConnectorConfig | HttpConnectorConfig;
+type ConnectorConfig = LangGraphConnectorConfig;
 ```
 
 ## Functions
@@ -191,17 +178,6 @@ function createConnector(input: CreateConnectorInput): Connector;
 **Throws**: Error if a connector with the same name already exists.
 
 ```typescript
-// HTTP connector with custom headers
-const httpConnector = createConnector({
-  name: "Production API",
-  type: "http",
-  baseUrl: "https://api.example.com",
-  headers: {
-    Authorization: "Bearer my-token",
-    "X-Custom-Header": "value",
-  },
-});
-
 // LangGraph connector
 const langGraphConnector = createConnector({
   name: "LangGraph Dev",
@@ -294,7 +270,6 @@ function getConnectorTypes(): Record<ConnectorType, string>;
 
 ```typescript
 const types = getConnectorTypes();
-console.log(types.http);      // "Generic HTTP/REST API connector"
 console.log(types.langgraph); // "LangGraph Dev API connector for langgraph-backed agents"
 ```
 
@@ -317,7 +292,7 @@ if (result.success) {
 }
 ```
 
-For HTTP connectors, sends a POST request with `{"message": "hello"}`. For LangGraph connectors, sends a GET request to the `/info` endpoint.
+Sends a GET request to the `/info` endpoint to verify connectivity.
 
 ### invokeConnector()
 
@@ -341,7 +316,7 @@ if (result.success && result.message) {
   console.log(`Response: ${result.message.content}`);
   console.log(`Latency: ${result.latencyMs}ms`);
 
-  // LangGraph responses may include tool calls
+  // Responses may include tool calls
   if (result.message.tool_calls) {
     for (const call of result.message.tool_calls) {
       console.log(`Tool: ${call.name}, Args: ${JSON.stringify(call.args)}`);
@@ -352,9 +327,9 @@ if (result.success && result.message) {
 }
 ```
 
-For HTTP connectors, sends messages as a POST body. For LangGraph connectors, uses the `/threads/{thread_id}/runs/wait` endpoint which waits for the run to complete before returning the full response including any tool calls.
+Uses the `/threads/{thread_id}/runs/wait` endpoint which waits for the run to complete before returning the full response including any tool calls.
 
-When `runId` is provided for LangGraph connectors, a thread is created with that ID (if it doesn't exist) and all runs are executed within that thread. This enables better organization and tracing of evaluation runs in LangSmith. Multi-turn conversations use `multitask_strategy: "enqueue"` to properly queue requests on the same thread.
+When `runId` is provided, a thread is created with that ID (if it doesn't exist) and all runs are executed within that thread. This enables better organization and tracing of evaluation runs in LangSmith. Multi-turn conversations use `multitask_strategy: "enqueue"` to properly queue requests on the same thread.
 
 ## Configuration Examples
 
@@ -367,15 +342,6 @@ const config: LangGraphConnectorConfig = {
     model_name: "gpt-4o",
     system_prompt: "You are a helpful assistant",
   },
-};
-```
-
-### HTTP Connector Config
-
-```typescript
-const config: HttpConnectorConfig = {
-  method: "POST",               // Optional: HTTP method (default: POST)
-  path: "/v1/chat",             // Optional: Path to append to base URL
 };
 ```
 

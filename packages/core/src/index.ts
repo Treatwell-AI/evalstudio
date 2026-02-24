@@ -1,5 +1,5 @@
 export { getStatus, type Status } from "./status.js";
-export type { Message } from "./types.js";
+export type { Message, TokensUsage } from "./types.js";
 export {
   createJsonRepository,
   type Repository,
@@ -86,7 +86,6 @@ export {
   type ConnectorTestResult,
   type ConnectorType,
   type CreateConnectorInput,
-  type HttpConnectorConfig,
   type LangGraphConnectorConfig,
   type UpdateConnectorInput,
 } from "./connector.js";
@@ -98,7 +97,6 @@ export {
   type CreateRunInput,
   type ListRunsOptions,
   type Run,
-  type RunMetadata,
   type RunResult,
   type RunStatus,
   type UpdateRunInput,

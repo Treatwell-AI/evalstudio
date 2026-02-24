@@ -5,9 +5,10 @@ import {
   createStorageProvider,
   getConnectorTypes,
   type ConnectorType,
+  type LangGraphConnectorConfig,
 } from "@evalstudio/core";
 
-const validConnectorTypes: ConnectorType[] = ["http", "langgraph"];
+const validConnectorTypes: ConnectorType[] = ["langgraph"];
 
 export const connectorCommand = new Command("connector")
   .description("Manage connectors for bridging EvalStudio to external APIs")
@@ -17,7 +18,7 @@ export const connectorCommand = new Command("connector")
       .argument("<name>", "Connector name")
       .requiredOption(
         "--type <type>",
-        "Connector type (http or langgraph)"
+        "Connector type (langgraph)"
       )
       .requiredOption("--base-url <url>", "Base URL for the API endpoint")
       .option("--config <json>", "Configuration as JSON string (e.g., '{\"assistantId\": \"my-agent\"}' for langgraph)")
@@ -42,10 +43,10 @@ export const connectorCommand = new Command("connector")
               process.exit(1);
             }
 
-            let config: Record<string, unknown> | undefined;
+            let config: LangGraphConnectorConfig | undefined;
             if (options.config) {
               try {
-                config = JSON.parse(options.config);
+                config = JSON.parse(options.config) as LangGraphConnectorConfig;
               } catch {
                 console.error(`Error: Invalid JSON in --config`);
                 process.exit(1);
@@ -166,7 +167,7 @@ export const connectorCommand = new Command("connector")
       .description("Update a connector configuration")
       .argument("<identifier>", "Connector ID")
       .option("-n, --name <name>", "New connector name")
-      .option("--type <type>", "New connector type (http or langgraph)")
+      .option("--type <type>", "New connector type (langgraph)")
       .option("--base-url <url>", "New base URL")
       .option("--config <json>", "New configuration as JSON string")
       .option("--header <key:value...>", "Custom headers as key:value pairs (repeatable)")
@@ -203,10 +204,10 @@ export const connectorCommand = new Command("connector")
             process.exit(1);
           }
 
-          let config: Record<string, unknown> | undefined;
+          let config: LangGraphConnectorConfig | undefined;
           if (options.config) {
             try {
-              config = JSON.parse(options.config);
+              config = JSON.parse(options.config) as LangGraphConnectorConfig;
             } catch {
               console.error(`Error: Invalid JSON in --config`);
               process.exit(1);

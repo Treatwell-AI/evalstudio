@@ -128,30 +128,6 @@ describe("evals routes", () => {
       await server.close();
     });
 
-    it("creates an eval with all fields", async () => {
-      const server = await createServer({ workspaceDir, runProcessor: false });
-
-      const response = await server.inject({
-        method: "POST",
-        url: `${prefix}/evals`,
-        payload: {
-          name: "Full Eval",
-          connectorId,
-          input: [{ role: "user", content: "Hello" }],
-          scenarioIds: [scenarioId],
-        },
-      });
-
-      expect(response.statusCode).toBe(201);
-      const body = JSON.parse(response.body);
-      expect(body.name).toBe("Full Eval");
-      expect(body.connectorId).toBe(connectorId);
-      expect(body.scenarioIds).toEqual([scenarioId]);
-      expect(body.input).toEqual([{ role: "user", content: "Hello" }]);
-
-      await server.close();
-    });
-
     it("returns 400 for missing name", async () => {
       const server = await createServer({ workspaceDir, runProcessor: false });
 
@@ -326,29 +302,6 @@ describe("evals routes", () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.name).toBe("Updated Name");
-
-      await server.close();
-    });
-
-    it("updates eval input", async () => {
-      const server = await createServer({ workspaceDir, runProcessor: false });
-
-      const createResponse = await server.inject({
-        method: "POST",
-        url: `${prefix}/evals`,
-        payload: { name: "Test Eval", connectorId, scenarioIds: [scenarioId] },
-      });
-      const created = JSON.parse(createResponse.body);
-
-      const response = await server.inject({
-        method: "PUT",
-        url: `${prefix}/evals/${created.id}`,
-        payload: { input: [{ role: "user", content: "Updated message" }] },
-      });
-
-      expect(response.statusCode).toBe(200);
-      const body = JSON.parse(response.body);
-      expect(body.input).toEqual([{ role: "user", content: "Updated message" }]);
 
       await server.close();
     });

@@ -5,7 +5,7 @@ import {
   useUpdateConnector,
   useDeleteConnector,
 } from "../hooks/useConnectors";
-import { ConnectorType, HttpConnectorConfig, LangGraphConnectorConfig } from "../lib/api";
+import { ConnectorType, LangGraphConnectorConfig } from "../lib/api";
 import { HeadersEditor } from "./HeadersEditor";
 
 interface ConnectorFormProps {
@@ -15,13 +15,11 @@ interface ConnectorFormProps {
 
 export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
   const [name, setName] = useState("");
-  const [type, setType] = useState<ConnectorType>("http");
+  const [type, setType] = useState<ConnectorType>("langgraph");
   const [baseUrl, setBaseUrl] = useState("");
   const [customHeaders, setCustomHeaders] = useState<Array<{ key: string; value: string }>>([]);
   const [assistantId, setAssistantId] = useState("");
   const [configurableJson, setConfigurableJson] = useState("");
-  const [httpMethod, setHttpMethod] = useState<"GET" | "POST" | "PUT" | "PATCH">("POST");
-  const [httpPath, setHttpPath] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const { data: existingConnector } = useConnector(connectorId);
@@ -56,10 +54,6 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
         } else {
           setConfigurableJson("");
         }
-      } else if (existingConnector.type === "http" && existingConnector.config) {
-        const httpConfig = existingConnector.config as HttpConnectorConfig;
-        setHttpMethod(httpConfig.method || "POST");
-        setHttpPath(httpConfig.path || "");
       }
     }
   }, [existingConnector]);
@@ -78,9 +72,9 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
       return;
     }
 
-    // For langgraph, assistantId is required
-    if (type === "langgraph" && !assistantId.trim()) {
-      setError("Assistant ID is required for LangGraph connectors");
+    // AssistantId is required
+    if (!assistantId.trim()) {
+      setError("Assistant ID is required");
       return;
     }
 
@@ -92,7 +86,7 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
         : undefined;
 
     // Build config object
-    let config: Record<string, unknown> | undefined;
+    let config: LangGraphConnectorConfig | undefined;
 
     if (type === "langgraph") {
       config = { assistantId: assistantId.trim() };
@@ -105,15 +99,6 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
           setError("Invalid JSON in configurable");
           return;
         }
-      }
-    } else if (type === "http") {
-      const hasMethod = httpMethod !== "POST";
-      const hasPath = httpPath.trim() !== "";
-      if (hasMethod || hasPath) {
-        config = {
-          ...(hasMethod && { method: httpMethod }),
-          ...(hasPath && { path: httpPath.trim() }),
-        };
       }
     }
 
@@ -183,7 +168,6 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
               value={type}
               onChange={(e) => setType(e.target.value as ConnectorType)}
             >
-              <option value="http">HTTP (Generic REST API)</option>
               <option value="langgraph">LangGraph (LangGraph Dev API)</option>
             </select>
           </div>
@@ -195,77 +179,40 @@ export function ConnectorForm({ connectorId, onClose }: ConnectorFormProps) {
               type="url"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder={type === "langgraph" ? "http://localhost:8123" : "https://api.example.com"}
+              placeholder="http://localhost:8123"
             />
-            {type === "langgraph" && (
-              <span className="form-hint">
-                The URL of your LangGraph Dev API server
-              </span>
-            )}
+            <span className="form-hint">
+              The URL of your LangGraph Dev API server
+            </span>
           </div>
 
-          {type === "langgraph" && (
-            <>
-              <div className="form-group">
-                <label htmlFor="connector-assistant-id">Assistant ID *</label>
-                <input
-                  id="connector-assistant-id"
-                  type="text"
-                  value={assistantId}
-                  onChange={(e) => setAssistantId(e.target.value)}
-                  placeholder="my-assistant"
-                  required
-                />
-                <span className="form-hint">
-                  The assistant ID to use when invoking the LangGraph agent
-                </span>
-              </div>
-              <div className="form-group">
-                <label htmlFor="connector-configurable">Configurable (JSON)</label>
-                <textarea
-                  id="connector-configurable"
-                  value={configurableJson}
-                  onChange={(e) => setConfigurableJson(e.target.value)}
-                  placeholder={`{\n  "key": "value"\n}`}
-                  rows={3}
-                />
-                <span className="form-hint">
-                  Optional values sent as config.configurable in invoke requests
-                </span>
-              </div>
-            </>
-          )}
-
-          {type === "http" && (
-            <>
-              <div className="form-group">
-                <label htmlFor="connector-method">Method</label>
-                <select
-                  id="connector-method"
-                  value={httpMethod}
-                  onChange={(e) => setHttpMethod(e.target.value as "GET" | "POST" | "PUT" | "PATCH")}
-                >
-                  <option value="POST">POST</option>
-                  <option value="GET">GET</option>
-                  <option value="PUT">PUT</option>
-                  <option value="PATCH">PATCH</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="connector-path">Path</label>
-                <input
-                  id="connector-path"
-                  type="text"
-                  value={httpPath}
-                  onChange={(e) => setHttpPath(e.target.value)}
-                  placeholder="/v1/chat"
-                />
-                <span className="form-hint">
-                  Optional path appended to the base URL
-                </span>
-              </div>
-            </>
-          )}
+          <div className="form-group">
+            <label htmlFor="connector-assistant-id">Assistant ID *</label>
+            <input
+              id="connector-assistant-id"
+              type="text"
+              value={assistantId}
+              onChange={(e) => setAssistantId(e.target.value)}
+              placeholder="my-assistant"
+              required
+            />
+            <span className="form-hint">
+              The assistant ID to use when invoking the LangGraph agent
+            </span>
+          </div>
+          <div className="form-group">
+            <label htmlFor="connector-configurable">Configurable (JSON)</label>
+            <textarea
+              id="connector-configurable"
+              value={configurableJson}
+              onChange={(e) => setConfigurableJson(e.target.value)}
+              placeholder={`{\n  "key": "value"\n}`}
+              rows={3}
+            />
+            <span className="form-hint">
+              Optional values sent as config.configurable in invoke requests
+            </span>
+          </div>
 
           <HeadersEditor
             headers={customHeaders}

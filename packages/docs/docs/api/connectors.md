@@ -4,7 +4,7 @@ sidebar_position: 7
 
 # Connectors API
 
-REST endpoints for managing connector configurations. Connectors define how to connect to target systems like LangGraph agents or generic HTTP endpoints.
+REST endpoints for managing connector configurations. Connectors define how to connect to target systems like LangGraph agents.
 
 ## Endpoints
 
@@ -62,7 +62,6 @@ Get available connector types with descriptions.
 
 ```json
 {
-  "http": "Generic HTTP/REST API connector",
   "langgraph": "LangGraph Dev API connector for langgraph-backed agents"
 }
 ```
@@ -84,7 +83,7 @@ Create a new connector.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Connector name |
-| `type` | string | Yes | Connector type: "http" or "langgraph" |
+| `type` | string | Yes | Connector type: "langgraph" |
 | `baseUrl` | string | Yes | Base URL for the API endpoint |
 | `headers` | object | No | Custom headers sent with every request (key-value pairs) |
 | `config` | object | No | Type-specific configuration (see below) |
@@ -94,12 +93,6 @@ Create a new connector.
 |-------|------|----------|-------------|
 | `assistantId` | string | Yes | The assistant ID to invoke |
 | `configurable` | object | No | Values sent as `config.configurable` in invoke requests |
-
-**Config for HTTP connectors:**
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `method` | string | No | HTTP method (GET, POST, PUT, PATCH) |
-| `path` | string | No | Path to append to base URL |
 
 ```json
 {

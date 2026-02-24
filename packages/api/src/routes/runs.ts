@@ -3,7 +3,7 @@ import {
   createProjectModules,
   type RunStatus,
   type RunResult,
-  type RunMetadata,
+  type TokensUsage,
   type Message,
 } from "@evalstudio/core";
 
@@ -21,11 +21,13 @@ interface UpdateRunBody {
   status?: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
 }
 
 interface RunParams {
@@ -142,11 +144,13 @@ export async function runsRoute(fastify: FastifyInstance) {
         status,
         startedAt,
         completedAt,
+        latencyMs,
+        tokensUsage,
+        threadId,
         messages,
         output,
         result,
         error,
-        metadata,
       } = request.body;
 
       const { runs } = createProjectModules(fastify.storage, request.projectCtx!.id);
@@ -154,11 +158,13 @@ export async function runsRoute(fastify: FastifyInstance) {
         status,
         startedAt,
         completedAt,
+        latencyMs,
+        tokensUsage,
+        threadId,
         messages,
         output,
         result,
         error,
-        metadata,
       });
 
       if (!run) {

@@ -60,6 +60,7 @@
 
 [x] As a user, I want to enter a dedicated Eval page where I can see all the Eval settings on top, and the list of various runs (and results) for that specific Eval
 [x] As a user, I want to create an Eval "Run" with runtime config (connector, LLM provider, model), the run will be created in a "queued" status (later we'll implement the actual execution of queued runs), I want to create the Run from the Eval detail page
+[x] As a developer, I want connectors to normalize token usage and metadata into a consistent format so that I can build evaluators and features that depend on structured data regardless of the underlying provider
 
 ### Batch Runs
 

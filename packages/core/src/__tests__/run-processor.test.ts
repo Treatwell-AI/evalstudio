@@ -68,6 +68,44 @@ describe("RunProcessor", () => {
   const mockFetch = vi.fn();
   const projectId = "test-project-1";
 
+  // Helper to mock all required fetch calls for a successful run
+  const mockSuccessfulRun = (userMessage = "Hello", assistantMessage = "Hello there!") => {
+    // Mock LLM response for persona message generation
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { role: "assistant", content: userMessage } }],
+      }),
+      text: async () => JSON.stringify({ choices: [{ message: { role: "assistant", content: userMessage } }] }),
+    });
+
+    // Mock connector response - only return assistant message
+    // In reality, LangGraph would return all messages, but parseInvokeResponse filters them.
+    // For simplicity, we mock the post-filter result (only new messages).
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          messages: [{ role: "assistant", content: assistantMessage, id: "assistant_resp" }],
+        }),
+      json: async () => ({
+        messages: [{ role: "assistant", content: assistantMessage, id: "assistant_resp" }],
+      }),
+    });
+
+    // Mock LLM response for evaluation
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        choices: [{ message: { role: "assistant", content: "success" } }],
+      }),
+      text: async () => JSON.stringify({ choices: [{ message: { role: "assistant", content: "success" } }] }),
+    });
+  };
+
   beforeAll(async () => {
     workspaceDir = mkdtempSync(join(tmpdir(), "evalstudio-processor-test-"));
     storage = setupWorkspace(workspaceDir, projectId);
@@ -88,7 +126,8 @@ describe("RunProcessor", () => {
 
     const connector = await modules.connectors.create({
       name: "Test Connector",
-      type: "http",
+      type: "langgraph",
+      config: { assistantId: "test-assistant" },
       baseUrl: "https://api.example.com",
     });
     connectorId = connector.id;
@@ -97,7 +136,6 @@ describe("RunProcessor", () => {
       name: "Test Eval",
       connectorId,
       scenarioIds: [scenario.id],
-      input: [{ role: "user", content: "Hello" }],
     });
     evalId = evalItem.id;
   });
@@ -137,6 +175,7 @@ describe("RunProcessor", () => {
 
     it("creates processor with custom options", () => {
       const processor = new RunProcessor({
+        workspaceDir,
         storage,
         pollIntervalMs: 1000,
         maxConcurrent: 5,
@@ -168,7 +207,7 @@ describe("RunProcessor", () => {
         status: 200,
         text: async () =>
           JSON.stringify({
-            message: { role: "assistant", content: "Done" },
+            messages: [{ role: "user", content: "Hello!" }, { role: "assistant", content: "Done" }],
           }),
       }));
 
@@ -212,7 +251,7 @@ describe("RunProcessor", () => {
         status: 200,
         text: async () =>
           JSON.stringify({
-            message: { role: "assistant", content: "Done" },
+            messages: [{ role: "user", content: "Hello!" }, { role: "assistant", content: "Done" }],
           }),
       }));
 
@@ -263,14 +302,7 @@ describe("RunProcessor", () => {
         evalId,
       });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            message: { role: "assistant", content: "Hello there!" },
-          }),
-      });
+      mockSuccessfulRun("Hello", "Hello there!");
 
       const processor = new RunProcessor({ workspaceDir, storage });
       const started = await processor.processOnce();
@@ -279,6 +311,9 @@ describe("RunProcessor", () => {
 
       // processOnce waits for completion, so run should be done
       const updatedRun = await runMod.get(run.id);
+      if (updatedRun?.status === "error") {
+        console.log("Run error:", updatedRun.error);
+      }
       expect(updatedRun?.status).toBe("completed");
       // Messages include: system prompt, user input, assistant response
       expect(updatedRun?.messages).toHaveLength(3);
@@ -303,7 +338,7 @@ describe("RunProcessor", () => {
           status: 200,
           text: async () =>
             JSON.stringify({
-              message: { role: "assistant", content: "Done" },
+              messages: [{ role: "user", content: "Hello!" }, { role: "assistant", content: "Done" }],
             }),
         };
       });
@@ -327,7 +362,7 @@ describe("RunProcessor", () => {
         status: 200,
         text: async () =>
           JSON.stringify({
-            message: { role: "assistant", content: "Hi" },
+            messages: [{ role: "user", content: "Hello!" }, { role: "assistant", content: "Hi" }],
           }),
       });
 
@@ -343,14 +378,7 @@ describe("RunProcessor", () => {
       const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            message: { role: "assistant", content: "Hi" },
-          }),
-      });
+      mockSuccessfulRun("Hello", "Hi");
 
       const processor = new RunProcessor({ workspaceDir, storage, onRunComplete });
       await processor.processOnce();
@@ -384,14 +412,7 @@ describe("RunProcessor", () => {
       const runMod = createProjectModules(storage, projectId).runs;
       await runMod.create({ evalId });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            message: { role: "assistant", content: "Hi" },
-          }),
-      });
+      mockSuccessfulRun("Hello", "Hi");
 
       const processor = new RunProcessor({ workspaceDir, storage, onStatusChange });
       await processor.processOnce();
@@ -435,14 +456,7 @@ describe("RunProcessor", () => {
       const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            message: { role: "assistant", content: "Hi" },
-          }),
-      });
+      mockSuccessfulRun("Hello!", "Hi");
 
       const processor = new RunProcessor({ workspaceDir, storage });
       await processor.processOnce();
@@ -497,14 +511,7 @@ describe("RunProcessor", () => {
       const runMod = createProjectModules(storage, projectId).runs;
       const run = await runMod.create({ evalId });
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () =>
-          JSON.stringify({
-            message: { role: "assistant", content: "Hello there!" },
-          }),
-      });
+      mockSuccessfulRun("Hello!", "Hello there!");
 
       const processor = new RunProcessor({ workspaceDir, storage });
       await processor.processOnce();
@@ -536,7 +543,8 @@ describe("listRuns with options", () => {
 
     const connector = await modules.connectors.create({
       name: "List Test Connector",
-      type: "http",
+      type: "langgraph",
+      config: { assistantId: "test-assistant" },
       baseUrl: "https://api.example.com",
     });
 
@@ -544,7 +552,6 @@ describe("listRuns with options", () => {
       name: "List Test Eval",
       connectorId: connector.id,
       scenarioIds: [scenario.id],
-      input: [],
     });
     evalId = evalItem.id;
   });

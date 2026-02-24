@@ -5,6 +5,7 @@ import type { ScenarioModule } from "./scenario.js";
 import type { PersonaModule } from "./persona.js";
 import type { ConnectorModule } from "./connector.js";
 import type { ExecutionModule } from "./execution.js";
+import type { TokensUsage } from "./types.js";
 
 /**
  * Run status types:
@@ -22,15 +23,6 @@ export interface RunResult {
   reason?: string;
 }
 
-export interface RunMetadata {
-  latencyMs?: number;
-  tokenUsage?: {
-    input: number;
-    output: number;
-  };
-  [key: string]: unknown;
-}
-
 export interface Run {
   id: string;
   evalId?: string;
@@ -41,12 +33,13 @@ export interface Run {
   status: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
   messages: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
-  threadId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,12 +58,13 @@ export interface UpdateRunInput {
   status?: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
-  threadId?: string;
 }
 
 export interface ListRunsOptions {
@@ -278,12 +272,13 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         status: input.status ?? run.status,
         startedAt: "startedAt" in input ? input.startedAt : run.startedAt,
         completedAt: "completedAt" in input ? input.completedAt : run.completedAt,
+        latencyMs: "latencyMs" in input ? input.latencyMs : run.latencyMs,
+        tokensUsage: "tokensUsage" in input ? input.tokensUsage : run.tokensUsage,
+        threadId: "threadId" in input ? input.threadId : run.threadId,
         messages: input.messages ?? run.messages,
         output: "output" in input ? input.output : run.output,
         result: "result" in input ? input.result : run.result,
         error: "error" in input ? input.error : run.error,
-        metadata: "metadata" in input ? input.metadata : run.metadata,
-        threadId: "threadId" in input ? input.threadId : run.threadId,
         updatedAt: new Date().toISOString(),
       };
 
@@ -319,10 +314,9 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         startedAt: undefined,
         completedAt: undefined,
         result: undefined,
-        metadata: undefined,
+        threadId: randomUUID(),
         output: undefined,
         messages: [],
-        threadId: randomUUID(),
       };
 
       return this.update(id, updates);

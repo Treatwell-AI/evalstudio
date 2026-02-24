@@ -26,16 +26,17 @@ describe("connector", () => {
   describe("create", () => {
     it("creates a connector with required fields", async () => {
       const connector = await mod.create({
-        name: "Test HTTP Connector",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        name: "Test LangGraph Connector",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
       expect(connector.id).toBeDefined();
-      expect(connector.name).toBe("Test HTTP Connector");
-      expect(connector.type).toBe("http");
-      expect(connector.baseUrl).toBe("https://api.example.com");
-      expect(connector.config).toBeUndefined();
+      expect(connector.name).toBe("Test LangGraph Connector");
+      expect(connector.type).toBe("langgraph");
+      expect(connector.baseUrl).toBe("http://localhost:8123");
+      expect(connector.config).toEqual({ assistantId: "test-assistant" });
       expect(connector.createdAt).toBeDefined();
       expect(connector.updatedAt).toBeDefined();
     });
@@ -59,8 +60,9 @@ describe("connector", () => {
     it("creates a connector with custom headers", async () => {
       const connector = await mod.create({
         name: "Custom Headers Connector",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
         headers: {
           "X-Custom-Header": "custom-value",
           "X-Tenant-Id": "tenant-123",
@@ -76,15 +78,17 @@ describe("connector", () => {
     it("throws error for duplicate name", async () => {
       await mod.create({
         name: "Duplicate Name",
-        type: "http",
-        baseUrl: "https://api1.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "assistant-1" },
       });
 
       await expect(
         mod.create({
           name: "Duplicate Name",
           type: "langgraph",
-          baseUrl: "http://localhost:8123",
+          baseUrl: "http://localhost:8124",
+          config: { assistantId: "assistant-2" },
         })
       ).rejects.toThrow('Connector with name "Duplicate Name" already exists');
     });
@@ -94,8 +98,9 @@ describe("connector", () => {
     it("returns connector by id", async () => {
       const created = await mod.create({
         name: "Get Test",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
       const found = await mod.get(created.id);
@@ -133,13 +138,15 @@ describe("connector", () => {
     it("returns all connectors", async () => {
       await mod.create({
         name: "Connector 1",
-        type: "http",
-        baseUrl: "https://api1.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "assistant-1" },
       });
       await mod.create({
         name: "Connector 2",
         type: "langgraph",
-        baseUrl: "http://localhost:8123",
+        baseUrl: "http://localhost:8124",
+        config: { assistantId: "assistant-2" },
       });
 
       const all = await mod.list();
@@ -156,40 +163,29 @@ describe("connector", () => {
     it("updates connector name", async () => {
       const created = await mod.create({
         name: "Original Name",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
       const updated = await mod.update(created.id, { name: "Updated Name" });
       expect(updated?.name).toBe("Updated Name");
       expect(updated?.updatedAt).toBeDefined();
       // Preserve other fields
-      expect(updated?.type).toBe("http");
-      expect(updated?.baseUrl).toBe("https://api.example.com");
-    });
-
-    it("updates connector type", async () => {
-      const created = await mod.create({
-        name: "Switch Type",
-        type: "http",
-        baseUrl: "https://api.example.com",
-      });
-
-      const updated = await mod.update(created.id, {
-        type: "langgraph",
-      });
       expect(updated?.type).toBe("langgraph");
+      expect(updated?.baseUrl).toBe("http://localhost:8123");
     });
 
     it("updates base URL", async () => {
       const created = await mod.create({
         name: "URL Update",
-        type: "http",
-        baseUrl: "https://old.api.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
-      const updated = await mod.update(created.id, { baseUrl: "https://new.api.com" });
-      expect(updated?.baseUrl).toBe("https://new.api.com");
+      const updated = await mod.update(created.id, { baseUrl: "http://localhost:8124" });
+      expect(updated?.baseUrl).toBe("http://localhost:8124");
     });
 
     it("updates config", async () => {
@@ -209,8 +205,9 @@ describe("connector", () => {
     it("updates custom headers", async () => {
       const created = await mod.create({
         name: "Headers Update",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
         headers: { "X-Old": "old-value" },
       });
 
@@ -223,8 +220,9 @@ describe("connector", () => {
     it("preserves headers when not provided in update", async () => {
       const created = await mod.create({
         name: "Headers Preserve",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
         headers: { "X-Keep": "keep-value" },
       });
 
@@ -240,14 +238,16 @@ describe("connector", () => {
     it("throws error for duplicate name on update", async () => {
       await mod.create({
         name: "Existing Name",
-        type: "http",
-        baseUrl: "https://api1.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "assistant-1" },
       });
 
       const created = await mod.create({
         name: "To Be Updated",
         type: "langgraph",
-        baseUrl: "http://localhost:8123",
+        baseUrl: "http://localhost:8124",
+        config: { assistantId: "assistant-2" },
       });
 
       await expect(
@@ -260,8 +260,9 @@ describe("connector", () => {
     it("deletes connector and returns true", async () => {
       const created = await mod.create({
         name: "To Delete",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
       const result = await mod.delete(created.id);
@@ -278,11 +279,8 @@ describe("connector", () => {
   });
 
   describe("getConnectorTypes", () => {
-    it("returns types for HTTP and LangGraph", () => {
+    it("returns types for LangGraph", () => {
       const types = getConnectorTypes();
-
-      expect(types.http).toBeDefined();
-      expect(types.http).toContain("HTTP");
 
       expect(types.langgraph).toBeDefined();
       expect(types.langgraph).toContain("LangGraph");
@@ -307,33 +305,6 @@ describe("connector", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("not found");
       expect(result.latencyMs).toBe(0);
-    });
-
-    it("tests HTTP connector successfully", async () => {
-      const connector = await mod.create({
-        name: "Test HTTP",
-        type: "http",
-        baseUrl: "https://api.example.com",
-      });
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ response: "Hello back!" }),
-      });
-
-      const result = await mod.test(connector.id);
-
-      expect(result.success).toBe(true);
-      expect(result.response).toBe("Hello back!");
-      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com",
-        expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        })
-      );
     });
 
     it("tests LangGraph connector successfully", async () => {
@@ -363,31 +334,12 @@ describe("connector", () => {
       );
     });
 
-    it("returns error on HTTP failure", async () => {
-      const connector = await mod.create({
-        name: "Test HTTP Fail",
-        type: "http",
-        baseUrl: "https://api.example.com",
-      });
-
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 500,
-        text: async () => "Internal Server Error",
-      });
-
-      const result = await mod.test(connector.id);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("500");
-      expect(result.latencyMs).toBeGreaterThanOrEqual(0);
-    });
-
     it("sends custom headers in test request", async () => {
       const connector = await mod.create({
         name: "Test Custom Headers",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
         headers: {
           "X-Custom": "custom-value",
           "X-Tenant-Id": "tenant-123",
@@ -397,13 +349,13 @@ describe("connector", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => "OK",
+        text: async () => JSON.stringify({ version: "0.1.0" }),
       });
 
       await mod.test(connector.id);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com",
+        "http://localhost:8123/info",
         expect.objectContaining({
           headers: {
             "Content-Type": "application/json",
@@ -417,8 +369,9 @@ describe("connector", () => {
     it("custom headers override default Content-Type", async () => {
       const connector = await mod.create({
         name: "Test Override Headers",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
         headers: {
           "Content-Type": "text/plain",
           Authorization: "Bearer my-token",
@@ -428,13 +381,13 @@ describe("connector", () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => "OK",
+        text: async () => JSON.stringify({ version: "0.1.0" }),
       });
 
       await mod.test(connector.id);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com",
+        "http://localhost:8123/info",
         expect.objectContaining({
           headers: {
             "Content-Type": "text/plain",
@@ -475,8 +428,9 @@ describe("connector", () => {
     it("returns error on network failure", async () => {
       const connector = await mod.create({
         name: "Test Network Fail",
-        type: "http",
-        baseUrl: "https://api.example.com",
+        type: "langgraph",
+        baseUrl: "http://localhost:8123",
+        config: { assistantId: "test-assistant" },
       });
 
       mockFetch.mockRejectedValueOnce(new Error("Network error"));

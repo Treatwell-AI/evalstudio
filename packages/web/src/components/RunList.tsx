@@ -150,6 +150,12 @@ export function RunList({ evalId, scenarioId, personaId, limit, mode }: RunListP
     }
   };
 
+  const formatTokensUsage = (run: Run) => {
+    if (!run.tokensUsage) return "—";
+    const { input_tokens, output_tokens, total_tokens } = run.tokensUsage;
+    return `${input_tokens} → ${output_tokens} (∑ ${total_tokens})`;
+  };
+
   const getStatusClass = (run: Run) => {
     if (run.status === "completed" && run.result) {
       return run.result.success ? "status-success" : "status-failed";
@@ -245,6 +251,10 @@ export function RunList({ evalId, scenarioId, personaId, limit, mode }: RunListP
               <span className="run-context" title={firstColumnTitle}>
                 {firstColumnName || "—"}
                 {persona && <span className="run-persona">({persona.name})</span>}
+              </span>
+
+              <span className="run-tokens">
+                {formatTokensUsage(run)}
               </span>
 
               <span className="run-started">
