@@ -556,7 +556,6 @@ export class RunProcessor {
       result,
       output,
       latencyMs: state.totalLatencyMs,
-      tokensUsage: state.tokensUsage,
       threadId: state.threadId,
       completedAt: new Date().toISOString(),
     });

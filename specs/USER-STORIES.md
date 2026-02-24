@@ -72,6 +72,7 @@
 [x] As a user, I want to see performance charts on Eval, Persona, and Scenario detail pages showing pass/fail rate and average latency over time so that I have a visual representation of performance trends
 [x] As a user, I want to switch performance charts between time-based and execution-based views so that I can see performance over time and also compare across batch executions
 [x] As a user, I want to see aggregated performance charts on the Dashboard showing all evals and personas pass rates so that I can get a quick overview of overall performance
+[x] As a user, I want to see average output tokens in performance charts so that I can track token usage trends alongside pass rate and latency
 
 ### Results Review & Iteration
 

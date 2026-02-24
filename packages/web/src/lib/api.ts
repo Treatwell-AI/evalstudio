@@ -374,7 +374,6 @@ export interface Run {
   startedAt?: string;
   completedAt?: string;
   latencyMs?: number;
-  tokensUsage?: TokensUsage;
   threadId?: string;
   messages: Message[];
   output?: Record<string, unknown>;
@@ -399,7 +398,6 @@ export interface UpdateRunInput {
   startedAt?: string;
   completedAt?: string;
   latencyMs?: number;
-  tokensUsage?: TokensUsage;
   threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;

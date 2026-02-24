@@ -5,7 +5,6 @@ import type { ScenarioModule } from "./scenario.js";
 import type { PersonaModule } from "./persona.js";
 import type { ConnectorModule } from "./connector.js";
 import type { ExecutionModule } from "./execution.js";
-import type { TokensUsage } from "./types.js";
 
 /**
  * Run status types:
@@ -34,7 +33,6 @@ export interface Run {
   startedAt?: string;
   completedAt?: string;
   latencyMs?: number;
-  tokensUsage?: TokensUsage;
   threadId?: string;
   messages: Message[];
   output?: Record<string, unknown>;
@@ -59,7 +57,6 @@ export interface UpdateRunInput {
   startedAt?: string;
   completedAt?: string;
   latencyMs?: number;
-  tokensUsage?: TokensUsage;
   threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
@@ -273,7 +270,6 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         startedAt: "startedAt" in input ? input.startedAt : run.startedAt,
         completedAt: "completedAt" in input ? input.completedAt : run.completedAt,
         latencyMs: "latencyMs" in input ? input.latencyMs : run.latencyMs,
-        tokensUsage: "tokensUsage" in input ? input.tokensUsage : run.tokensUsage,
         threadId: "threadId" in input ? input.threadId : run.threadId,
         messages: input.messages ?? run.messages,
         output: "output" in input ? input.output : run.output,

@@ -152,52 +152,58 @@ export function SeedMessagesEditor({ messages, onChange }: SeedMessagesEditorPro
       {editMode === "visual" ? (
         <div className="seed-messages-visual">
           {seedMessages.length === 0 ? (
-            <div className="seed-messages-empty">
-              No initial messages. Click "Add Message" to seed the conversation.
-            </div>
+            <button
+              type="button"
+              className="seed-messages-empty seed-messages-empty-clickable"
+              onClick={handleAddMessage}
+            >
+              No initial messages. Click to seed the conversation.
+            </button>
           ) : (
-            <div className="seed-messages-list">
-              {seedMessages.map((msg, index) => (
-                <div key={index} className={`seed-message-item seed-message-${msg.role}`}>
-                  <div className="seed-message-header">
-                    <button
-                      type="button"
-                      className="seed-message-role-toggle"
-                      onClick={() => handleUpdateRole(index, msg.role === "user" ? "assistant" : "user")}
-                      title="Click to switch role"
-                    >
-                      {msg.role}
-                    </button>
-                    <button
-                      type="button"
-                      className="seed-message-remove-btn"
-                      onClick={() => handleRemoveMessage(index)}
-                      aria-label="Remove message"
-                      title="Remove message"
-                    >
-                      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 4l8 8M12 4l-8 8" />
-                      </svg>
-                    </button>
+            <>
+              <div className="seed-messages-list">
+                {seedMessages.map((msg, index) => (
+                  <div key={index} className={`seed-message-item seed-message-${msg.role}`}>
+                    <div className="seed-message-header">
+                      <button
+                        type="button"
+                        className="seed-message-role-toggle"
+                        onClick={() => handleUpdateRole(index, msg.role === "user" ? "assistant" : "user")}
+                        title="Click to switch role"
+                      >
+                        {msg.role}
+                      </button>
+                      <button
+                        type="button"
+                        className="seed-message-remove-btn"
+                        onClick={() => handleRemoveMessage(index)}
+                        aria-label="Remove message"
+                        title="Remove message"
+                      >
+                        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                      </button>
+                    </div>
+                    <textarea
+                      ref={textareaRef}
+                      value={msg.content}
+                      onChange={(e) => handleUpdateContent(index, e.target.value, e.target)}
+                      placeholder={msg.role === "user" ? "User message..." : "Assistant response..."}
+                      className="seed-message-content"
+                    />
                   </div>
-                  <textarea
-                    ref={textareaRef}
-                    value={msg.content}
-                    onChange={(e) => handleUpdateContent(index, e.target.value, e.target)}
-                    placeholder={msg.role === "user" ? "User message..." : "Assistant response..."}
-                    className="seed-message-content"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-          <button
-            type="button"
-            className="seed-messages-add-btn"
-            onClick={handleAddMessage}
-          >
-            + Add Message
+                ))}
+              </div>
+              <button
+                type="button"
+                className="seed-messages-add-btn"
+                onClick={handleAddMessage}
+              >
+                + Add Message
           </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="seed-messages-json">

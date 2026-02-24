@@ -29,11 +29,7 @@ export const tokenUsageEvaluator: EvaluatorDefinition = {
       success: true,
       value: usage.total_tokens,
       reason: `${usage.total_tokens} tokens (${usage.input_tokens} in, ${usage.output_tokens} out)`,
-      metadata: {
-        inputTokens: usage.input_tokens,
-        outputTokens: usage.output_tokens,
-        totalTokens: usage.total_tokens,
-      },
+      metadata: { ...usage },
     };
   },
 };

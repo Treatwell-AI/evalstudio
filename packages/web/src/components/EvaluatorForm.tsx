@@ -9,8 +9,12 @@ interface EvaluatorFormProps {
 export function EvaluatorForm({ evaluators, onChange }: EvaluatorFormProps) {
   const { data: evaluatorTypes = [], isLoading } = useEvaluatorTypes();
 
-  // Always-active evaluators shown but not editable
-  const alwaysActiveTypes = evaluatorTypes.filter((t) => t.auto);
+  // Only show auto evaluators if they have configurable fields
+  const hasConfigFields = (t: EvaluatorTypeInfo) => {
+    const props = (t.configSchema as { properties?: Record<string, unknown> })?.properties;
+    return props && Object.keys(props).length > 0;
+  };
+  const alwaysActiveTypes = evaluatorTypes.filter((t) => t.auto && hasConfigFields(t));
 
   const handleAdd = (type: string) => {
     // Don't add duplicate types

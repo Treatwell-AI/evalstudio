@@ -3,7 +3,7 @@ import { usePersonas } from "../hooks/usePersonas";
 import { useRuns, useRunsByEval, useRunsByScenario, useRunsByPersona, useDeleteRun, useRetryRun } from "../hooks/useRuns";
 import { useScenarios } from "../hooks/useScenarios";
 import { useEvals } from "../hooks/useEvals";
-import type { Run } from "../lib/api";
+import type { Run, EvaluatorResultEntry } from "../lib/api";
 import { RunMessagesModal } from "./RunMessagesModal";
 
 interface RunListBaseProps {
@@ -151,9 +151,12 @@ export function RunList({ evalId, scenarioId, personaId, limit, mode }: RunListP
   };
 
   const formatTokensUsage = (run: Run) => {
-    if (!run.tokensUsage) return "—";
-    const { input_tokens, output_tokens, total_tokens } = run.tokensUsage;
-    return `${input_tokens} → ${output_tokens} (∑ ${total_tokens})`;
+    const output = run.output as Record<string, unknown> | undefined;
+    const evaluatorResults = output?.evaluatorResults as EvaluatorResultEntry[] | undefined;
+    const tokenEval = evaluatorResults?.find((r) => r.type === "token-usage");
+    const usage = tokenEval?.metadata as { input_tokens?: number; output_tokens?: number; total_tokens?: number } | undefined;
+    if (!usage?.total_tokens) return "—";
+    return `${usage.input_tokens ?? 0} → ${usage.output_tokens ?? 0} (∑ ${usage.total_tokens})`;
   };
 
   const getStatusClass = (run: Run) => {

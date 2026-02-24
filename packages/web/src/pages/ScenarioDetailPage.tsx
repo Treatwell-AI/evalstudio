@@ -274,7 +274,10 @@ export function ScenarioDetailPage() {
         <h3>Evaluation Criteria</h3>
 
         <div className="form-group">
-          <label htmlFor="scenario-success">Success Criteria</label>
+          <div className="form-label-row">
+            <label htmlFor="scenario-success">Success Criteria</label>
+            <span className="form-hint">Checked at every turn. The run stops and passes when met.</span>
+          </div>
           <textarea
             id="scenario-success"
             value={successCriteria}
@@ -282,7 +285,6 @@ export function ScenarioDetailPage() {
             placeholder="The agent successfully processes the request and confirms with the customer"
             rows={2}
           />
-          <p className="form-hint">Checked at every turn. The run stops and passes when met.</p>
         </div>
 
         <div className="form-group">
@@ -294,28 +296,26 @@ export function ScenarioDetailPage() {
             placeholder="The agent fails to understand the request or provides incorrect information"
             rows={2}
           />
+          <div className="form-label-row">
+            <select
+              id="scenario-failure-mode"
+              className="form-label-row-select"
+              value={failureCriteriaMode}
+              onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
+              disabled={!failureCriteria}
+            >
+              <option value="on_max_messages">Check Failure on max messages — only at end</option>
+              <option value="every_turn">Check Failure every turn — stop on failure</option>
+            </select>
+            <span className="form-hint">
+              {failureCriteriaMode === "every_turn"
+                ? `The run stops as soon as success or failure criteria is met${maxMessages ? `, or after ${maxMessages} messages` : ""}.`
+                : maxMessages
+                  ? `The run stops when success criteria is met. After ${maxMessages} messages, failure criteria is checked.`
+                  : "The run stops when success criteria is met. At max messages, failure criteria is checked."}
+            </span>
+          </div>
         </div>
-
-        <div className="form-group">
-          <label htmlFor="scenario-failure-mode">Failure Check Mode</label>
-          <select
-            id="scenario-failure-mode"
-            value={failureCriteriaMode}
-            onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
-            disabled={!failureCriteria}
-          >
-            <option value="on_max_messages">On max messages — only at end</option>
-            <option value="every_turn">Every turn — stop on failure</option>
-          </select>
-        </div>
-
-        <p className="form-hint criteria-recap">
-          {failureCriteriaMode === "every_turn"
-            ? `The run stops as soon as success or failure criteria is met${maxMessages ? `, or after ${maxMessages} messages` : ""}.`
-            : maxMessages
-              ? `The run stops when success criteria is met. After ${maxMessages} messages, failure criteria is checked.`
-              : "The run stops when success criteria is met. At max messages, failure criteria is checked."}
-        </p>
       </div>
 
       <div className="dashboard-card scenario-edit-form">

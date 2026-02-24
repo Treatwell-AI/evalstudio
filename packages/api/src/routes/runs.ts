@@ -3,7 +3,6 @@ import {
   createProjectModules,
   type RunStatus,
   type RunResult,
-  type TokensUsage,
   type Message,
 } from "@evalstudio/core";
 
@@ -22,7 +21,6 @@ interface UpdateRunBody {
   startedAt?: string;
   completedAt?: string;
   latencyMs?: number;
-  tokensUsage?: TokensUsage;
   threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
@@ -145,7 +143,6 @@ export async function runsRoute(fastify: FastifyInstance) {
         startedAt,
         completedAt,
         latencyMs,
-        tokensUsage,
         threadId,
         messages,
         output,
@@ -159,7 +156,6 @@ export async function runsRoute(fastify: FastifyInstance) {
         startedAt,
         completedAt,
         latencyMs,
-        tokensUsage,
         threadId,
         messages,
         output,

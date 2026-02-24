@@ -256,6 +256,43 @@ body {
   margin-bottom: 0.375rem;
 }
 
+.form-label-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.form-label-row label {
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+
+.form-label-row .form-hint {
+  margin: 0;
+  min-width: 0;
+}
+
+.form-group select.form-label-row-select {
+  width: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  flex-shrink: 0;
+}
+
+.form-group select.form-label-row-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-group select.form-label-row-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .form-group input,
 .form-group textarea {
   width: 100%;
@@ -1440,6 +1477,26 @@ body {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
+.form-inline-field select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: inherit;
+  background: var(--color-bg);
+}
+
+.form-inline-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.form-inline-field select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .form-inline-field .form-hint {
   margin: 0;
   font-size: 0.8rem;
@@ -1448,11 +1505,6 @@ body {
 .form-group select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.criteria-recap {
-  font-style: italic;
-  margin-top: 0;
 }
 
 .scenario-messages-list {
@@ -1573,6 +1625,19 @@ body {
   font-size: 0.8125rem;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius);
+  width: 100%;
+  background: none;
+  font-family: inherit;
+}
+
+.seed-messages-empty-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.seed-messages-empty-clickable:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .seed-messages-list {

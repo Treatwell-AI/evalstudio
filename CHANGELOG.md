@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Output tokens in performance charts** — New amber line showing average output tokens per execution/date in both scenario and dashboard charts
+  - Reads token data from `token-usage` evaluator results instead of run-level field
+  - Hidden Y-axis with tooltip display (e.g. `1.2k`)
+
+### Changed
+
+- **Token usage moved to evaluator** — Removed `tokensUsage` from `Run` interface; token data now lives exclusively in `token-usage` evaluator results
+  - Core: Removed `tokensUsage` from `Run`, `UpdateRunInput`, and `RunProcessor` output
+  - API: Removed `tokensUsage` from run update route body
+  - Web: `RunList` and performance charts read tokens from `output.evaluatorResults` instead of `run.tokensUsage`
+- **Evaluator form cleanup** — Auto evaluators with no config fields (e.g. `token-usage`) are hidden from the scenario form
+- **Scenario detail page UX improvements**
+  - Failure criteria: select and description moved below textarea
+  - Seed messages: empty state is now clickable to add the first message; "Add Message" button only shown when messages exist
+  - Success/failure criteria hints displayed inline with labels
+
+### Removed
+
+- `tokensUsage` field from `Run` interface, `UpdateRunInput`, and API run update route
+
 - **Custom evaluator framework** — Pluggable evaluator architecture for assertions and metrics
   - Core: `EvaluatorDefinition` interface with `type`, `kind` (assertion/metric), `auto` flag, `configSchema`, and `evaluate()` function
   - Core: `EvaluatorRegistry` class with `register()`, `get()`, `list()` — holds built-in and custom evaluator definitions

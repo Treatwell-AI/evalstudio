@@ -9,7 +9,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Run } from "../lib/api";
+import type { Run, EvaluatorResultEntry } from "../lib/api";
 
 type ViewMode = "time" | "execution";
 
@@ -25,6 +25,7 @@ interface ChartDataPoint {
   timestamp?: number;
   passRate: number;
   avgLatency: number;
+  avgOutputTokens: number;
   totalRuns: number;
   passedRuns: number;
   passedPercent: number;
@@ -43,6 +44,21 @@ function formatLatency(ms: number): string {
     return `${Math.round(ms)}ms`;
   }
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}k`;
+  }
+  return `${Math.round(tokens)}`;
+}
+
+function getOutputTokens(run: Run): number | undefined {
+  const output = run.output as Record<string, unknown> | undefined;
+  const evaluatorResults = output?.evaluatorResults as EvaluatorResultEntry[] | undefined;
+  const tokenEval = evaluatorResults?.find((r) => r.type === "token-usage");
+  const usage = tokenEval?.metadata as { output_tokens?: number } | undefined;
+  return usage?.output_tokens;
 }
 
 function formatExecutionId(executionId: number): string {
@@ -76,11 +92,20 @@ function groupRunsByDate(completedRuns: Run[]): ChartDataPoint[] {
           ? latencies.reduce((sum, l) => sum + l, 0) / latencies.length
           : 0;
 
+      const outputTokens = dateRuns
+        .map(getOutputTokens)
+        .filter((t): t is number => typeof t === "number" && t > 0);
+      const avgOutputTokens =
+        outputTokens.length > 0
+          ? outputTokens.reduce((sum, t) => sum + t, 0) / outputTokens.length
+          : 0;
+
       return {
         label: formatDate(dateKey),
         timestamp: new Date(dateKey).getTime(),
         passRate: Math.round(passRate * 10) / 10,
         avgLatency: Math.round(avgLatency),
+        avgOutputTokens: Math.round(avgOutputTokens),
         totalRuns,
         passedRuns,
         passedPercent: totalRuns > 0 ? Math.round((passedRuns / totalRuns) * 100 * 10) / 10 : 0,
@@ -117,10 +142,19 @@ function groupRunsByExecution(completedRuns: Run[]): ChartDataPoint[] {
         ? latencies.reduce((sum, l) => sum + l, 0) / latencies.length
         : 0;
 
+    const outputTokens = executionRuns
+      .map(getOutputTokens)
+      .filter((t): t is number => typeof t === "number" && t > 0);
+    const avgOutputTokens =
+      outputTokens.length > 0
+        ? outputTokens.reduce((sum, t) => sum + t, 0) / outputTokens.length
+        : 0;
+
     return {
       label: formatExecutionId(executionKey),
       passRate: Math.round(passRate * 10) / 10,
       avgLatency: Math.round(avgLatency),
+      avgOutputTokens: Math.round(avgOutputTokens),
       totalRuns,
       passedRuns,
       passedPercent: totalRuns > 0 ? Math.round((passedRuns / totalRuns) * 100 * 10) / 10 : 0,
@@ -220,6 +254,7 @@ export function PerformanceChart({
             tickFormatter={(value) => formatLatency(value)}
             width={60}
           />
+          <YAxis yAxisId="tokens" orientation="right" hide />
           <Tooltip
             contentStyle={{
               backgroundColor: "#fff",
@@ -231,6 +266,9 @@ export function PerformanceChart({
               if (typeof value !== "number") return [String(value), name];
               if (name === "Avg Latency") {
                 return [formatLatency(value), name];
+              }
+              if (name === "Output Tokens") {
+                return [formatTokens(value), name];
               }
               const payload = props.payload as ChartDataPoint;
               if (name === "Passed") {
@@ -259,6 +297,16 @@ export function PerformanceChart({
             stroke="#6366f1"
             strokeWidth={2}
             dot={{ fill: "#6366f1", strokeWidth: 0, r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+          <Line
+            yAxisId="tokens"
+            type="monotone"
+            dataKey="avgOutputTokens"
+            name="Output Tokens"
+            stroke="#f59e0b"
+            strokeWidth={2}
+            dot={{ fill: "#f59e0b", strokeWidth: 0, r: 4 }}
             activeDot={{ r: 6 }}
           />
         </LineChart>
