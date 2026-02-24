@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import {
   Line,
   LineChart,
+  ComposedChart,
+  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,6 +20,7 @@ interface PerformanceChartProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showToggle?: boolean;
+  onRunClick?: (runId: string) => void;
 }
 
 interface ChartDataPoint {
@@ -29,6 +32,12 @@ interface ChartDataPoint {
   totalRuns: number;
   passedRuns: number;
   passedPercent: number;
+}
+
+interface LatencyScatterPoint {
+  x: number;
+  latency: number;
+  runId: string;
 }
 
 function formatDate(dateStr: string): string {
@@ -167,6 +176,7 @@ export function PerformanceChart({
   viewMode: externalViewMode,
   onViewModeChange,
   showToggle = true,
+  onRunClick,
 }: PerformanceChartProps) {
   const [internalViewMode, setInternalViewMode] = useState<ViewMode>("execution");
 
@@ -196,6 +206,49 @@ export function PerformanceChart({
     return grouped.slice(-20);
   }, [runs, viewMode]);
 
+  const latencyChartData = useMemo(() => {
+    const completedRuns = runs.filter(
+      (run) => (run.status === "completed" && run.result !== undefined) || run.status === "error"
+    );
+    if (completedRuns.length === 0 || chartData.length === 0) {
+      return { lineData: [] as { x: number; avgLatency: number }[], scatterData: [] as LatencyScatterPoint[], labels: [] as string[] };
+    }
+
+    // Use last 10 groups
+    const last10 = chartData.slice(-10);
+    const labelSet = new Set(last10.map((d) => d.label));
+
+    const lineData = last10.map((d, i) => ({
+      x: i,
+      avgLatency: d.avgLatency,
+    }));
+
+    const labelToIndex = new Map(last10.map((d, i) => [d.label, i]));
+    const scatterPoints: LatencyScatterPoint[] = [];
+
+    for (const run of completedRuns) {
+      const latency = run.output?.avgLatencyMs as number | undefined;
+      if (typeof latency !== "number" || latency <= 0) continue;
+
+      let label: string;
+      if (viewMode === "execution") {
+        if (run.executionId == null) continue;
+        label = formatExecutionId(run.executionId);
+      } else {
+        const dateKey = run.completedAt
+          ? new Date(run.completedAt).toISOString().split("T")[0]
+          : new Date(run.createdAt).toISOString().split("T")[0];
+        label = formatDate(dateKey);
+      }
+
+      if (!labelSet.has(label)) continue;
+      const idx = labelToIndex.get(label)!;
+      scatterPoints.push({ x: idx, latency: Math.round(latency), runId: run.id });
+    }
+
+    return { lineData, scatterData: scatterPoints, labels: last10.map((d) => d.label) };
+  }, [runs, viewMode, chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className="performance-chart-empty">
@@ -224,93 +277,130 @@ export function PerformanceChart({
           </button>
         </div>
       )}
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart
-          data={chartData}
-          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis
-            dataKey="label"
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            tickLine={{ stroke: "#e2e8f0" }}
-            axisLine={{ stroke: "#e2e8f0" }}
-          />
-          <YAxis
-            yAxisId="percent"
-            domain={[0, 100]}
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            tickLine={{ stroke: "#e2e8f0" }}
-            axisLine={{ stroke: "#e2e8f0" }}
-            tickFormatter={(value) => `${value}%`}
-            width={50}
-          />
-          <YAxis
-            yAxisId="latency"
-            orientation="right"
-            tick={{ fontSize: 12, fill: "#64748b" }}
-            tickLine={{ stroke: "#e2e8f0" }}
-            axisLine={{ stroke: "#e2e8f0" }}
-            tickFormatter={(value) => formatLatency(value)}
-            width={60}
-          />
-          <YAxis yAxisId="tokens" orientation="right" hide />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: "#fff",
-              border: "1px solid #e2e8f0",
-              borderRadius: "8px",
-              fontSize: "12px",
-            }}
-            formatter={(value, name, props) => {
-              if (typeof value !== "number") return [String(value), name];
-              if (name === "Avg Latency") {
-                return [formatLatency(value), name];
-              }
-              if (name === "Output Tokens") {
-                return [formatTokens(value), name];
-              }
-              const payload = props.payload as ChartDataPoint;
-              if (name === "Passed") {
-                return [`${value}% (${payload.passedRuns})`, name];
-              }
-              return [value, name];
-            }}
-            labelFormatter={(label) => `${isExecutionMode ? "Execution" : "Date"}: ${label}`}
-          />
-          <Legend wrapperStyle={{ fontSize: "12px" }} />
-          <Line
-            yAxisId="percent"
-            type="monotone"
-            dataKey="passedPercent"
-            name="Passed"
-            stroke="#22c55e"
-            strokeWidth={2}
-            dot={{ fill: "#22c55e", strokeWidth: 0, r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-          <Line
-            yAxisId="latency"
-            type="monotone"
-            dataKey="avgLatency"
-            name="Avg Latency"
-            stroke="#6366f1"
-            strokeWidth={2}
-            dot={{ fill: "#6366f1", strokeWidth: 0, r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-          <Line
-            yAxisId="tokens"
-            type="monotone"
-            dataKey="avgOutputTokens"
-            name="Output Tokens"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            dot={{ fill: "#f59e0b", strokeWidth: 0, r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+      <div className="performance-chart-row">
+        <ResponsiveContainer width="62%" height={200}>
+          <LineChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickLine={{ stroke: "#e2e8f0" }}
+              axisLine={{ stroke: "#e2e8f0" }}
+            />
+            <YAxis
+              yAxisId="percent"
+              domain={[0, 100]}
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickLine={{ stroke: "#e2e8f0" }}
+              axisLine={{ stroke: "#e2e8f0" }}
+              tickFormatter={(value) => `${value}%`}
+              width={50}
+            />
+            <YAxis
+              yAxisId="tokens"
+              orientation="right"
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickLine={{ stroke: "#e2e8f0" }}
+              axisLine={{ stroke: "#e2e8f0" }}
+              tickFormatter={(value) => formatTokens(value)}
+              width={60}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#fff",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+                fontSize: "12px",
+              }}
+              formatter={(value, name, props) => {
+                if (typeof value !== "number") return [String(value), name];
+                if (name === "Output Tokens") {
+                  return [formatTokens(value), name];
+                }
+                const payload = props.payload as ChartDataPoint;
+                if (name === "Passed") {
+                  return [`${value}% (${payload.passedRuns})`, name];
+                }
+                return [value, name];
+              }}
+              labelFormatter={(label) => `${isExecutionMode ? "Execution" : "Date"}: ${label}`}
+            />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Line
+              yAxisId="percent"
+              type="monotone"
+              dataKey="passedPercent"
+              name="Passed"
+              stroke="#22c55e"
+              strokeWidth={2}
+              dot={{ fill: "#22c55e", strokeWidth: 0, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              yAxisId="tokens"
+              type="monotone"
+              dataKey="avgOutputTokens"
+              name="Output Tokens"
+              stroke="#f59e0b"
+              strokeWidth={2}
+              dot={{ fill: "#f59e0b", strokeWidth: 0, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+
+        <ResponsiveContainer width="38%" height={200}>
+          <ComposedChart
+            data={latencyChartData.lineData}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis
+              dataKey="x"
+              type="number"
+              domain={[0, Math.max(latencyChartData.labels.length - 1, 0)]}
+              ticks={latencyChartData.labels.map((_, i) => i)}
+              tickFormatter={(i) => latencyChartData.labels[i] ?? ""}
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickLine={{ stroke: "#e2e8f0" }}
+              axisLine={{ stroke: "#e2e8f0" }}
+            />
+            <YAxis
+              orientation="right"
+              tick={{ fontSize: 12, fill: "#64748b" }}
+              tickLine={{ stroke: "#e2e8f0" }}
+              axisLine={{ stroke: "#e2e8f0" }}
+              tickFormatter={(value) => formatLatency(value)}
+              width={50}
+            />
+            <Tooltip content={() => null} cursor={false} />
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Scatter
+              data={latencyChartData.scatterData}
+              dataKey="latency"
+              name="Run Latency"
+              fill="#3b82f6"
+              cursor={onRunClick ? "pointer" : undefined}
+              onClick={(data) => {
+                const point = data as unknown as LatencyScatterPoint;
+                if (point.runId && onRunClick) onRunClick(point.runId);
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="avgLatency"
+              name="Avg Latency"
+              stroke="#ef4444"
+              strokeWidth={2}
+              dot={false}
+              activeDot={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

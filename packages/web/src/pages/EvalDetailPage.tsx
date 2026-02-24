@@ -137,15 +137,13 @@ export function EvalDetailPage() {
   };
 
   return (
-    <div className="page eval-detail-page">
+    <div className="page page-detail eval-detail-page">
       <div className="page-header">
         <div className="page-header-nav">
-          <Link
-            to=".."
-            relative="path"
-            className="back-link"
-          >
-            ← Back to Evals
+          <Link to=".." relative="path" className="back-btn" title="Back to Evals">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 12L6 8l4-4" />
+            </svg>
           </Link>
           {isEditingTitle ? (
             <input
@@ -223,6 +221,7 @@ export function EvalDetailPage() {
         </div>
       </div>
 
+      <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
       <div className="eval-detail-settings">
@@ -339,6 +338,8 @@ export function EvalDetailPage() {
         {activeTab === "code" && (
           <EvalCodeSnippets evalData={evalWithRelations} />
         )}
+      </div>
+
       </div>
 
       {showCreateRunDialog && (

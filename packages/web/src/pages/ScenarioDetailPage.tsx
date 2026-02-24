@@ -3,19 +3,22 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { useScenario, useUpdateScenario, useDeleteScenario } from "../hooks/useScenarios";
 import { usePersonas } from "../hooks/usePersonas";
 import { useRunsByScenario } from "../hooks/useRuns";
-import { Message, ScenarioEvaluator } from "../lib/api";
+import { Message, ScenarioEvaluator, projectImageUrl } from "../lib/api";
+import { useProjectId } from "../hooks/useProjectId";
 import { ScenarioPlaygroundModal } from "../components/ScenarioPlaygroundModal";
 import { SeedMessagesEditor } from "../components/SeedMessagesEditor";
 import { EvaluatorForm } from "../components/EvaluatorForm";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { RunMessagesModal } from "../components/RunMessagesModal";
 
 type ScenarioTab = "runs" | "code";
 type ViewMode = "time" | "execution";
 
 export function ScenarioDetailPage() {
   const navigate = useNavigate();
+  const projectId = useProjectId();
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const { data: scenario, isLoading, error } = useScenario(scenarioId ?? null);
   const { data: personas = [] } = usePersonas();
@@ -26,6 +29,7 @@ export function ScenarioDetailPage() {
   const { data: runs = [] } = useRunsByScenario(scenarioId ?? "");
   const [showMenu, setShowMenu] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [activeTab, setActiveTab] = useState<ScenarioTab>("runs");
   const [viewMode, setViewMode] = useState<ViewMode>("execution");
@@ -145,15 +149,13 @@ export function ScenarioDetailPage() {
   };
 
   return (
-    <div className="page scenario-detail-page">
+    <div className="page page-detail scenario-detail-page">
       <div className="page-header">
         <div className="page-header-nav">
-          <Link
-            to=".."
-            relative="path"
-            className="back-link"
-          >
-            ← Back to Scenarios
+          <Link to=".." relative="path" className="back-btn" title="Back to Scenarios">
+            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 12L6 8l4-4" />
+            </svg>
           </Link>
           {isEditingTitle ? (
             <input
@@ -235,6 +237,7 @@ export function ScenarioDetailPage() {
         </div>
       </div>
 
+      <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
       <div className="dashboard-card scenario-edit-form">
@@ -246,7 +249,7 @@ export function ScenarioDetailPage() {
             id="scenario-instructions"
             value={instructions}
             onChange={(e) => handleChange(setInstructions)(e.target.value)}
-            rows={6}
+            rows={4}
             placeholder="Provide all context for this scenario: what the customer issue is, why they're contacting support, any background information needed..."
           />
         </div>
@@ -318,46 +321,50 @@ export function ScenarioDetailPage() {
         </div>
       </div>
 
-      <div className="dashboard-card scenario-edit-form">
-        <h3>Evaluators</h3>
-        <p className="form-hint">
-          Add metrics or assertions that run alongside LLM-as-judge evaluation.
-        </p>
-        <EvaluatorForm
-          evaluators={evaluators}
-          onChange={handleChange(setEvaluators)}
-        />
-      </div>
+      <div className="scenario-side-by-side">
+        <div className="dashboard-card scenario-edit-form">
+          <h3>Evaluators</h3>
+          <EvaluatorForm
+            evaluators={evaluators}
+            onChange={handleChange(setEvaluators)}
+          />
+        </div>
 
-      <div className="dashboard-card scenario-edit-form">
-        <h3>Personas</h3>
-        <p className="form-hint">
-          Select personas to associate with this scenario. When running evals, these personas will be used to simulate different user types.
-        </p>
-        {personas.length === 0 ? (
-          <p className="form-hint">
-            No personas available.{" "}
-            <Link to="../../personas" relative="path">Create a persona</Link> first.
-          </p>
-        ) : (
-          <div className="persona-checkbox-list">
-            {personas.map((persona) => (
-              <label key={persona.id} className="checkbox-item">
-                <input
-                  type="checkbox"
-                  checked={selectedPersonaIds.includes(persona.id)}
-                  onChange={() => handlePersonaToggle(persona.id)}
-                />
-                <span className="checkbox-label">
-                  <span className="checkbox-name">{persona.name}</span>
+        <div className="dashboard-card scenario-edit-form">
+          <h3>Personas</h3>
+          {personas.length === 0 ? (
+            <p className="form-hint">
+              No personas available.{" "}
+              <Link to="../../personas" relative="path">Create a persona</Link> first.
+            </p>
+          ) : (
+            <div className="persona-checkbox-list">
+              {personas.map((persona) => (
+                <label key={persona.id} className="persona-row persona-row-selectable">
+                  <input
+                    type="checkbox"
+                    checked={selectedPersonaIds.includes(persona.id)}
+                    onChange={() => handlePersonaToggle(persona.id)}
+                  />
+                  <div className="persona-avatar-sm">
+                    {persona.imageUrl ? (
+                      <img
+                        src={`${projectImageUrl(projectId, persona.imageUrl)}?t=${persona.updatedAt}`}
+                        alt={persona.name}
+                      />
+                    ) : (
+                      <span>{persona.name.charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <span className="persona-name">{persona.name}</span>
                   {persona.description && (
-                    <span className="checkbox-description">{persona.description}</span>
+                    <span className="persona-description">{persona.description}</span>
                   )}
-                </span>
-              </label>
-            ))}
-          </div>
-        )}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-card dashboard-card-wide">
@@ -380,7 +387,7 @@ export function ScenarioDetailPage() {
             </div>
           )}
         </div>
-        <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} />
+        <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} onRunClick={setSelectedRunId} />
       </div>
 
       <div className="scenario-detail-tabs">
@@ -410,11 +417,20 @@ export function ScenarioDetailPage() {
         )}
       </div>
 
+      </div>
+
       {showPlayground && (
         <ScenarioPlaygroundModal
           scenario={scenario}
           personas={personas}
           onClose={() => setShowPlayground(false)}
+        />
+      )}
+
+      {selectedRunId && (
+        <RunMessagesModal
+          runId={selectedRunId}
+          onClose={() => setSelectedRunId(null)}
         />
       )}
     </div>

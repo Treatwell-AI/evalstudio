@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Latency scatter chart** — New side-by-side chart layout in Performance Overview: left chart (62%) shows pass rate and output tokens; right chart (38%) shows individual run latencies as clickable blue scatter dots with a red average line (last 10 executions). Clicking a dot opens the run messages modal.
+
+### Changed
+
+- **Scenario detail page layout improvements**
+  - Fixed header with back chevron icon, editable title, and action buttons
+  - Full-width page layout with centered content (960px max-width)
+  - Evaluators and Personas sections displayed side-by-side
+  - Persona selection rows now show avatar images matching the Personas list page
+  - Performance Overview chart moved above Runs/Code tabs
+- **Detail page headers** — Scenario, Eval, and Persona detail pages all share the fixed header pattern with back chevron + inline title
+
+---
+
+### Added
+
 - **Output tokens in performance charts** — New amber line showing average output tokens per execution/date in both scenario and dashboard charts
   - Reads token data from `token-usage` evaluator results instead of run-level field
   - Hidden Y-axis with tooltip display (e.g. `1.2k`)

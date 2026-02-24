@@ -463,6 +463,19 @@ body {
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
+.persona-row-selectable {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.persona-row-selectable:hover {
+  border-color: var(--color-primary);
+}
+
+.persona-row-selectable input[type="checkbox"] {
+  flex-shrink: 0;
+}
+
 /* Persona List Avatars */
 .persona-avatar-sm {
   width: 32px;
@@ -656,7 +669,7 @@ body {
 /* Project Layout */
 .project-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
 }
 
 .project-layout-loading,
@@ -682,7 +695,7 @@ body {
 
 .project-content {
   flex: 1;
-  padding: 2rem;
+  padding: 1.5rem 2rem 2rem;
   overflow-y: auto;
 }
 
@@ -869,16 +882,65 @@ body {
 
 /* Page Layout */
 .page {
-  max-width: 960px;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.page > * {
+  max-width: 960px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.page > .page-header {
+  max-width: none;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.page-detail {
+  max-width: none;
+  height: 100%;
+  overflow: hidden;
+  gap: 0;
+}
+
+.page-detail > * {
+  max-width: none;
+}
+
+.page-detail .page-header {
+  flex-shrink: 0;
+  padding-bottom: 1.5rem;
+}
+
+.page-detail .page-header h1,
+.page-detail .page-header .editable-title-input {
+  font-size: 1.125rem;
+}
+
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 1rem;
+}
+
+.page-body > * {
+  max-width: 960px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 1.5rem;
+}
+
+.page-body > *:last-child {
+  margin-bottom: 0;
 }
 
 .page-header h1 {
@@ -1410,6 +1472,19 @@ body {
 }
 
 /* Scenario Detail Page */
+.scenario-side-by-side {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .scenario-side-by-side {
+    grid-template-columns: 1fr;
+  }
+}
+
 .scenario-edit-form {
   display: flex;
   flex-direction: column;
@@ -2143,18 +2218,29 @@ body {
 /* Eval Detail Page */
 .page-header-nav {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.back-link {
-  font-size: 0.875rem;
+.back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--radius);
   color: var(--color-text-secondary);
   text-decoration: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
 }
 
-.back-link:hover {
-  color: var(--color-primary);
+.back-btn:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-border);
 }
 
 .eval-detail-settings {
@@ -3540,6 +3626,11 @@ body {
   border-radius: var(--radius);
   padding: 1rem 1rem 0.5rem;
   box-shadow: var(--shadow);
+}
+
+.performance-chart-row {
+  display: flex;
+  gap: 0;
 }
 
 .performance-chart-empty {

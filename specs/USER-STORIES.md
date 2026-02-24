@@ -73,6 +73,8 @@
 [x] As a user, I want to switch performance charts between time-based and execution-based views so that I can see performance over time and also compare across batch executions
 [x] As a user, I want to see aggregated performance charts on the Dashboard showing all evals and personas pass rates so that I can get a quick overview of overall performance
 [x] As a user, I want to see average output tokens in performance charts so that I can track token usage trends alongside pass rate and latency
+[x] As a user, I want to see individual run latencies as a scatter chart alongside the average latency line so that I can identify outliers and variance across runs
+[x] As a user, I want to click on a latency scatter dot to open the run conversation so that I can quickly investigate slow runs
 
 ### Results Review & Iteration
 
