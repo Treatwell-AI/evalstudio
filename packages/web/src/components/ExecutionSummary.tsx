@@ -494,7 +494,7 @@ export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
         </div>
 
         {/* Scenario Breakdown Chart */}
-        {scenarioBarData.length > 1 && (
+        {scenarioBarData.length > 0 && (
           <div className="execution-summary-scenarios">
             <ResponsiveContainer width="100%" height={Math.max(scenarioBarData.length * 24 + 16, 60)}>
               <BarChart

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Styleguide modal for persona image generation** — Clicking "Generate Image" on a persona now opens a modal where you can manage style reference images inline (upload, view, delete) before generating. Replaces the buried project-level style reference management in Settings.
+- **Image role system** — Images now have a `role` column (`persona-avatar`, `persona-avatar-styleguide`, `upload`) enabling role-based image queries. New `listByRole` API and `GET /api/images?role=` endpoint.
+- **Migration logging** — Migrator now logs progress to the console when applying pending migrations.
 - **Execution Summary component** — New `ExecutionSummary` component showing pass rate donut chart, stats (runs, avg messages, latency, tokens), scenario breakdown bar chart, and failure details with persona avatars. Includes execution pager for navigating between historical executions.
 - **Dashboard eval summaries** — Dashboard now displays an `ExecutionSummary` for each eval, replacing the old Quick Stats and Run Stats cards.
 - **Section labels** — Consistent `section-label` styling for "Trends" and "Recent Runs" headings across Eval, Scenario, and Persona detail pages and the Dashboard.
@@ -19,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Image storage uses roles** — `ImageStore.save()` now requires a `role` parameter; filesystem storage organizes images into role-based subdirectories. Upload API requires `role` in request body.
 - **Persona detail page restructured into 3 tabs** — Settings (description, system prompt, image, headers), Stats (performance charts + runs), Code (snippets). Matches the tab layout of Scenario and Eval detail pages.
 - **Performance charts split into separate cards** — Pass rate/tokens and latency charts render as two independent cards (62/38 ratio) instead of nested inside a wrapper card, eliminating duplicate borders.
 - **Scenario detail page restructured into 3 tabs** — Settings (instructions, criteria, personas, evaluators), Stats (performance chart + runs), Code (snippets)
@@ -33,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dashboard PerformanceChart** — Removed from dashboard; now lives inside Eval detail Stats tab
 - **DashboardPerformanceChart** — Replaced by the unified `PerformanceChart` component used across all pages
 - **Performance chart time-based view** — Removed "By Time" / "By Execution" toggle; charts now always group by execution ID
+- **StyleReferenceManager component** — Removed from Settings page; style reference management now lives in the StyleguideModal accessible from Persona detail page
+- **`styleReferenceImageIds` from projects** — Removed from `ProjectConfig`, `ProjectEntry`, API, and database. Image roles replace this field.
 
 ---
 

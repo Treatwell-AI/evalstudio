@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useProjectConfig, useUpdateProjectConfig } from "../hooks/useProjects";
-import { StyleReferenceManager } from "../components/StyleReferenceManager";
 
 export function SettingsGeneralPage() {
   const { data: projectConfig } = useProjectConfig();
@@ -106,8 +105,6 @@ export function SettingsGeneralPage() {
           </div>
         </div>
       </div>
-
-      <StyleReferenceManager />
 
       <div className="form-actions">
         <button

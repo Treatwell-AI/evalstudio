@@ -170,7 +170,6 @@ Update project-specific configuration. Fields set to `null` are cleared (inherit
 | `name` | string | No | Project name |
 | `llmSettings` | object \| null | No | LLM config (null to inherit from workspace) |
 | `maxConcurrency` | number \| null | No | Max concurrent runs (null to inherit) |
-| `styleReferenceImageIds` | string[] \| null | No | Image IDs for persona image style references (null to clear) |
 
 When updating `llmSettings`, the `apiKey` field is optional. Omit it to keep the existing stored key — only provide it when setting a new key.
 
@@ -202,9 +201,26 @@ Generic blob store for project images (persona portraits, style references, etc.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/api/projects/:projectId/images` | List images by role |
 | POST | `/api/projects/:projectId/images` | Upload an image |
 | GET | `/api/projects/:projectId/images/:id` | Serve an image |
 | DELETE | `/api/projects/:projectId/images/:id` | Delete an image |
+
+### GET /api/projects/:projectId/images
+
+List image IDs filtered by role.
+
+**Query Parameters:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `role` | string | Yes | Image role to filter by (e.g., `persona-avatar-styleguide`) |
+
+**Response (200 OK):**
+
+```json
+{ "ids": ["img1.png", "img2.png"] }
+```
 
 ### POST /api/projects/:projectId/images
 
@@ -215,6 +231,7 @@ Upload an image. Returns a generated image ID.
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `imageBase64` | string | Yes | Base64-encoded image data |
+| `role` | string | Yes | Image role (e.g., `persona-avatar`, `persona-avatar-styleguide`, `upload`) |
 | `filename` | string | No | Original filename (for mime type detection) |
 
 **Response (201 Created):**

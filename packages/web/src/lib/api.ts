@@ -28,14 +28,12 @@ export interface ProjectConfig {
   name: string;
   llmSettings?: LLMSettings;
   maxConcurrency?: number;
-  styleReferenceImageIds?: string[];
 }
 
 export interface UpdateProjectConfigInput {
   name?: string;
   llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
-  styleReferenceImageIds?: string[] | null;
 }
 
 export interface ProjectInfo {
@@ -541,12 +539,17 @@ export const api = {
   },
 
   images: {
-    upload: async (projectId: string, imageBase64: string, filename?: string): Promise<{ id: string }> => {
+    upload: async (projectId: string, imageBase64: string, role: string, filename?: string): Promise<{ id: string }> => {
       const response = await fetch(`${projectBase(projectId)}/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, filename }),
+        body: JSON.stringify({ imageBase64, role, filename }),
       });
+      return handleResponse(response);
+    },
+
+    listByRole: async (projectId: string, role: string): Promise<{ ids: string[] }> => {
+      const response = await fetch(`${projectBase(projectId)}/images?role=${encodeURIComponent(role)}`);
       return handleResponse(response);
     },
 

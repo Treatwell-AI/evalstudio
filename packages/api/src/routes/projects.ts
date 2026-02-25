@@ -26,7 +26,6 @@ interface UpdateProjectConfigBody {
   name?: string;
   llmSettings?: LLMSettings | null;
   maxConcurrency?: number | null;
-  styleReferenceImageIds?: string[] | null;
 }
 
 interface UpdateWorkspaceConfigBody {
@@ -125,14 +124,13 @@ export async function projectsRoute(fastify: FastifyInstance, opts: ProjectsPlug
   fastify.put<{ Params: ProjectIdParams; Body: UpdateProjectConfigBody }>(
     "/projects/:projectId/config",
     async (request, reply) => {
-      const { name, llmSettings, maxConcurrency, styleReferenceImageIds } = request.body;
+      const { name, llmSettings, maxConcurrency } = request.body;
 
       try {
         const config = await updateProjectConfig(storage, workspaceDir, request.params.projectId, {
           name,
           llmSettings,
           maxConcurrency,
-          styleReferenceImageIds,
         });
         return redactConfig(config);
       } catch (error) {

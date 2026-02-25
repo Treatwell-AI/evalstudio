@@ -103,8 +103,14 @@ CREATE TABLE IF NOT EXISTS project_images (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_project_images_project ON project_images(project_id);
-
-ALTER TABLE projects ADD COLUMN IF NOT EXISTS style_reference_image_ids TEXT[];
+    `,
+  },
+  {
+    version: 3,
+    name: "003_image_roles",
+    sql: `
+ALTER TABLE project_images ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'upload';
+CREATE INDEX IF NOT EXISTS idx_project_images_role ON project_images(project_id, role);
     `,
   },
 ];

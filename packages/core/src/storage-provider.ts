@@ -5,17 +5,19 @@ import type { ProjectEntry, UpdateProjectConfigInput } from "./project.js";
 /**
  * Blob store for images, scoped to a project.
  *
- * Each image is stored with a UUID-based ID (e.g. "a1b2c3.png").
- * The extension encodes the mime type. Callers store the returned ID
- * in their own entities to reference the image.
+ * Each image is stored with a UUID-based ID (e.g. "a1b2c3.png") and
+ * a role that categorises the image (e.g. "persona-avatar",
+ * "persona-avatar-styleguide").
  */
 export interface ImageStore {
-  /** Save an image blob. Returns the generated image ID (e.g. "uuid.ext"). */
-  save(imageBase64: string, originalFilename?: string): Promise<string>;
+  /** Save an image blob with a role. Returns the generated image ID (e.g. "uuid.ext"). */
+  save(imageBase64: string, role: string, originalFilename?: string): Promise<string>;
   /** Get an image by ID */
   get(id: string): Promise<{ buffer: Buffer; mimeType: string } | null>;
   /** Delete an image by ID */
   delete(id: string): Promise<boolean>;
+  /** List image IDs that match a given role */
+  listByRole(role: string): Promise<string[]>;
 }
 
 /**

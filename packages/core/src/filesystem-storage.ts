@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
 import { createJsonRepository } from "./repository.js";
@@ -31,34 +31,57 @@ function mimeFromExt(ext: string): string {
 }
 
 /**
- * Filesystem image store. Images live as flat files under {dataDir}/images/.
+ * Filesystem image store. Images live under {dataDir}/images/{role}/.
  * Each image is named {uuid}.{ext}.
  */
 function createFilesystemImageStore(dataDir: string): ImageStore {
   const imagesDir = join(dataDir, "images");
 
+  function roleDir(role: string): string {
+    return join(imagesDir, role);
+  }
+
+  /** Search all role subdirectories for an image by ID */
+  function findImagePath(id: string): string | null {
+    if (!existsSync(imagesDir)) return null;
+    for (const role of readdirSync(imagesDir)) {
+      const filepath = join(imagesDir, role, id);
+      if (existsSync(filepath)) return filepath;
+    }
+    // Fallback: check flat images dir for pre-migration images
+    const flatPath = join(imagesDir, id);
+    if (existsSync(flatPath)) return flatPath;
+    return null;
+  }
+
   return {
-    async save(imageBase64: string, originalFilename?: string): Promise<string> {
-      if (!existsSync(imagesDir)) mkdirSync(imagesDir, { recursive: true });
+    async save(imageBase64: string, role: string, originalFilename?: string): Promise<string> {
+      const dir = roleDir(role);
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       const ext = originalFilename ? extname(originalFilename) || ".png" : ".png";
       const id = `${randomUUID()}${ext}`;
       const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
-      writeFileSync(join(imagesDir, id), Buffer.from(base64Data, "base64"));
+      writeFileSync(join(dir, id), Buffer.from(base64Data, "base64"));
       return id;
     },
 
     async get(id: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
-      const filepath = join(imagesDir, id);
-      if (!filepath.startsWith(imagesDir)) return null;
-      if (!existsSync(filepath)) return null;
+      const filepath = findImagePath(id);
+      if (!filepath) return null;
       return { buffer: readFileSync(filepath), mimeType: mimeFromExt(extname(filepath)) };
     },
 
     async delete(id: string): Promise<boolean> {
-      const filepath = join(imagesDir, id);
-      if (!existsSync(filepath)) return false;
+      const filepath = findImagePath(id);
+      if (!filepath) return false;
       unlinkSync(filepath);
       return true;
+    },
+
+    async listByRole(role: string): Promise<string[]> {
+      const dir = roleDir(role);
+      if (!existsSync(dir)) return [];
+      return readdirSync(dir).filter((f) => !f.startsWith("."));
     },
   };
 }
@@ -145,20 +168,10 @@ export function createFilesystemStorage(workspaceDir: string): StorageProvider {
         newMaxConcurrency = entry.maxConcurrency;
       }
 
-      let newStyleReferenceImageIds: string[] | undefined;
-      if (input.styleReferenceImageIds === null) {
-        newStyleReferenceImageIds = undefined;
-      } else if (input.styleReferenceImageIds !== undefined) {
-        newStyleReferenceImageIds = input.styleReferenceImageIds;
-      } else {
-        newStyleReferenceImageIds = entry.styleReferenceImageIds;
-      }
-
       const newName = input.name ?? entry.name;
       entry.name = newName;
       entry.llmSettings = newLLMSettings;
       entry.maxConcurrency = newMaxConcurrency;
-      entry.styleReferenceImageIds = newStyleReferenceImageIds;
 
       writeWorkspaceConfig(workspaceDir, wsConfig);
 

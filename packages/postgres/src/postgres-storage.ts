@@ -31,7 +31,7 @@ function mimeFromExt(ext: string): string {
  */
 function createPostgresImageStore(pool: Pool, projectId: string): ImageStore {
   return {
-    async save(imageBase64: string, originalFilename?: string): Promise<string> {
+    async save(imageBase64: string, role: string, originalFilename?: string): Promise<string> {
       const ext = originalFilename ? extname(originalFilename) || ".png" : ".png";
       const id = `${randomUUID()}${ext}`;
       const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
@@ -39,8 +39,8 @@ function createPostgresImageStore(pool: Pool, projectId: string): ImageStore {
       const mime = mimeFromExt(ext);
 
       await pool.query(
-        "INSERT INTO project_images (project_id, id, mime_type, data) VALUES ($1, $2, $3, $4)",
-        [projectId, id, mime, buffer],
+        "INSERT INTO project_images (project_id, id, mime_type, data, role) VALUES ($1, $2, $3, $4, $5)",
+        [projectId, id, mime, buffer, role],
       );
       return id;
     },
@@ -60,6 +60,14 @@ function createPostgresImageStore(pool: Pool, projectId: string): ImageStore {
         [id],
       );
       return (result.rowCount ?? 0) > 0;
+    },
+
+    async listByRole(role: string): Promise<string[]> {
+      const { rows } = await pool.query<{ id: string }>(
+        "SELECT id FROM project_images WHERE project_id = $1 AND role = $2 ORDER BY created_at",
+        [projectId, role],
+      );
+      return rows.map((r) => r.id);
     },
   };
 }
@@ -112,7 +120,7 @@ export function createPostgresStorageProvider(pool: Pool): StorageProvider {
 
     async getProjectEntry(projectId: string): Promise<ProjectEntry> {
       const { rows } = await pool.query(
-        "SELECT id, name, llm_settings, max_concurrency, style_reference_image_ids FROM projects WHERE id = $1",
+        "SELECT id, name, llm_settings, max_concurrency FROM projects WHERE id = $1",
         [projectId],
       );
       if (rows.length === 0) {
@@ -123,14 +131,12 @@ export function createPostgresStorageProvider(pool: Pool): StorageProvider {
         name: string;
         llm_settings: LLMSettings | null;
         max_concurrency: number | null;
-        style_reference_image_ids: string[] | null;
       };
       return {
         id: row.id,
         name: row.name,
         llmSettings: row.llm_settings ?? undefined,
         maxConcurrency: row.max_concurrency ?? undefined,
-        styleReferenceImageIds: row.style_reference_image_ids ?? undefined,
       };
     },
 
@@ -177,27 +183,16 @@ export function createPostgresStorageProvider(pool: Pool): StorageProvider {
         newMaxConcurrency = current.maxConcurrency;
       }
 
-      // Handle styleReferenceImageIds
-      let newStyleReferenceImageIds: string[] | undefined;
-      if (input.styleReferenceImageIds === null) {
-        newStyleReferenceImageIds = undefined;
-      } else if (input.styleReferenceImageIds !== undefined) {
-        newStyleReferenceImageIds = input.styleReferenceImageIds;
-      } else {
-        newStyleReferenceImageIds = current.styleReferenceImageIds;
-      }
-
       const newName = input.name ?? current.name;
 
       await pool.query(
         `UPDATE projects
-         SET name = $1, llm_settings = $2, max_concurrency = $3, style_reference_image_ids = $4, updated_at = now()
-         WHERE id = $5`,
+         SET name = $1, llm_settings = $2, max_concurrency = $3, updated_at = now()
+         WHERE id = $4`,
         [
           newName,
           newLLMSettings ? JSON.stringify(newLLMSettings) : null,
           newMaxConcurrency ?? null,
-          newStyleReferenceImageIds ?? null,
           projectId,
         ],
       );
@@ -207,7 +202,6 @@ export function createPostgresStorageProvider(pool: Pool): StorageProvider {
         name: newName,
         llmSettings: newLLMSettings,
         maxConcurrency: newMaxConcurrency,
-        styleReferenceImageIds: newStyleReferenceImageIds,
       };
     },
   };

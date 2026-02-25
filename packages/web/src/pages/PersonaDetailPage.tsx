@@ -5,6 +5,7 @@ import { useRunsByPersona } from "../hooks/useRuns";
 import { RunList } from "../components/RunList";
 import { PersonaCodeSnippets } from "../components/PersonaCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { StyleguideModal } from "../components/StyleguideModal";
 import { projectImageUrl } from "../lib/api";
 import { useProjectId } from "../hooks/useProjectId";
 import { HeadersEditor } from "../components/HeadersEditor";
@@ -38,6 +39,7 @@ export function PersonaDetailPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showStyleguideModal, setShowStyleguideModal] = useState(false);
 
   // Load persona data into form when it changes
   useEffect(() => {
@@ -131,7 +133,7 @@ export function PersonaDetailPage() {
   };
 
   const handleGenerateImage = async () => {
-    if (imageUrl && !confirm("Regenerate this persona's image?")) return;
+    setShowStyleguideModal(false);
     setGenerateError(null);
     try {
       await generateImage.mutateAsync(persona.id);
@@ -309,7 +311,7 @@ export function PersonaDetailPage() {
                   <div className="persona-image-actions">
                     <button
                       className="btn btn-secondary btn-sm"
-                      onClick={handleGenerateImage}
+                      onClick={() => setShowStyleguideModal(true)}
                       disabled={generateImage.isPending || !persona.systemPrompt}
                       title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
                     >
@@ -349,6 +351,14 @@ export function PersonaDetailPage() {
         )}
       </div>
       </div>
+
+      {showStyleguideModal && (
+        <StyleguideModal
+          onGenerate={handleGenerateImage}
+          onClose={() => setShowStyleguideModal(false)}
+          isGenerating={generateImage.isPending}
+        />
+      )}
     </div>
   );
 }

@@ -159,14 +159,14 @@ export async function personasRoute(fastify: FastifyInstance) {
         return { error: "Image generation requires an OpenAI provider. Switch to OpenAI in Settings > LLM Providers." };
       }
 
-      // Load style reference buffers from project config
-      const entry = await fastify.storage.getProjectEntry(ctx.id);
+      // Load style reference buffers from image store by role
       const imageStore = fastify.storage.createImageStore(ctx.id);
 
       let styleReferenceImages: Buffer[] | undefined;
-      if (entry.styleReferenceImageIds && entry.styleReferenceImageIds.length > 0) {
+      const styleguideIds = await imageStore.listByRole("persona-avatar-styleguide");
+      if (styleguideIds.length > 0) {
         const buffers: Buffer[] = [];
-        for (const imageId of entry.styleReferenceImageIds) {
+        for (const imageId of styleguideIds) {
           const img = await imageStore.get(imageId);
           if (img) buffers.push(img.buffer);
         }
@@ -182,7 +182,7 @@ export async function personasRoute(fastify: FastifyInstance) {
       });
 
       // Save via image store and update persona
-      const imageId = await imageStore.save(result.imageBase64, `${persona.id}.png`);
+      const imageId = await imageStore.save(result.imageBase64, "persona-avatar", `${persona.id}.png`);
       const updated = await personas.update(persona.id, { imageUrl: imageId });
 
       return updated;

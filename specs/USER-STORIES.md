@@ -19,7 +19,7 @@
 [x] As a user, I want to create multiple personas that interact with the agent I'm testing so that I can run various scenarios against them
 [x] As a user, I want to describe each persona in natural language so that it's easy to understand and maintain
 [x] As a user, I want to generate AI portrait images for personas so that they have visual identities in the UI
-[x] As a user, I want to upload style reference images at the project level so that all generated persona portraits share a consistent visual style
+[x] As a user, I want to manage style reference images inline when generating a persona portrait so that I can upload, view, and delete style guides without leaving the persona page
 [x] As a user, I want to set HTTP headers for each persona that merge with connector headers when making requests so that I can add extra info like tokens, user IDs, or language/country settings per persona
 
 ### Test Scenarios

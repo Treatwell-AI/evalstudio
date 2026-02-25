@@ -27,8 +27,17 @@ export async function runMigrations(pool: Pool): Promise<void> {
 
   const pending = ALL_MIGRATIONS.filter((m) => !applied.has(m.version));
 
+  if (pending.length === 0) {
+    console.log(`[migrations] schema is up to date (${ALL_MIGRATIONS.length} migrations applied)`);
+    return;
+  }
+
+  console.log(`[migrations] ${pending.length} pending migration(s) to apply`);
+
   for (const migration of pending) {
+    console.log(`[migrations] applying ${migration.name} (v${migration.version})...`);
     await applyMigration(pool, migration);
+    console.log(`[migrations] applied ${migration.name}`);
   }
 }
 
