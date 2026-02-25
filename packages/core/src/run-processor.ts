@@ -286,6 +286,21 @@ export class RunProcessor {
         this.options.onRunError?.(updatedRun, err);
       }
     }
+
+    await this.maybePruneProject(projectId, modules);
+  }
+
+  /** Prune old executions/runs when no more work is queued or running */
+  private async maybePruneProject(projectId: string, modules: ProjectModules): Promise<void> {
+    try {
+      const queued = await modules.runs.list({ status: "queued", limit: 1 });
+      const running = await modules.runs.list({ status: "running", limit: 1 });
+      if (queued.length === 0 && running.length === 0) {
+        await this.options.storage.pruneProjectData?.(projectId);
+      }
+    } catch {
+      // Pruning is best-effort
+    }
   }
 
   /** Resolves all dependencies needed for a run into a RunContext */

@@ -136,6 +136,7 @@
 [x] As a user, I want connection string environment variable placeholders so that I can keep credentials out of config files
 [x] As a user, I want database schema changes managed via versioned migrations so that upgrades are safe and tracked
 [x] As a user, I want to check which database migrations have been applied so that I can troubleshoot schema issues
+[x] As a user, I want filesystem storage to automatically prune old executions and their runs so that disk usage doesn't grow unboundedly
 
 ### Data Management
 

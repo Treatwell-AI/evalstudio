@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Filesystem storage caps** — Executions are capped at 100 (newest kept) and orphan runs (no execution) at 200. When old executions are pruned, their associated runs are cascade-deleted. Pruning runs as a standalone activity in the RunProcessor after all runs finish, keeping write-time logic simple.
+- **`pruneProjectData` on StorageProvider** — Optional method for storage backends to implement data retention. Filesystem storage implements execution capping + cascade; Postgres can skip (handled by DB constraints).
+
+### Fixed
+
+- **Postgres JSONB/column sync** — Relational fields (eval_id, scenario_id, etc.) are now stripped from JSONB on write and merged from SQL columns on read. SQL columns are the single source of truth, preventing stale FK references after `ON DELETE SET NULL`.
+- **Postgres concurrent saveAll race condition** — Replaced unsafe `DELETE all + INSERT all` pattern with `UPSERT (INSERT ON CONFLICT UPDATE)` + selective `DELETE`, preventing duplicate key violations under concurrent writes.
+
 - **Styleguide modal for persona image generation** — Clicking "Generate Image" on a persona now opens a modal where you can manage style reference images inline (upload, view, delete) before generating. Replaces the buried project-level style reference management in Settings.
 - **Image role system** — Images now have a `role` column (`persona-avatar`, `persona-avatar-styleguide`, `upload`) enabling role-based image queries. New `listByRole` API and `GET /api/images?role=` endpoint.
 - **Migration logging** — Migrator now logs progress to the console when applying pending migrations.

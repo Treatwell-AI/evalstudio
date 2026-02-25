@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, extname } from "node:path";
 import { randomUUID } from "node:crypto";
-import { createJsonRepository } from "./repository.js";
+import { createJsonRepository, type Repository } from "./repository.js";
 import {
   listProjects as listProjectsFromResolver,
   createProject as createProjectFromResolver,
@@ -15,6 +15,38 @@ import {
   type LLMSettings,
 } from "./project.js";
 import type { StorageProvider, ImageStore } from "./storage-provider.js";
+
+// ── Filesystem storage caps ──────────────────────────────────────────
+
+const MAX_EXECUTIONS = 100;
+const MAX_ORPHAN_RUNS = 200;
+
+interface ExecutionLike { id: number }
+interface RunLike { id: string; executionId?: number; createdAt: string }
+
+/**
+ * Wraps the runs repository to cap orphan runs (no executionId) at MAX_ORPHAN_RUNS.
+ * Execution-linked runs are pruned by pruneProjectData (called after all runs finish).
+ */
+function createCappedOrphanRunRepo(repo: Repository<RunLike>): Repository<RunLike> {
+  return {
+    findAll: () => repo.findAll(),
+    async saveAll(items: RunLike[]): Promise<void> {
+      const withExecution = items.filter((r) => r.executionId != null);
+      const orphans = items.filter((r) => r.executionId == null);
+
+      if (orphans.length <= MAX_ORPHAN_RUNS) {
+        return repo.saveAll(items);
+      }
+
+      // Sort orphans by createdAt descending, keep newest
+      orphans.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      await repo.saveAll([...withExecution, ...orphans.slice(0, MAX_ORPHAN_RUNS)]);
+    },
+  };
+}
 
 // ── Filesystem image helpers ─────────────────────────────────────────
 
@@ -95,8 +127,24 @@ function createFilesystemImageStore(dataDir: string): ImageStore {
  * This is the default storage backend — no extra dependencies required.
  */
 export function createFilesystemStorage(workspaceDir: string): StorageProvider {
+  // Cache orphan-capped run repos per project
+  const cappedRunRepos = new Map<string, Repository<RunLike>>();
+
+  function getCappedRunRepo(projectId: string): Repository<RunLike> {
+    let repo = cappedRunRepos.get(projectId);
+    if (!repo) {
+      const dataDir = join(workspaceDir, "projects", projectId, "data");
+      repo = createCappedOrphanRunRepo(createJsonRepository<RunLike>("runs.json", dataDir));
+      cappedRunRepos.set(projectId, repo);
+    }
+    return repo;
+  }
+
   return {
     createRepository<T>(entity: string, projectId: string) {
+      if (entity === "runs") {
+        return getCappedRunRepo(projectId) as unknown as Repository<T>;
+      }
       const dataDir = join(workspaceDir, "projects", projectId, "data");
       return createJsonRepository<T>(`${entity}.json`, dataDir);
     },
@@ -125,6 +173,27 @@ export function createFilesystemStorage(workspaceDir: string): StorageProvider {
         throw new Error(`Project "${projectId}" not found in workspace config`);
       }
       return entry;
+    },
+
+    async pruneProjectData(projectId) {
+      const dataDir = join(workspaceDir, "projects", projectId, "data");
+      const executionRepo = createJsonRepository<ExecutionLike>("executions.json", dataDir);
+      const runRepo = createJsonRepository<RunLike>("runs.json", dataDir);
+
+      const executions = await executionRepo.findAll();
+      if (executions.length <= MAX_EXECUTIONS) return;
+
+      // Keep newest executions (highest IDs)
+      const sorted = [...executions].sort((a, b) => b.id - a.id);
+      const kept = sorted.slice(0, MAX_EXECUTIONS);
+      const keptIds = new Set(kept.map((e) => e.id));
+
+      // Cascade-delete runs whose execution was pruned
+      const runs = await runRepo.findAll();
+      const alive = runs.filter((r) => r.executionId == null || keptIds.has(r.executionId));
+
+      await executionRepo.saveAll(kept);
+      await runRepo.saveAll(alive);
     },
 
     async updateProjectEntry(projectId, input) {

@@ -43,4 +43,7 @@ export interface StorageProvider {
   deleteProject(projectId: string): Promise<void>;
   getProjectEntry(projectId: string): Promise<ProjectEntry>;
   updateProjectEntry(projectId: string, input: UpdateProjectConfigInput): Promise<ProjectEntry>;
+
+  /** Prune old data (e.g. cap executions and cascade-delete runs). No-op if not implemented. */
+  pruneProjectData?(projectId: string): Promise<void>;
 }
