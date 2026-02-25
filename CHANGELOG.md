@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Repository targeted operations** — Extended `Repository<T>` with `findById`, `findBy`, `save`, `saveMany`, `deleteById`, and `maxId` methods. All 6 entity modules (persona, scenario, connector, execution, eval, run) now use single-item operations instead of loading/rewriting entire collections. JSON backend delegates to file read/write; Postgres backend uses single-row SQL (SELECT, UPSERT, DELETE) for massive performance gains — the RunProcessor hot path drops from ~22 `findAll` + 13 `saveAll` per run to ~10 `findById` + ~13 `save`. Also eliminates race conditions between concurrent `findAll`/`saveAll` calls.
+
 ### Added
 
 - **Recent eval cards on dashboard** — Dashboard shows up to 4 cards for the most recently executed evals, each displaying key metrics (pass rate donut, runs, latency, tokens) via a shared `ExecutionMetrics` component. Card header links to the eval detail page.

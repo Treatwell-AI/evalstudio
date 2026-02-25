@@ -74,7 +74,6 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
         }
       }
 
-      const evals = await repo.findAll();
       const now = new Date().toISOString();
       const evalItem: Eval = {
         id: randomUUID(),
@@ -85,17 +84,16 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
         updatedAt: now,
       };
 
-      evals.push(evalItem);
-      await repo.saveAll(evals);
-
+      await repo.save(evalItem);
       return evalItem;
     },
 
     async get(id: string): Promise<Eval | undefined> {
-      return (await repo.findAll()).find((e) => e.id === id);
+      return repo.findById(id);
     },
 
     async getByScenario(scenarioId: string): Promise<Eval | undefined> {
+      // Array-contains query — not expressible via findBy, use findAll (evals table is small)
       return (await repo.findAll()).find((e) => e.scenarioIds.includes(scenarioId));
     },
 
@@ -143,10 +141,8 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
     },
 
     async update(id: string, input: UpdateEvalInput): Promise<Eval | undefined> {
-      const evals = await repo.findAll();
-      const index = evals.findIndex((e) => e.id === id);
-
-      if (index === -1) return undefined;
+      const evalItem = await repo.findById(id);
+      if (!evalItem) return undefined;
 
       if (input.connectorId) {
         const connector = await connectors.get(input.connectorId);
@@ -167,7 +163,6 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
         }
       }
 
-      const evalItem = evals[index];
       const updated: Eval = {
         ...evalItem,
         name: input.name ?? evalItem.name,
@@ -176,22 +171,12 @@ export function createEvalModule(repo: Repository<Eval>, deps: EvalModuleDeps) {
         updatedAt: new Date().toISOString(),
       };
 
-      evals[index] = updated;
-      await repo.saveAll(evals);
-
+      await repo.save(updated);
       return updated;
     },
 
     async delete(id: string): Promise<boolean> {
-      const evals = await repo.findAll();
-      const index = evals.findIndex((e) => e.id === id);
-
-      if (index === -1) return false;
-
-      evals.splice(index, 1);
-      await repo.saveAll(evals);
-
-      return true;
+      return repo.deleteById(id);
     },
   };
 }

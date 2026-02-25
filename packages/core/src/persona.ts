@@ -32,9 +32,8 @@ export interface UpdatePersonaInput {
 export function createPersonaModule(repo: Repository<Persona>) {
   return {
     async create(input: CreatePersonaInput): Promise<Persona> {
-      const personas = await repo.findAll();
-
-      if (personas.some((p) => p.name === input.name)) {
+      const duplicates = await repo.findBy({ name: input.name });
+      if (duplicates.length > 0) {
         throw new Error(`Persona with name "${input.name}" already exists`);
       }
 
@@ -49,18 +48,17 @@ export function createPersonaModule(repo: Repository<Persona>) {
         updatedAt: now,
       };
 
-      personas.push(persona);
-      await repo.saveAll(personas);
-
+      await repo.save(persona);
       return persona;
     },
 
     async get(id: string): Promise<Persona | undefined> {
-      return (await repo.findAll()).find((p) => p.id === id);
+      return repo.findById(id);
     },
 
     async getByName(name: string): Promise<Persona | undefined> {
-      return (await repo.findAll()).find((p) => p.name === name);
+      const results = await repo.findBy({ name });
+      return results[0];
     },
 
     async list(): Promise<Persona[]> {
@@ -68,20 +66,14 @@ export function createPersonaModule(repo: Repository<Persona>) {
     },
 
     async update(id: string, input: UpdatePersonaInput): Promise<Persona | undefined> {
-      const personas = await repo.findAll();
-      const index = personas.findIndex((p) => p.id === id);
+      const persona = await repo.findById(id);
+      if (!persona) return undefined;
 
-      if (index === -1) {
-        return undefined;
-      }
-
-      const persona = personas[index];
-
-      if (
-        input.name &&
-        personas.some((p) => p.name === input.name && p.id !== id)
-      ) {
-        throw new Error(`Persona with name "${input.name}" already exists`);
+      if (input.name) {
+        const duplicates = await repo.findBy({ name: input.name });
+        if (duplicates.some((p) => p.id !== id)) {
+          throw new Error(`Persona with name "${input.name}" already exists`);
+        }
       }
 
       const updated: Persona = {
@@ -94,24 +86,12 @@ export function createPersonaModule(repo: Repository<Persona>) {
         updatedAt: new Date().toISOString(),
       };
 
-      personas[index] = updated;
-      await repo.saveAll(personas);
-
+      await repo.save(updated);
       return updated;
     },
 
     async delete(id: string): Promise<boolean> {
-      const personas = await repo.findAll();
-      const index = personas.findIndex((p) => p.id === id);
-
-      if (index === -1) {
-        return false;
-      }
-
-      personas.splice(index, 1);
-      await repo.saveAll(personas);
-
-      return true;
+      return repo.deleteById(id);
     },
   };
 }

@@ -119,7 +119,6 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         }
       }
 
-      const allRuns = await repo.findAll();
       const now = new Date().toISOString();
       const createdRuns: Run[] = [];
 
@@ -132,7 +131,7 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
             : [undefined];
 
         for (const personaId of personaIds) {
-          const run: Run = {
+          createdRuns.push({
             id: randomUUID(),
             evalId: input.evalId,
             connectorId: evalItem.connectorId,
@@ -143,14 +142,11 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
             messages: [],
             createdAt: now,
             updatedAt: now,
-          };
-
-          allRuns.push(run);
-          createdRuns.push(run);
+          });
         }
       }
 
-      await repo.saveAll(allRuns);
+      await repo.saveMany(createdRuns);
       return createdRuns;
     },
 
@@ -179,9 +175,7 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         }
       }
 
-      const allRuns = await repo.findAll();
       const now = new Date().toISOString();
-
       const run: Run = {
         id: randomUUID(),
         scenarioId,
@@ -193,78 +187,67 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         updatedAt: now,
       };
 
-      allRuns.push(run);
-      await repo.saveAll(allRuns);
-
+      await repo.save(run);
       return run;
     },
 
     async get(id: string): Promise<Run | undefined> {
-      return (await repo.findAll()).find((r) => r.id === id);
+      return repo.findById(id);
     },
 
     async list(options?: ListRunsOptions): Promise<Run[]> {
-      const runs = await repo.findAll();
+      let runs: Run[];
 
-      if (!options) return runs;
+      if (options) {
+        const filter: Record<string, unknown> = {};
+        if (options.evalId) filter.evalId = options.evalId;
+        if (options.scenarioId) filter.scenarioId = options.scenarioId;
+        if (options.status) filter.status = options.status;
 
-      let filtered = runs;
-
-      if (options.evalId) {
-        filtered = filtered.filter((r) => r.evalId === options.evalId);
+        runs = Object.keys(filter).length > 0
+          ? await repo.findBy(filter)
+          : await repo.findAll();
+      } else {
+        runs = await repo.findAll();
       }
 
-      if (options.scenarioId) {
-        filtered = filtered.filter((r) => r.scenarioId === options.scenarioId);
-      }
-
-      if (options.status) {
-        filtered = filtered.filter((r) => r.status === options.status);
-      }
-
-      filtered.sort(
+      runs.sort(
         (a, b) =>
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
       );
 
-      if (options.limit && options.limit > 0) {
-        filtered = filtered.slice(0, options.limit);
+      if (options?.limit && options.limit > 0) {
+        runs = runs.slice(0, options.limit);
       }
 
-      return filtered;
+      return runs;
     },
 
     async listByEval(evalId: string): Promise<Run[]> {
-      return (await repo.findAll())
-        .filter((r) => r.evalId === evalId)
+      return (await repo.findBy({ evalId }))
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
     async listByScenario(scenarioId: string): Promise<Run[]> {
-      return (await repo.findAll())
-        .filter((r) => r.scenarioId === scenarioId)
+      return (await repo.findBy({ scenarioId }))
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
     async listByPersona(personaId: string): Promise<Run[]> {
-      return (await repo.findAll())
-        .filter((r) => r.personaId === personaId)
+      return (await repo.findBy({ personaId }))
         .sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
     },
 
     async update(id: string, input: UpdateRunInput): Promise<Run | undefined> {
-      const runs = await repo.findAll();
-      const index = runs.findIndex((r) => r.id === id);
+      const run = await repo.findById(id);
+      if (!run) return undefined;
 
-      if (index === -1) return undefined;
-
-      const run = runs[index];
       const updated: Run = {
         ...run,
         status: input.status ?? run.status,
@@ -279,22 +262,12 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
         updatedAt: new Date().toISOString(),
       };
 
-      runs[index] = updated;
-      await repo.saveAll(runs);
-
+      await repo.save(updated);
       return updated;
     },
 
     async delete(id: string): Promise<boolean> {
-      const runs = await repo.findAll();
-      const index = runs.findIndex((r) => r.id === id);
-
-      if (index === -1) return false;
-
-      runs.splice(index, 1);
-      await repo.saveAll(runs);
-
-      return true;
+      return repo.deleteById(id);
     },
 
     async retry(id: string): Promise<Run | undefined> {

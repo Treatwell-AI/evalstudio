@@ -118,9 +118,8 @@ async function withTiming<T>(
 export function createConnectorModule(repo: Repository<Connector>) {
   return {
     async create(input: CreateConnectorInput): Promise<Connector> {
-      const connectors = await repo.findAll();
-
-      if (connectors.some((c) => c.name === input.name)) {
+      const duplicates = await repo.findBy({ name: input.name });
+      if (duplicates.length > 0) {
         throw new Error(`Connector with name "${input.name}" already exists`);
       }
 
@@ -136,18 +135,17 @@ export function createConnectorModule(repo: Repository<Connector>) {
         updatedAt: now,
       };
 
-      connectors.push(connector);
-      await repo.saveAll(connectors);
-
+      await repo.save(connector);
       return connector;
     },
 
     async get(id: string): Promise<Connector | undefined> {
-      return (await repo.findAll()).find((c) => c.id === id);
+      return repo.findById(id);
     },
 
     async getByName(name: string): Promise<Connector | undefined> {
-      return (await repo.findAll()).find((c) => c.name === name);
+      const results = await repo.findBy({ name });
+      return results[0];
     },
 
     async list(): Promise<Connector[]> {
@@ -155,20 +153,14 @@ export function createConnectorModule(repo: Repository<Connector>) {
     },
 
     async update(id: string, input: UpdateConnectorInput): Promise<Connector | undefined> {
-      const connectors = await repo.findAll();
-      const index = connectors.findIndex((c) => c.id === id);
+      const connector = await repo.findById(id);
+      if (!connector) return undefined;
 
-      if (index === -1) {
-        return undefined;
-      }
-
-      const connector = connectors[index];
-
-      if (
-        input.name &&
-        connectors.some((c) => c.name === input.name && c.id !== id)
-      ) {
-        throw new Error(`Connector with name "${input.name}" already exists`);
+      if (input.name) {
+        const duplicates = await repo.findBy({ name: input.name });
+        if (duplicates.some((c) => c.id !== id)) {
+          throw new Error(`Connector with name "${input.name}" already exists`);
+        }
       }
 
       const updated: Connector = {
@@ -181,24 +173,12 @@ export function createConnectorModule(repo: Repository<Connector>) {
         updatedAt: new Date().toISOString(),
       };
 
-      connectors[index] = updated;
-      await repo.saveAll(connectors);
-
+      await repo.save(updated);
       return updated;
     },
 
     async delete(id: string): Promise<boolean> {
-      const connectors = await repo.findAll();
-      const index = connectors.findIndex((c) => c.id === id);
-
-      if (index === -1) {
-        return false;
-      }
-
-      connectors.splice(index, 1);
-      await repo.saveAll(connectors);
-
-      return true;
+      return repo.deleteById(id);
     },
 
     async test(id: string): Promise<ConnectorTestResult> {

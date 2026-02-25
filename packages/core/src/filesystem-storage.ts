@@ -30,7 +30,17 @@ interface RunLike { id: string; executionId?: number; createdAt: string }
  */
 function createCappedOrphanRunRepo(repo: Repository<RunLike>): Repository<RunLike> {
   return {
+    // Read pass-through
     findAll: () => repo.findAll(),
+    findById: (id) => repo.findById(id),
+    findBy: (filter) => repo.findBy(filter),
+    maxId: () => repo.maxId(),
+
+    // Single-item writes pass through (can't exceed cap alone)
+    save: (item) => repo.save(item),
+    deleteById: (id) => repo.deleteById(id),
+
+    // Bulk writes enforce orphan cap
     async saveAll(items: RunLike[]): Promise<void> {
       const withExecution = items.filter((r) => r.executionId != null);
       const orphans = items.filter((r) => r.executionId == null);
@@ -39,11 +49,24 @@ function createCappedOrphanRunRepo(repo: Repository<RunLike>): Repository<RunLik
         return repo.saveAll(items);
       }
 
-      // Sort orphans by createdAt descending, keep newest
       orphans.sort((a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       await repo.saveAll([...withExecution, ...orphans.slice(0, MAX_ORPHAN_RUNS)]);
+    },
+
+    async saveMany(items: RunLike[]): Promise<void> {
+      await repo.saveMany(items);
+      const all = await repo.findAll();
+      const orphans = all.filter((r) => r.executionId == null);
+      if (orphans.length > MAX_ORPHAN_RUNS) {
+        orphans.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        for (const r of orphans.slice(MAX_ORPHAN_RUNS)) {
+          await repo.deleteById(r.id);
+        }
+      }
     },
   };
 }

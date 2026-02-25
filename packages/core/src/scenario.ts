@@ -55,9 +55,8 @@ export interface UpdateScenarioInput {
 export function createScenarioModule(repo: Repository<Scenario>) {
   return {
     async create(input: CreateScenarioInput): Promise<Scenario> {
-      const scenarios = await repo.findAll();
-
-      if (scenarios.some((s) => s.name === input.name)) {
+      const duplicates = await repo.findBy({ name: input.name });
+      if (duplicates.length > 0) {
         throw new Error(`Scenario with name "${input.name}" already exists`);
       }
 
@@ -77,18 +76,17 @@ export function createScenarioModule(repo: Repository<Scenario>) {
         updatedAt: now,
       };
 
-      scenarios.push(scenario);
-      await repo.saveAll(scenarios);
-
+      await repo.save(scenario);
       return scenario;
     },
 
     async get(id: string): Promise<Scenario | undefined> {
-      return (await repo.findAll()).find((s) => s.id === id);
+      return repo.findById(id);
     },
 
     async getByName(name: string): Promise<Scenario | undefined> {
-      return (await repo.findAll()).find((s) => s.name === name);
+      const results = await repo.findBy({ name });
+      return results[0];
     },
 
     async list(): Promise<Scenario[]> {
@@ -96,20 +94,14 @@ export function createScenarioModule(repo: Repository<Scenario>) {
     },
 
     async update(id: string, input: UpdateScenarioInput): Promise<Scenario | undefined> {
-      const scenarios = await repo.findAll();
-      const index = scenarios.findIndex((s) => s.id === id);
+      const scenario = await repo.findById(id);
+      if (!scenario) return undefined;
 
-      if (index === -1) {
-        return undefined;
-      }
-
-      const scenario = scenarios[index];
-
-      if (
-        input.name &&
-        scenarios.some((s) => s.name === input.name && s.id !== id)
-      ) {
-        throw new Error(`Scenario with name "${input.name}" already exists`);
+      if (input.name) {
+        const duplicates = await repo.findBy({ name: input.name });
+        if (duplicates.some((s) => s.id !== id)) {
+          throw new Error(`Scenario with name "${input.name}" already exists`);
+        }
       }
 
       const updated: Scenario = {
@@ -126,24 +118,12 @@ export function createScenarioModule(repo: Repository<Scenario>) {
         updatedAt: new Date().toISOString(),
       };
 
-      scenarios[index] = updated;
-      await repo.saveAll(scenarios);
-
+      await repo.save(updated);
       return updated;
     },
 
     async delete(id: string): Promise<boolean> {
-      const scenarios = await repo.findAll();
-      const index = scenarios.findIndex((s) => s.id === id);
-
-      if (index === -1) {
-        return false;
-      }
-
-      scenarios.splice(index, 1);
-      await repo.saveAll(scenarios);
-
-      return true;
+      return repo.deleteById(id);
     },
   };
 }

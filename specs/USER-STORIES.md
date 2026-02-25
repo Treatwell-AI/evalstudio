@@ -152,6 +152,7 @@
 [x] As a user, I want documentation automatically deployed to GitHub Pages so that I can always access up-to-date docs online
 [x] As a developer, I want entity storage abstracted behind a repository interface so that I can swap storage backends in the future
 [x] As a developer, I want a StorageProvider interface with async Repository so that I can plug in a PostgreSQL backend without changing business logic
+[x] As a developer, I want the Repository to support targeted operations (findById, save, deleteById) so that the Postgres backend can use efficient single-row SQL instead of loading entire collections
 
 ### Integrations
 
