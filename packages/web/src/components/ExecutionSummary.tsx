@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
   PieChart,
   Pie,
@@ -42,7 +42,7 @@ interface FailureInfo {
   isError: boolean;
 }
 
-interface ExecutionData {
+export interface ExecutionData {
   executionId: number;
   passed: number;
   failed: number;
@@ -259,15 +259,172 @@ function buildExecutionData(
   };
 }
 
-export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
-  const projectId = useProjectId();
-  const { data: runs = [] } = useRunsByEval(evalId);
+/**
+ * Hook that encapsulates persona/scenario/connector fetching and returns
+ * a stable builder function: (executionId, runs) => ExecutionData | null
+ */
+export function useExecutionDataBuilder() {
   const { data: personas = [] } = usePersonas();
   const { data: scenarios = [] } = useScenarios();
+  const { data: connectors = [] } = useConnectors();
+
   const scenarioNames = useMemo(
     () => new Map(scenarios.map((s) => [s.id, s.name])),
     [scenarios]
   );
+  const connectorNames = useMemo(
+    () => new Map(connectors.map((c) => [c.id, c.name])),
+    [connectors]
+  );
+
+  return useCallback(
+    (executionId: number, runs: Run[]) =>
+      buildExecutionData(executionId, runs, personas, scenarioNames, connectorNames),
+    [personas, scenarioNames, connectorNames]
+  );
+}
+
+/* ── Shared donut + stats (used by ExecutionSummary and RecentEvalCards) ── */
+
+export interface ExecutionMetricsProps {
+  summary: ExecutionData;
+  onViewRun?: (runId: string) => void;
+}
+
+const viewRunIcon = (
+  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 3H3v10h10V9" />
+    <path d="M10 2h4v4" />
+    <path d="M8 8l6-6" />
+  </svg>
+);
+
+export function ExecutionMetrics({ summary, onViewRun }: ExecutionMetricsProps) {
+  const passRate = summary.total > 0
+    ? Math.round((summary.passed / (summary.passed + summary.failed + summary.errors)) * 100)
+    : 0;
+
+  const pieData = [
+    { name: "Passed", value: summary.passed, color: "#22c55e" },
+    { name: "Failed", value: summary.failed, color: "#ef4444" },
+    ...(summary.errors > 0 ? [{ name: "Error", value: summary.errors, color: "#f59e0b" }] : []),
+    ...(summary.running > 0 ? [{ name: "Running", value: summary.running, color: "#94a3b8" }] : []),
+  ].filter((d) => d.value > 0);
+
+  return (
+    <>
+      {/* Pass Rate Donut */}
+      <div className="execution-summary-donut">
+        <div className="execution-summary-donut-chart">
+          <ResponsiveContainer width={100} height={100}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={30}
+                outerRadius={45}
+                paddingAngle={2}
+                dataKey="value"
+                strokeWidth={0}
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={index} fill={entry.color} />
+                ))}
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="execution-summary-donut-label">
+            <span className="execution-summary-donut-value">{passRate}%</span>
+          </div>
+        </div>
+        <div className="execution-summary-donut-legend">
+          <span className="execution-summary-legend-pill passed">{summary.passed} passed</span>
+          <span className="execution-summary-legend-pill failed">{summary.failed} failed</span>
+          {summary.errors > 0 && (
+            <span className="execution-summary-legend-pill error">{summary.errors} error</span>
+          )}
+        </div>
+      </div>
+
+      {/* Stats — 2 columns */}
+      <div className="execution-summary-stats">
+        <div className="execution-summary-stat">
+          <span className="execution-summary-stat-value">{summary.total}</span>
+          <span className="execution-summary-stat-label">Runs</span>
+        </div>
+        <div className="execution-summary-stat">
+          <span className="execution-summary-stat-value">
+            {summary.avgMessages > 0 ? summary.avgMessages.toFixed(1) : "—"}
+          </span>
+          <span className="execution-summary-stat-label">Avg Messages</span>
+        </div>
+        <div className="execution-summary-stat">
+          <span className="execution-summary-stat-value">
+            {summary.avgLatency > 0 ? formatLatency(summary.avgLatency) : "—"}
+          </span>
+          <span className="execution-summary-stat-label">Avg Latency</span>
+        </div>
+        <div className="execution-summary-stat">
+          {onViewRun && summary.maxLatencyRunId ? (
+            <div className="execution-summary-stat-row">
+              <span className="execution-summary-stat-value">
+                {summary.maxLatency > 0 ? formatLatency(summary.maxLatency) : "—"}
+              </span>
+              <button
+                className="execution-summary-stat-icon"
+                onClick={() => onViewRun(summary.maxLatencyRunId!)}
+                title="View run"
+              >
+                {viewRunIcon}
+              </button>
+            </div>
+          ) : (
+            <span className="execution-summary-stat-value">
+              {summary.maxLatency > 0 ? formatLatency(summary.maxLatency) : "—"}
+            </span>
+          )}
+          <span className="execution-summary-stat-label">Max Latency</span>
+        </div>
+        <div className="execution-summary-stat">
+          <span className="execution-summary-stat-value">
+            {summary.totalTokens > 0 ? formatTokens(summary.totalTokens) : "—"}
+          </span>
+          <span className="execution-summary-stat-label">Total Tokens</span>
+        </div>
+        <div className="execution-summary-stat">
+          {onViewRun && summary.maxTokensRunId ? (
+            <div className="execution-summary-stat-row">
+              <span className="execution-summary-stat-value">
+                {summary.maxTokens > 0 ? formatTokens(summary.maxTokens) : "—"}
+              </span>
+              <button
+                className="execution-summary-stat-icon"
+                onClick={() => onViewRun(summary.maxTokensRunId!)}
+                title="View run"
+              >
+                {viewRunIcon}
+              </button>
+            </div>
+          ) : (
+            <span className="execution-summary-stat-value">
+              {summary.maxTokens > 0 ? formatTokens(summary.maxTokens) : "—"}
+            </span>
+          )}
+          <span className="execution-summary-stat-label">Max Tokens</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Full ExecutionSummary (used on eval detail page) ── */
+
+export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
+  const projectId = useProjectId();
+  const { data: runs = [] } = useRunsByEval(evalId);
+  const { data: personas = [] } = usePersonas();
+  const buildExec = useExecutionDataBuilder();
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   // Get sorted list of execution IDs that have at least some finished runs
@@ -293,16 +450,10 @@ export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
     ? selectedIndex
     : executionIds.length - 1;
 
-  const { data: connectors = [] } = useConnectors();
-  const connectorNames = useMemo(
-    () => new Map(connectors.map((c) => [c.id, c.name])),
-    [connectors]
-  );
-
   const summary = useMemo(() => {
     if (executionIds.length === 0 || currentIndex < 0) return null;
-    return buildExecutionData(executionIds[currentIndex], runs, personas, scenarioNames, connectorNames);
-  }, [executionIds, currentIndex, runs, personas, scenarioNames, connectorNames]);
+    return buildExec(executionIds[currentIndex], runs);
+  }, [executionIds, currentIndex, runs, buildExec]);
 
   // Build persona lookup for failure avatars
   const personaMap = useMemo(
@@ -315,17 +466,6 @@ export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
   const canPrev = currentIndex > 0;
   const canNext = currentIndex < executionIds.length - 1;
   const isLatest = !canNext;
-
-  const passRate = summary.total > 0
-    ? Math.round((summary.passed / (summary.passed + summary.failed + summary.errors)) * 100)
-    : 0;
-
-  const pieData = [
-    { name: "Passed", value: summary.passed, color: "#22c55e" },
-    { name: "Failed", value: summary.failed, color: "#ef4444" },
-    ...(summary.errors > 0 ? [{ name: "Error", value: summary.errors, color: "#f59e0b" }] : []),
-    ...(summary.running > 0 ? [{ name: "Running", value: summary.running, color: "#94a3b8" }] : []),
-  ].filter((d) => d.value > 0);
 
   const scenarioBarData = summary.scenarioResults.map((s) => ({
     name: s.scenarioName.length > 50 ? s.scenarioName.slice(0, 48) + "..." : s.scenarioName,
@@ -391,107 +531,7 @@ export function ExecutionSummary({ evalId }: ExecutionSummaryProps) {
       </div>
 
       <div className="execution-summary-body">
-        {/* Pass Rate Donut */}
-        <div className="execution-summary-donut">
-          <div className="execution-summary-donut-chart">
-            <ResponsiveContainer width={100} height={100}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={30}
-                  outerRadius={45}
-                  paddingAngle={2}
-                  dataKey="value"
-                  strokeWidth={0}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="execution-summary-donut-label">
-              <span className="execution-summary-donut-value">{passRate}%</span>
-            </div>
-          </div>
-          <div className="execution-summary-donut-legend">
-            <span className="execution-summary-legend-pill passed">{summary.passed} passed</span>
-            <span className="execution-summary-legend-pill failed">{summary.failed} failed</span>
-            {summary.errors > 0 && (
-              <span className="execution-summary-legend-pill error">{summary.errors} error</span>
-            )}
-          </div>
-        </div>
-
-        {/* Stats — 2 columns */}
-        <div className="execution-summary-stats">
-          <div className="execution-summary-stat">
-            <span className="execution-summary-stat-value">{summary.total}</span>
-            <span className="execution-summary-stat-label">Runs</span>
-          </div>
-          <div className="execution-summary-stat">
-            <span className="execution-summary-stat-value">
-              {summary.avgMessages > 0 ? summary.avgMessages.toFixed(1) : "—"}
-            </span>
-            <span className="execution-summary-stat-label">Avg Messages</span>
-          </div>
-          <div className="execution-summary-stat">
-            <span className="execution-summary-stat-value">
-              {summary.avgLatency > 0 ? formatLatency(summary.avgLatency) : "—"}
-            </span>
-            <span className="execution-summary-stat-label">Avg Latency</span>
-          </div>
-          <div className="execution-summary-stat">
-            <div className="execution-summary-stat-row">
-              <span className="execution-summary-stat-value">
-                {summary.maxLatency > 0 ? formatLatency(summary.maxLatency) : "—"}
-              </span>
-              {summary.maxLatencyRunId && (
-                <button
-                  className="execution-summary-stat-icon"
-                  onClick={() => setSelectedRunId(summary.maxLatencyRunId)}
-                  title="View run"
-                >
-                  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 3H3v10h10V9" />
-                    <path d="M10 2h4v4" />
-                    <path d="M8 8l6-6" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <span className="execution-summary-stat-label">Max Latency</span>
-          </div>
-          <div className="execution-summary-stat">
-            <span className="execution-summary-stat-value">
-              {summary.totalTokens > 0 ? formatTokens(summary.totalTokens) : "—"}
-            </span>
-            <span className="execution-summary-stat-label">Total Tokens</span>
-          </div>
-          <div className="execution-summary-stat">
-            <div className="execution-summary-stat-row">
-              <span className="execution-summary-stat-value">
-                {summary.maxTokens > 0 ? formatTokens(summary.maxTokens) : "—"}
-              </span>
-              {summary.maxTokensRunId && (
-                <button
-                  className="execution-summary-stat-icon"
-                  onClick={() => setSelectedRunId(summary.maxTokensRunId)}
-                  title="View run"
-                >
-                  <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M7 3H3v10h10V9" />
-                    <path d="M10 2h4v4" />
-                    <path d="M8 8l6-6" />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <span className="execution-summary-stat-label">Max Tokens</span>
-          </div>
-        </div>
+        <ExecutionMetrics summary={summary} onViewRun={setSelectedRunId} />
 
         {/* Scenario Breakdown Chart */}
         {scenarioBarData.length > 0 && (

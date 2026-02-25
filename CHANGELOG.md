@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Recent eval cards on dashboard** — Dashboard shows up to 4 cards for the most recently executed evals, each displaying key metrics (pass rate donut, runs, latency, tokens) via a shared `ExecutionMetrics` component. Card header links to the eval detail page.
+- **`ExecutionMetrics` shared component** — Extracted reusable donut chart + stats grid from `ExecutionSummary`, used by both the full execution summary and the dashboard cards.
+- **`useExecutionDataBuilder` hook** — Encapsulates persona/scenario/connector data fetching for building execution summaries, reducing duplication across consumers.
 - **Filesystem storage caps** — Executions are capped at 100 (newest kept) and orphan runs (no execution) at 200. When old executions are pruned, their associated runs are cascade-deleted. Pruning runs as a standalone activity in the RunProcessor after all runs finish, keeping write-time logic simple.
 - **`pruneProjectData` on StorageProvider** — Optional method for storage backends to implement data retention. Filesystem storage implements execution capping + cascade; Postgres can skip (handled by DB constraints).
 
