@@ -11,9 +11,8 @@ import { EvaluatorForm } from "../components/EvaluatorForm";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
-import { RunMessagesModal } from "../components/RunMessagesModal";
 
-type ScenarioTab = "runs" | "code";
+type ScenarioTab = "settings" | "stats" | "code";
 type ViewMode = "time" | "execution";
 
 export function ScenarioDetailPage() {
@@ -29,9 +28,15 @@ export function ScenarioDetailPage() {
   const { data: runs = [] } = useRunsByScenario(scenarioId ?? "");
   const [showMenu, setShowMenu] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [activeTab, setActiveTab] = useState<ScenarioTab>("runs");
+  const [activeTab, setActiveTabState] = useState<ScenarioTab>(
+    () => (localStorage.getItem("scenarioTab") as ScenarioTab) || "settings"
+  );
+  const setActiveTab = (tab: ScenarioTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem("scenarioTab", tab);
+  };
   const [viewMode, setViewMode] = useState<ViewMode>("execution");
 
   const [name, setName] = useState("");
@@ -240,164 +245,20 @@ export function ScenarioDetailPage() {
       <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
-      <div className="dashboard-card scenario-edit-form">
-        <h3>Scenario Setup</h3>
-
-        <div className="form-group">
-          <label htmlFor="scenario-instructions">Instructions</label>
-          <textarea
-            id="scenario-instructions"
-            value={instructions}
-            onChange={(e) => handleChange(setInstructions)(e.target.value)}
-            rows={4}
-            placeholder="Provide all context for this scenario: what the customer issue is, why they're contacting support, any background information needed..."
-          />
-        </div>
-
-        <SeedMessagesEditor
-          messages={seedMessages}
-          onChange={handleChange(setSeedMessages)}
-        />
-
-        <div className="form-inline-field">
-          <label htmlFor="scenario-max-messages">Max Messages</label>
-          <input
-            id="scenario-max-messages"
-            type="number"
-            value={maxMessages}
-            onChange={(e) => handleChange(setMaxMessages)(e.target.value)}
-            placeholder="10"
-            min="1"
-          />
-          <span className="form-hint">Maximum conversation turns before the run stops.</span>
-        </div>
-      </div>
-
-      <div className="dashboard-card scenario-edit-form">
-        <h3>Evaluation Criteria</h3>
-
-        <div className="form-group">
-          <div className="form-label-row">
-            <label htmlFor="scenario-success">Success Criteria</label>
-            <span className="form-hint">Checked at every turn. The run stops and passes when met.</span>
-          </div>
-          <textarea
-            id="scenario-success"
-            value={successCriteria}
-            onChange={(e) => handleChange(setSuccessCriteria)(e.target.value)}
-            placeholder="The agent successfully processes the request and confirms with the customer"
-            rows={2}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="scenario-failure">Failure Criteria</label>
-          <textarea
-            id="scenario-failure"
-            value={failureCriteria}
-            onChange={(e) => handleChange(setFailureCriteria)(e.target.value)}
-            placeholder="The agent fails to understand the request or provides incorrect information"
-            rows={2}
-          />
-          <div className="form-label-row">
-            <select
-              id="scenario-failure-mode"
-              className="form-label-row-select"
-              value={failureCriteriaMode}
-              onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
-              disabled={!failureCriteria}
-            >
-              <option value="on_max_messages">Check Failure on max messages — only at end</option>
-              <option value="every_turn">Check Failure every turn — stop on failure</option>
-            </select>
-            <span className="form-hint">
-              {failureCriteriaMode === "every_turn"
-                ? `The run stops as soon as success or failure criteria is met${maxMessages ? `, or after ${maxMessages} messages` : ""}.`
-                : maxMessages
-                  ? `The run stops when success criteria is met. After ${maxMessages} messages, failure criteria is checked.`
-                  : "The run stops when success criteria is met. At max messages, failure criteria is checked."}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="scenario-side-by-side">
-        <div className="dashboard-card scenario-edit-form">
-          <h3>Evaluators</h3>
-          <EvaluatorForm
-            evaluators={evaluators}
-            onChange={handleChange(setEvaluators)}
-          />
-        </div>
-
-        <div className="dashboard-card scenario-edit-form">
-          <h3>Personas</h3>
-          {personas.length === 0 ? (
-            <p className="form-hint">
-              No personas available.{" "}
-              <Link to="../../personas" relative="path">Create a persona</Link> first.
-            </p>
-          ) : (
-            <div className="persona-checkbox-list">
-              {personas.map((persona) => (
-                <label key={persona.id} className="persona-row persona-row-selectable">
-                  <input
-                    type="checkbox"
-                    checked={selectedPersonaIds.includes(persona.id)}
-                    onChange={() => handlePersonaToggle(persona.id)}
-                  />
-                  <div className="persona-avatar-sm">
-                    {persona.imageUrl ? (
-                      <img
-                        src={`${projectImageUrl(projectId, persona.imageUrl)}?t=${persona.updatedAt}`}
-                        alt={persona.name}
-                      />
-                    ) : (
-                      <span>{persona.name.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <span className="persona-name">{persona.name}</span>
-                  {persona.description && (
-                    <span className="persona-description">{persona.description}</span>
-                  )}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="dashboard-card dashboard-card-wide">
-        <div className="dashboard-card-header">
-          <h3>Performance Overview</h3>
-          {runs.some(r => r.executionId) && (
-            <div className="performance-chart-toggle">
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
-                onClick={() => setViewMode("time")}
-              >
-                By Time
-              </button>
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
-                onClick={() => setViewMode("execution")}
-              >
-                By Execution
-              </button>
-            </div>
-          )}
-        </div>
-        <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} onRunClick={setSelectedRunId} />
-      </div>
-
       <div className="scenario-detail-tabs">
         <div className="scenario-tabs-header">
           <div className="scenario-tabs-nav">
             <button
-              className={`scenario-tab ${activeTab === "runs" ? "active" : ""}`}
-              onClick={() => setActiveTab("runs")}
+              className={`scenario-tab ${activeTab === "settings" ? "active" : ""}`}
+              onClick={() => setActiveTab("settings")}
             >
-              Runs
+              Settings
+            </button>
+            <button
+              className={`scenario-tab ${activeTab === "stats" ? "active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              Stats
             </button>
             <button
               className={`scenario-tab ${activeTab === "code" ? "active" : ""}`}
@@ -408,8 +269,163 @@ export function ScenarioDetailPage() {
           </div>
         </div>
 
-        {activeTab === "runs" && (
-          <RunList scenarioId={scenario.id} />
+        {activeTab === "settings" && (
+          <>
+            <div className="dashboard-card scenario-edit-form">
+              <div className="form-group">
+                <label htmlFor="scenario-instructions">📄 Instructions</label>
+                <span className="form-hint">Describe using natural language the situation the user is facing.</span>
+                <textarea
+                  id="scenario-instructions"
+                  value={instructions}
+                  onChange={(e) => handleChange(setInstructions)(e.target.value)}
+                  rows={4}
+                  placeholder="Provide all context for this scenario: what the customer issue is, why they're contacting support, any background information needed..."
+                />
+              </div>
+
+              <SeedMessagesEditor
+                messages={seedMessages}
+                onChange={handleChange(setSeedMessages)}
+              />
+
+              <div className="form-inline-field">
+                <label htmlFor="scenario-max-messages">Max Messages</label>
+                <input
+                  id="scenario-max-messages"
+                  type="number"
+                  value={maxMessages}
+                  onChange={(e) => handleChange(setMaxMessages)(e.target.value)}
+                  placeholder="10"
+                  min="1"
+                />
+                <span className="form-hint">Maximum conversation turns before the run stops.</span>
+              </div>
+            </div>
+
+            <div className="dashboard-card scenario-edit-form">
+              <div className="form-group">
+                <div className="form-label-row">
+                  <label htmlFor="scenario-success">✅ Success Criteria</label>
+                  <span className="form-hint">Checked at every turn. The run stops and passes when met.</span>
+                </div>
+                <textarea
+                  id="scenario-success"
+                  value={successCriteria}
+                  onChange={(e) => handleChange(setSuccessCriteria)(e.target.value)}
+                  placeholder="The agent successfully processes the request and confirms with the customer"
+                  rows={2}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="scenario-failure">❌ Failure Criteria</label>
+                <textarea
+                  id="scenario-failure"
+                  value={failureCriteria}
+                  onChange={(e) => handleChange(setFailureCriteria)(e.target.value)}
+                  placeholder="The agent fails to understand the request or provides incorrect information"
+                  rows={2}
+                />
+                <div className="form-label-row">
+                  <select
+                    id="scenario-failure-mode"
+                    className="form-label-row-select"
+                    value={failureCriteriaMode}
+                    onChange={(e) => handleChange(setFailureCriteriaMode)(e.target.value as "every_turn" | "on_max_messages")}
+                    disabled={!failureCriteria}
+                  >
+                    <option value="on_max_messages">Check Failure on max messages — only at end</option>
+                    <option value="every_turn">Check Failure every turn — stop on failure</option>
+                  </select>
+                  <span className="form-hint">
+                    {failureCriteriaMode === "every_turn"
+                      ? `The run stops as soon as success or failure criteria is met${maxMessages ? `, or after ${maxMessages} messages` : ""}.`
+                      : maxMessages
+                        ? `The run stops when success criteria is met. After ${maxMessages} messages, failure criteria is checked.`
+                        : "The run stops when success criteria is met. At max messages, failure criteria is checked."}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-card scenario-edit-form">
+              <div className="form-group">
+                <div className="form-label-row">
+                  <label>Personas ({selectedPersonaIds.length} selected)</label>
+                  <span className="form-hint">Select personas to test this scenario with different user profiles.</span>
+                </div>
+                {personas.length === 0 ? (
+                  <p className="form-hint">
+                    No personas available.{" "}
+                    <Link to="../../personas" relative="path">Create a persona</Link> first.
+                  </p>
+                ) : (
+                  <div className="persona-checkbox-list">
+                    {personas.map((persona) => (
+                      <label key={persona.id} className="persona-row persona-row-selectable">
+                        <input
+                          type="checkbox"
+                          checked={selectedPersonaIds.includes(persona.id)}
+                          onChange={() => handlePersonaToggle(persona.id)}
+                        />
+                        <div className="persona-avatar-sm">
+                          {persona.imageUrl ? (
+                            <img
+                              src={`${projectImageUrl(projectId, persona.imageUrl)}?t=${persona.updatedAt}`}
+                              alt={persona.name}
+                            />
+                          ) : (
+                            <span>{persona.name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <span className="persona-name">{persona.name}</span>
+                        {persona.description && (
+                          <span className="persona-description">{persona.description}</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="dashboard-card scenario-edit-form">
+              <EvaluatorForm
+                evaluators={evaluators}
+                onChange={handleChange(setEvaluators)}
+              />
+            </div>
+          </>
+        )}
+
+        {activeTab === "stats" && (
+          <>
+            <div className="dashboard-card dashboard-card-wide">
+              <div className="dashboard-card-header">
+                <h3>Performance Overview</h3>
+                {runs.some(r => r.executionId) && (
+                  <div className="performance-chart-toggle">
+                    <button
+                      className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
+                      onClick={() => setViewMode("time")}
+                    >
+                      By Time
+                    </button>
+                    <button
+                      className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
+                      onClick={() => setViewMode("execution")}
+                    >
+                      By Execution
+                    </button>
+                  </div>
+                )}
+              </div>
+              <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} />
+            </div>
+
+            <RunList scenarioId={scenario.id} />
+          </>
         )}
 
         {activeTab === "code" && (
@@ -427,12 +443,6 @@ export function ScenarioDetailPage() {
         />
       )}
 
-      {selectedRunId && (
-        <RunMessagesModal
-          runId={selectedRunId}
-          onClose={() => setSelectedRunId(null)}
-        />
-      )}
     </div>
   );
 }

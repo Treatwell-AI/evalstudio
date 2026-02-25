@@ -1,6 +1,5 @@
 import { useState, useMemo } from "react";
-import { Message, ToolCall, getMessageContent, type EvaluatorResultEntry } from "../lib/api";
-import { EvaluatorResults, type LLMCriteriaResult } from "./EvaluatorResults";
+import { Message, ToolCall, getMessageContent } from "../lib/api";
 
 /** Map of tool_call_id -> ToolCall (input/args) from assistant messages */
 type ToolCallsMap = Map<string, ToolCall>;
@@ -100,18 +99,8 @@ interface MessagesDisplayProps {
   messages: Message[];
   /** Additional messages to show after the main messages (e.g., simulated responses) */
   additionalContent?: React.ReactNode;
-  /** Result panel content */
-  result?: {
-    success: boolean;
-    score?: number;
-    reason?: string;
-  } | null;
-  /** LLM-as-judge criteria result */
-  criteriaResult?: LLMCriteriaResult | null;
-  /** Custom evaluator results */
-  evaluatorResults?: EvaluatorResultEntry[];
-  /** Evaluator metrics */
-  evaluatorMetrics?: Record<string, number>;
+  /** Additional content rendered after messages (e.g., EvaluatorResults) */
+  footer?: React.ReactNode;
   /** Error message to display */
   error?: string | null;
   /** Empty state message */
@@ -121,10 +110,7 @@ interface MessagesDisplayProps {
 export function MessagesDisplay({
   messages,
   additionalContent,
-  result,
-  criteriaResult,
-  evaluatorResults,
-  evaluatorMetrics,
+  footer,
   error,
   emptyMessage = "No messages.",
 }: MessagesDisplayProps) {
@@ -199,25 +185,7 @@ export function MessagesDisplay({
         )
       )}
 
-      {result && (
-        <div className={`run-result-panel ${result.success ? "success" : "failed"}`}>
-          <div className="run-result-header">
-            <strong>{result.success ? "Passed" : "Failed"}</strong>
-            {result.score !== undefined && (
-              <span className="run-result-score">
-                Confidence: {Math.round(result.score * 100)}%
-              </span>
-            )}
-          </div>
-          {result.reason && <p>{result.reason}</p>}
-        </div>
-      )}
-
-      <EvaluatorResults
-        criteria={criteriaResult}
-        evaluatorResults={evaluatorResults}
-        metrics={evaluatorMetrics}
-      />
+      {footer}
 
       {error && (
         <div className="run-error-panel">

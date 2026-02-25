@@ -5,6 +5,7 @@ import { useConnectors } from "../hooks/useConnectors";
 import { useCreatePlaygroundRun, usePollingRun } from "../hooks/useRuns";
 import { MessagesDisplay, SimulationError } from "./MessagesDisplay";
 import { RunStatusIndicator } from "./RunStatusIndicator";
+import { EvaluatorResults } from "./EvaluatorResults";
 
 interface ScenarioPlaygroundModalProps {
   scenario: Scenario;
@@ -80,7 +81,6 @@ export function ScenarioPlaygroundModal({
   };
 
   const isRunning = activeRun?.status === "queued" || activeRun?.status === "running";
-  const isCompleted = activeRun?.status === "completed";
 
   // Determine which messages are new (added after run started)
   const newMessageCount = activeRun?.messages
@@ -91,17 +91,6 @@ export function ScenarioPlaygroundModal({
     <>
       {/* Show status indicator while running */}
       {activeRun && <RunStatusIndicator run={activeRun} messageCount={newMessageCount} />}
-
-      {/* Show result when completed */}
-      {isCompleted && activeRun?.result && (
-        <div className={`run-result ${activeRun.result.success ? "success" : "failed"}`}>
-          <strong>{activeRun.result.success ? "✓ Passed" : "✗ Failed"}</strong>
-          {activeRun.result.reason && <p>{activeRun.result.reason}</p>}
-          {activeRun.result.score !== undefined && (
-            <span className="score">Score: {(activeRun.result.score * 100).toFixed(0)}%</span>
-          )}
-        </div>
-      )}
 
       {/* Show error if any */}
       {activeRun?.status === "error" && activeRun.error && (
@@ -126,6 +115,7 @@ export function ScenarioPlaygroundModal({
           <MessagesDisplay
             messages={displayMessages}
             additionalContent={runContent}
+            footer={activeRun && <EvaluatorResults run={activeRun} />}
             emptyMessage="No messages configured for this scenario."
           />
         )}

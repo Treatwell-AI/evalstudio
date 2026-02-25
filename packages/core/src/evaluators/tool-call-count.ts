@@ -10,7 +10,7 @@ export const toolCallCountEvaluator: EvaluatorDefinition = {
   description:
     "Counts tool calls in the agent's response. Requires a connector that returns tool_calls in messages (e.g. LangGraph).",
   kind: "metric",
-  auto: false,
+  auto: true,
   configSchema: { type: "object", properties: {}, additionalProperties: false },
 
   async evaluate(ctx) {

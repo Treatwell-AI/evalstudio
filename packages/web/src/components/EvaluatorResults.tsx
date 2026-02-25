@@ -1,6 +1,6 @@
-import type { EvaluatorResultEntry } from "../lib/api";
+import type { Run, EvaluatorResultEntry } from "../lib/api";
 
-export interface LLMCriteriaResult {
+interface LLMCriteriaResult {
   successMet?: boolean;
   failureMet?: boolean;
   confidence?: number;
@@ -11,24 +11,62 @@ export interface LLMCriteriaResult {
 }
 
 interface EvaluatorResultsProps {
-  /** LLM-as-judge criteria evaluation (shown first) */
-  criteria?: LLMCriteriaResult | null;
-  /** Custom evaluator results */
-  evaluatorResults?: EvaluatorResultEntry[];
-  /** Metrics from output */
-  metrics?: Record<string, number>;
+  run: Run;
 }
 
-export function EvaluatorResults({ criteria, evaluatorResults, metrics }: EvaluatorResultsProps) {
+/** Extract LLM criteria result from run output */
+function getCriteriaResult(run: Run): LLMCriteriaResult | null {
+  const output = run.output as Record<string, unknown> | undefined;
+  if (!output) return null;
+
+  const evaluation = output.evaluation as Record<string, unknown> | undefined;
+  if (!evaluation) return null;
+
+  return {
+    successMet: evaluation.successMet as boolean | undefined,
+    failureMet: evaluation.failureMet as boolean | undefined,
+    confidence: evaluation.confidence as number | undefined,
+    reasoning: evaluation.reasoning as string | undefined,
+    messageCount: output.messageCount as number | undefined,
+    avgLatencyMs: output.avgLatencyMs as number | undefined,
+    maxMessagesReached: output.maxMessagesReached as boolean | undefined,
+  };
+}
+
+export function EvaluatorResults({ run }: EvaluatorResultsProps) {
+  if (run.status !== "completed") return null;
+
+  const result = run.result;
+  const output = run.output as Record<string, unknown> | undefined;
+  const evaluatorResults = output?.evaluatorResults as EvaluatorResultEntry[] | undefined;
+  const metrics = output?.metrics as Record<string, number> | undefined;
+  const criteria = getCriteriaResult(run);
+
   const assertions = evaluatorResults?.filter((r) => r.kind === "assertion") ?? [];
   const metricResults = evaluatorResults?.filter((r) => r.kind === "metric") ?? [];
   const hasCriteria = criteria && (criteria.successMet !== undefined || criteria.failureMet !== undefined);
   const hasEvaluators = assertions.length > 0 || metricResults.length > 0;
 
-  if (!hasCriteria && !hasEvaluators) return null;
+  if (!result && !hasCriteria && !hasEvaluators) return null;
 
   return (
-    <div className="evaluator-results">
+    <>
+      {result && (
+        <div className={`run-result-panel ${result.success ? "success" : "failed"}`}>
+          <div className="run-result-header">
+            <strong>{result.success ? "Passed" : "Failed"}</strong>
+            {result.score !== undefined && (
+              <span className="run-result-score">
+                Confidence: {Math.round(result.score * 100)}%
+              </span>
+            )}
+          </div>
+          {result.reason && <p>{result.reason}</p>}
+        </div>
+      )}
+
+      {(hasCriteria || hasEvaluators) && (
+      <div className="evaluator-results">
       {hasCriteria && (
         <div className="evaluator-results-section">
           <div className="run-evaluation-header">Evaluation Details</div>
@@ -104,6 +142,8 @@ export function EvaluatorResults({ criteria, evaluatorResults, metrics }: Evalua
           </div>
         </>
       )}
-    </div>
+      </div>
+      )}
+    </>
   );
 }

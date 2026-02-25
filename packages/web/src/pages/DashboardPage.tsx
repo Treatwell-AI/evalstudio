@@ -5,7 +5,7 @@ import { useScenarios } from "../hooks/useScenarios";
 import { usePersonas } from "../hooks/usePersonas";
 import { useRuns } from "../hooks/useRuns";
 import { RunList } from "../components/RunList";
-import { DashboardPerformanceChart } from "../components/DashboardPerformanceChart";
+import { PerformanceChart } from "../components/PerformanceChart";
 
 type ViewMode = "time" | "execution";
 
@@ -97,9 +97,10 @@ export function DashboardPage() {
           {isLoading ? (
             <p className="text-muted">Loading...</p>
           ) : (
-            <DashboardPerformanceChart
+            <PerformanceChart
               runs={runs || []}
               viewMode={viewMode}
+              showToggle={false}
             />
           )}
         </div>

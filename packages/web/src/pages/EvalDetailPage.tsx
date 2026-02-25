@@ -10,7 +10,7 @@ import { EvalCodeSnippets } from "../components/EvalCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
 import { EvalWithRelations } from "../lib/api";
 
-type EvalTab = "runs" | "code";
+type EvalTab = "runs" | "settings" | "code";
 type ViewMode = "time" | "execution";
 
 export function EvalDetailPage() {
@@ -21,7 +21,13 @@ export function EvalDetailPage() {
   const deleteEval = useDeleteEval();
   const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [activeTab, setActiveTab] = useState<EvalTab>("runs");
+  const [activeTab, setActiveTabState] = useState<EvalTab>(
+    () => (localStorage.getItem("evalTab") as EvalTab) || "runs"
+  );
+  const setActiveTab = (tab: EvalTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem("evalTab", tab);
+  };
   const [viewMode, setViewMode] = useState<ViewMode>("execution");
   const [scenarioSearch, setScenarioSearch] = useState("");
 
@@ -224,72 +230,6 @@ export function EvalDetailPage() {
       <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
-      <div className="eval-detail-settings">
-        <div className="eval-edit-form eval-two-column">
-          <div className="eval-primary-fields">
-            <div className="form-group">
-              <label>Scenarios ({scenarioIds.length} selected)</label>
-              {scenarios.length > 5 && (
-                <input
-                  type="text"
-                  className="scenario-search-input"
-                  placeholder="Search scenarios..."
-                  value={scenarioSearch}
-                  onChange={(e) => setScenarioSearch(e.target.value)}
-                />
-              )}
-              <div className="checkbox-list scenario-checkbox-list">
-                {scenarios
-                  .filter((s) =>
-                    s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
-                  )
-                  .map((s) => (
-                    <label key={s.id} className="checkbox-item checkbox-item-compact">
-                      <input
-                        type="checkbox"
-                        checked={scenarioIds.includes(s.id)}
-                        onChange={() => handleScenarioToggle(s.id)}
-                      />
-                      <span>{s.name}</span>
-                    </label>
-                  ))}
-                {scenarios.length === 0 && (
-                  <p className="form-hint">No scenarios available.</p>
-                )}
-                {scenarios.length > 0 &&
-                  scenarios.filter((s) =>
-                    s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
-                  ).length === 0 && (
-                    <p className="form-hint">No scenarios match "{scenarioSearch}"</p>
-                  )}
-              </div>
-              <small className="form-hint">
-                Select one or more scenarios. Runs will be created for each scenario/persona combination.
-              </small>
-            </div>
-          </div>
-
-          <div className="eval-secondary-fields">
-            <div className="form-group">
-              <label htmlFor="eval-connector">Connector</label>
-              <select
-                id="eval-connector"
-                value={connectorId}
-                onChange={(e) => handleChange(setConnectorId)(e.target.value)}
-              >
-                <option value="">Select a connector...</option>
-                {connectors.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
       <div className="dashboard-card dashboard-card-wide">
         <div className="dashboard-card-header">
           <h3>Performance Overview</h3>
@@ -323,6 +263,12 @@ export function EvalDetailPage() {
               Runs
             </button>
             <button
+              className={`eval-tab ${activeTab === "settings" ? "active" : ""}`}
+              onClick={() => setActiveTab("settings")}
+            >
+              Settings
+            </button>
+            <button
               className={`eval-tab ${activeTab === "code" ? "active" : ""}`}
               onClick={() => setActiveTab("code")}
             >
@@ -333,6 +279,73 @@ export function EvalDetailPage() {
 
         {activeTab === "runs" && (
           <RunList evalId={evalWithRelations.id} />
+        )}
+
+        {activeTab === "settings" && (
+          <div className="eval-detail-settings">
+            <div className="eval-edit-form eval-two-column">
+              <div className="eval-primary-fields">
+                <div className="form-group">
+                  <label>Scenarios ({scenarioIds.length} selected)</label>
+                  {scenarios.length > 5 && (
+                    <input
+                      type="text"
+                      className="scenario-search-input"
+                      placeholder="Search scenarios..."
+                      value={scenarioSearch}
+                      onChange={(e) => setScenarioSearch(e.target.value)}
+                    />
+                  )}
+                  <div className="checkbox-list scenario-checkbox-list">
+                    {scenarios
+                      .filter((s) =>
+                        s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                      )
+                      .map((s) => (
+                        <label key={s.id} className="checkbox-item checkbox-item-compact">
+                          <input
+                            type="checkbox"
+                            checked={scenarioIds.includes(s.id)}
+                            onChange={() => handleScenarioToggle(s.id)}
+                          />
+                          <span>{s.name}</span>
+                        </label>
+                      ))}
+                    {scenarios.length === 0 && (
+                      <p className="form-hint">No scenarios available.</p>
+                    )}
+                    {scenarios.length > 0 &&
+                      scenarios.filter((s) =>
+                        s.name.toLowerCase().includes(scenarioSearch.toLowerCase())
+                      ).length === 0 && (
+                        <p className="form-hint">No scenarios match "{scenarioSearch}"</p>
+                      )}
+                  </div>
+                  <small className="form-hint">
+                    Select one or more scenarios. Runs will be created for each scenario/persona combination.
+                  </small>
+                </div>
+              </div>
+
+              <div className="eval-secondary-fields">
+                <div className="form-group">
+                  <label htmlFor="eval-connector">Connector</label>
+                  <select
+                    id="eval-connector"
+                    value={connectorId}
+                    onChange={(e) => handleChange(setConnectorId)(e.target.value)}
+                  >
+                    <option value="">Select a connector...</option>
+                    {connectors.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === "code" && (

@@ -249,7 +249,7 @@ body {
   margin-bottom: 1rem;
 }
 
-.form-group label {
+.form-group > label {
   display: block;
   font-size: 0.875rem;
   font-weight: 500;
@@ -264,6 +264,8 @@ body {
 }
 
 .form-label-row label {
+  font-size: 0.875rem;
+  font-weight: 500;
   margin-bottom: 0;
   flex-shrink: 0;
 }
@@ -293,8 +295,8 @@ body {
   cursor: not-allowed;
 }
 
-.form-group input,
-.form-group textarea {
+.form-group > input,
+.form-group > textarea {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border);
@@ -303,8 +305,8 @@ body {
   font-family: inherit;
 }
 
-.form-group input:focus,
-.form-group textarea:focus {
+.form-group > input:focus,
+.form-group > textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
@@ -929,6 +931,7 @@ body {
   flex: 1;
   overflow-y: auto;
   padding-top: 1rem;
+  padding-bottom: 3rem;
 }
 
 .page-body > * {
@@ -1169,7 +1172,8 @@ body {
   box-shadow: var(--shadow);
 }
 
-.dashboard-card h3 {
+.dashboard-card > h3,
+.dashboard-card-header > h3 {
   font-size: 0.875rem;
   font-weight: 600;
   margin-bottom: 1rem;
@@ -2389,13 +2393,17 @@ body {
 
 /* Scenario Detail Tabs */
 
+.scenario-detail-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .scenario-tabs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
   border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.75rem;
 }
 
 .scenario-tabs-nav {
@@ -2412,7 +2420,7 @@ body {
   color: var(--color-text-secondary);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  margin-bottom: -0.8125rem;
+  margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -3628,6 +3636,10 @@ body {
   box-shadow: var(--shadow);
 }
 
+.performance-chart .recharts-wrapper *:focus:not(:focus-visible) {
+  outline: none !important;
+}
+
 .performance-chart-row {
   display: flex;
   gap: 0;
@@ -3810,6 +3822,14 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.evaluator-section-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
 }
 
 .evaluator-card {

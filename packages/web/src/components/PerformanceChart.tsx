@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { Run, EvaluatorResultEntry } from "../lib/api";
+import { RunMessagesModal } from "./RunMessagesModal";
 
 type ViewMode = "time" | "execution";
 
@@ -20,7 +21,6 @@ interface PerformanceChartProps {
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
   showToggle?: boolean;
-  onRunClick?: (runId: string) => void;
 }
 
 interface ChartDataPoint {
@@ -176,9 +176,9 @@ export function PerformanceChart({
   viewMode: externalViewMode,
   onViewModeChange,
   showToggle = true,
-  onRunClick,
 }: PerformanceChartProps) {
   const [internalViewMode, setInternalViewMode] = useState<ViewMode>("execution");
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
   // Use external viewMode if provided, otherwise use internal state
   const viewMode = externalViewMode ?? internalViewMode;
@@ -328,7 +328,7 @@ export function PerformanceChart({
               }}
               labelFormatter={(label) => `${isExecutionMode ? "Execution" : "Date"}: ${label}`}
             />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Legend verticalAlign="top" wrapperStyle={{ fontSize: "12px", paddingBottom: "8px" }} />
             <Line
               yAxisId="percent"
               type="monotone"
@@ -377,16 +377,16 @@ export function PerformanceChart({
               width={50}
             />
             <Tooltip content={() => null} cursor={false} />
-            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Legend verticalAlign="top" wrapperStyle={{ fontSize: "12px", paddingBottom: "8px" }} />
             <Scatter
               data={latencyChartData.scatterData}
               dataKey="latency"
               name="Run Latency"
               fill="#3b82f6"
-              cursor={onRunClick ? "pointer" : undefined}
+              cursor="pointer"
               onClick={(data) => {
                 const point = data as unknown as LatencyScatterPoint;
-                if (point.runId && onRunClick) onRunClick(point.runId);
+                if (point.runId) setSelectedRunId(point.runId);
               }}
             />
             <Line
@@ -401,6 +401,13 @@ export function PerformanceChart({
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+
+      {selectedRunId && (
+        <RunMessagesModal
+          runId={selectedRunId}
+          onClose={() => setSelectedRunId(null)}
+        />
+      )}
     </div>
   );
 }

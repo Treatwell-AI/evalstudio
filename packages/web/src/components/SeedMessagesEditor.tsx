@@ -125,7 +125,7 @@ export function SeedMessagesEditor({ messages, onChange }: SeedMessagesEditorPro
   return (
     <div className="seed-messages-editor">
       <div className="seed-messages-header">
-        <label>Initial Messages (optional)</label>
+        <label>💬 Initial Messages (optional)</label>
         <div className="seed-messages-mode-toggle">
           <button
             type="button"

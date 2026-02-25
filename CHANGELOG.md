@@ -9,17 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Latency scatter chart** — New side-by-side chart layout in Performance Overview: left chart (62%) shows pass rate and output tokens; right chart (38%) shows individual run latencies as clickable blue scatter dots with a red average line (last 10 executions). Clicking a dot opens the run messages modal.
+- **Latency scatter chart** — Side-by-side chart layout in Performance Overview: left chart shows pass rate and output tokens; right chart shows individual run latencies as clickable scatter dots with average line. Clicking a dot opens the run messages modal.
+- **Evaluator form improvements** — Built-in evaluators displayed with "auto" badge; optional evaluators in a separate section with add/remove support. Section labels use `form-label-row` pattern.
+- **Tab state persistence** — Active tab on Scenario, Eval, and Persona detail pages persists via localStorage when navigating between entities of the same type.
+- **Chart legend position** — Performance chart legends moved above the charts for better readability.
 
 ### Changed
 
-- **Scenario detail page layout improvements**
-  - Fixed header with back chevron icon, editable title, and action buttons
-  - Full-width page layout with centered content (960px max-width)
-  - Evaluators and Personas sections displayed side-by-side
-  - Persona selection rows now show avatar images matching the Personas list page
-  - Performance Overview chart moved above Runs/Code tabs
-- **Detail page headers** — Scenario, Eval, and Persona detail pages all share the fixed header pattern with back chevron + inline title
+- **Scenario detail page restructured into 3 tabs** — Settings (instructions, criteria, personas, evaluators), Stats (performance chart + runs), Code (snippets)
+- **Eval detail page restructured** — Settings (scenarios, connector) moved into dedicated tab; performance chart above tabs
+- **CSS scoping** — `.form-group` label/input styles scoped to direct children to prevent leaking into nested components (persona rows, evaluator cards)
+- **Page bottom padding** — Added breathing room at the bottom of detail pages
+- **Consolidated EvaluatorResults** — Moved into RunMessagesModal footer; removed DashboardPerformanceChart in favor of unified PerformanceChart
+
+### Removed
+
+- **DashboardPerformanceChart** — Replaced by the unified `PerformanceChart` component used across all pages
 
 ---
 

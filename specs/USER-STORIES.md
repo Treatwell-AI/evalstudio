@@ -75,6 +75,7 @@
 [x] As a user, I want to see average output tokens in performance charts so that I can track token usage trends alongside pass rate and latency
 [x] As a user, I want to see individual run latencies as a scatter chart alongside the average latency line so that I can identify outliers and variance across runs
 [x] As a user, I want to click on a latency scatter dot to open the run conversation so that I can quickly investigate slow runs
+[x] As a user, I want detail page tabs to persist when navigating between entities of the same type so that I don't lose my place when switching between scenarios, evals, or personas
 
 ### Results Review & Iteration
 

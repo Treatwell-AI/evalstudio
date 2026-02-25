@@ -25,7 +25,13 @@ export function PersonaDetailPage() {
   const { data: runs = [] } = useRunsByPersona(personaId ?? "");
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [activeTab, setActiveTab] = useState<PersonaTab>("runs");
+  const [activeTab, setActiveTabState] = useState<PersonaTab>(
+    () => (localStorage.getItem("personaTab") as PersonaTab) || "runs"
+  );
+  const setActiveTab = (tab: PersonaTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem("personaTab", tab);
+  };
   const [viewMode, setViewMode] = useState<ViewMode>("execution");
 
   const [name, setName] = useState("");

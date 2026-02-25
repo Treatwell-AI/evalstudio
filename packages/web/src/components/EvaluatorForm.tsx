@@ -9,12 +9,7 @@ interface EvaluatorFormProps {
 export function EvaluatorForm({ evaluators, onChange }: EvaluatorFormProps) {
   const { data: evaluatorTypes = [], isLoading } = useEvaluatorTypes();
 
-  // Only show auto evaluators if they have configurable fields
-  const hasConfigFields = (t: EvaluatorTypeInfo) => {
-    const props = (t.configSchema as { properties?: Record<string, unknown> })?.properties;
-    return props && Object.keys(props).length > 0;
-  };
-  const alwaysActiveTypes = evaluatorTypes.filter((t) => t.auto && hasConfigFields(t));
+  const autoTypes = evaluatorTypes.filter((t) => t.auto);
 
   const handleAdd = (type: string) => {
     // Don't add duplicate types
@@ -40,9 +35,13 @@ export function EvaluatorForm({ evaluators, onChange }: EvaluatorFormProps) {
 
   return (
     <div className="evaluator-form">
-      {alwaysActiveTypes.length > 0 && (
+      {autoTypes.length > 0 && (
         <div className="evaluator-list">
-          {alwaysActiveTypes.map((info) => (
+          <div className="form-label-row">
+            <label>Built-in Evaluators</label>
+            <span className="form-hint">Always active on every run.</span>
+          </div>
+          {autoTypes.map((info) => (
             <div key={info.type} className="evaluator-card evaluator-card-auto">
               <div className="evaluator-card-header">
                 <div className="evaluator-card-title">
@@ -63,8 +62,12 @@ export function EvaluatorForm({ evaluators, onChange }: EvaluatorFormProps) {
         </div>
       )}
 
-      {evaluators.length > 0 && (
+      {(evaluators.length > 0 || availableTypes.length > 0) && (
         <div className="evaluator-list">
+          <div className="form-label-row">
+            <label>Optional Evaluators</label>
+            <span className="form-hint">Add custom evaluators to measure and assert on each turn.</span>
+          </div>
           {evaluators.map((evaluator, index) => {
             const info = getTypeInfo(evaluator.type);
             return (
@@ -92,43 +95,38 @@ export function EvaluatorForm({ evaluators, onChange }: EvaluatorFormProps) {
               </div>
             );
           })}
+          {!isLoading && availableTypes.length > 0 && (
+            <div className="evaluator-add-section">
+              <select
+                className="evaluator-add-select"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) handleAdd(e.target.value);
+                }}
+              >
+                <option value="">+ Add evaluator...</option>
+                {metrics.length > 0 && (
+                  <optgroup label="Metrics">
+                    {metrics.map((t) => (
+                      <option key={t.type} value={t.type}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {assertions.length > 0 && (
+                  <optgroup label="Assertions">
+                    {assertions.map((t) => (
+                      <option key={t.type} value={t.type}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          )}
         </div>
-      )}
-
-      {!isLoading && availableTypes.length > 0 && (
-        <div className="evaluator-add-section">
-          <select
-            className="evaluator-add-select"
-            value=""
-            onChange={(e) => {
-              if (e.target.value) handleAdd(e.target.value);
-            }}
-          >
-            <option value="">+ Add evaluator...</option>
-            {metrics.length > 0 && (
-              <optgroup label="Metrics">
-                {metrics.map((t) => (
-                  <option key={t.type} value={t.type}>
-                    {t.label}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {assertions.length > 0 && (
-              <optgroup label="Assertions">
-                {assertions.map((t) => (
-                  <option key={t.type} value={t.type}>
-                    {t.label}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </div>
-      )}
-
-      {evaluators.length === 0 && alwaysActiveTypes.length === 0 && !isLoading && (
-        <p className="form-hint">No evaluators added. Use the dropdown above to add metrics or assertions.</p>
       )}
     </div>
   );
