@@ -1,22 +1,10 @@
 import { Link } from "react-router-dom";
 import { useEvals } from "../hooks/useEvals";
-import { useScenarios } from "../hooks/useScenarios";
-import { usePersonas } from "../hooks/usePersonas";
-import { useRuns } from "../hooks/useRuns";
 import { RunList } from "../components/RunList";
-import { PerformanceChart } from "../components/PerformanceChart";
+import { ExecutionSummary } from "../components/ExecutionSummary";
 
 export function DashboardPage() {
   const { data: evals, isLoading: loadingEvals } = useEvals();
-  const { data: scenarios, isLoading: loadingScenarios } = useScenarios();
-  const { data: personas, isLoading: loadingPersonas } = usePersonas();
-  const { data: runs, isLoading: loadingRuns } = useRuns();
-
-  const isLoading = loadingEvals || loadingScenarios || loadingPersonas || loadingRuns;
-
-  const queuedRuns = runs?.filter(r => r.status === "queued").length || 0;
-  const passedRuns = runs?.filter(r => r.status === "completed" && r.result?.success).length || 0;
-  const failedRuns = runs?.filter(r => r.status === "completed" && r.result && !r.result.success).length || 0;
 
   return (
     <div className="page">
@@ -25,54 +13,17 @@ export function DashboardPage() {
       </div>
 
       <div className="dashboard-grid">
-        <div className="dashboard-card">
-          <h3>Quick Stats</h3>
-          {isLoading ? (
-            <p className="text-muted">Loading...</p>
-          ) : (
-            <div className="stats-grid">
-              <Link to="evals" className="stat stat-link">
-                <span className="stat-value">{evals?.length || 0}</span>
-                <span className="stat-label">Evals</span>
-              </Link>
-              <Link to="scenarios" className="stat stat-link">
-                <span className="stat-value">{scenarios?.length || 0}</span>
-                <span className="stat-label">Scenarios</span>
-              </Link>
-              <Link to="personas" className="stat stat-link">
-                <span className="stat-value">{personas?.length || 0}</span>
-                <span className="stat-label">Personas</span>
-              </Link>
-            </div>
-          )}
-        </div>
+        {!loadingEvals && evals && evals.map((ev) => (
+          <div key={ev.id} className="dashboard-eval-summary dashboard-card-wide">
+            <Link to={`evals/${ev.id}`} className="dashboard-eval-summary-name">
+              {ev.name}
+            </Link>
+            <ExecutionSummary evalId={ev.id} />
+          </div>
+        ))}
 
-        <div className="dashboard-card">
-          <h3>Run Stats</h3>
-          {isLoading ? (
-            <p className="text-muted">Loading...</p>
-          ) : (
-            <div className="stats-grid">
-              <div className="stat">
-                <span className="stat-value">{queuedRuns}</span>
-                <span className="stat-label">Queued</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value stat-success">{passedRuns}</span>
-                <span className="stat-label">Passed</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value stat-failed">{failedRuns}</span>
-                <span className="stat-label">Failed</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {!isLoading && <PerformanceChart runs={runs || []} />}
-
-        <div className="dashboard-card dashboard-card-wide">
-          <h3>Recent Runs</h3>
+        <div className="dashboard-card-wide">
+          <h3 className="section-label">Recent Runs</h3>
           <RunList mode="project" limit={5} />
         </div>
 

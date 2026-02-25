@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Execution Summary component** — New `ExecutionSummary` component showing pass rate donut chart, stats (runs, avg messages, latency, tokens), scenario breakdown bar chart, and failure details with persona avatars. Includes execution pager for navigating between historical executions.
+- **Dashboard eval summaries** — Dashboard now displays an `ExecutionSummary` for each eval, replacing the old Quick Stats and Run Stats cards.
+- **Section labels** — Consistent `section-label` styling for "Trends" and "Recent Runs" headings across Eval, Scenario, and Persona detail pages and the Dashboard.
 - **Latency scatter chart** — Side-by-side chart layout in Performance Overview: left chart shows pass rate and output tokens; right chart shows individual run latencies as clickable scatter dots with average line. Clicking a dot opens the run messages modal.
 - **Evaluator form improvements** — Built-in evaluators displayed with "auto" badge; optional evaluators in a separate section with add/remove support. Section labels use `form-label-row` pattern.
 - **Tab state persistence** — Active tab on Scenario, Eval, and Persona detail pages persists via localStorage when navigating between entities of the same type.
@@ -19,13 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Persona detail page restructured into 3 tabs** — Settings (description, system prompt, image, headers), Stats (performance charts + runs), Code (snippets). Matches the tab layout of Scenario and Eval detail pages.
 - **Performance charts split into separate cards** — Pass rate/tokens and latency charts render as two independent cards (62/38 ratio) instead of nested inside a wrapper card, eliminating duplicate borders.
 - **Scenario detail page restructured into 3 tabs** — Settings (instructions, criteria, personas, evaluators), Stats (performance chart + runs), Code (snippets)
-- **Eval detail page restructured** — Settings (scenarios, connector) moved into dedicated tab; performance chart above tabs
+- **Eval detail page tabs reordered** — Tabs moved into page body (matching Scenario page layout); order changed to Settings, Stats, Code; Stats tab now contains ExecutionSummary, PerformanceChart, and RunList
 - **CSS scoping** — `.form-group` label/input styles scoped to direct children to prevent leaking into nested components (persona rows, evaluator cards)
 - **Page bottom padding** — Added breathing room at the bottom of detail pages
 - **Consolidated EvaluatorResults** — Moved into RunMessagesModal footer; removed DashboardPerformanceChart in favor of unified PerformanceChart
 
 ### Removed
 
+- **Dashboard Quick Stats & Run Stats cards** — Replaced by per-eval ExecutionSummary components
+- **Dashboard PerformanceChart** — Removed from dashboard; now lives inside Eval detail Stats tab
 - **DashboardPerformanceChart** — Replaced by the unified `PerformanceChart` component used across all pages
 - **Performance chart time-based view** — Removed "By Time" / "By Execution" toggle; charts now always group by execution ID
 

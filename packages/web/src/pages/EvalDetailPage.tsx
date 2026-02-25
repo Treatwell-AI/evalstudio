@@ -8,9 +8,10 @@ import { RunList } from "../components/RunList";
 import { CreateRunDialog } from "../components/CreateRunDialog";
 import { EvalCodeSnippets } from "../components/EvalCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { ExecutionSummary } from "../components/ExecutionSummary";
 import { EvalWithRelations } from "../lib/api";
 
-type EvalTab = "runs" | "settings" | "code";
+type EvalTab = "settings" | "stats" | "code";
 
 export function EvalDetailPage() {
   const navigate = useNavigate();
@@ -20,9 +21,10 @@ export function EvalDetailPage() {
   const deleteEval = useDeleteEval();
   const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [activeTab, setActiveTabState] = useState<EvalTab>(
-    () => (localStorage.getItem("evalTab") as EvalTab) || "runs"
-  );
+  const [activeTab, setActiveTabState] = useState<EvalTab>(() => {
+    const stored = localStorage.getItem("evalTab");
+    return stored === "settings" || stored === "stats" || stored === "code" ? stored : "stats";
+  });
   const setActiveTab = (tab: EvalTab) => {
     setActiveTabState(tab);
     localStorage.setItem("evalTab", tab);
@@ -228,22 +230,20 @@ export function EvalDetailPage() {
       <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
-      <PerformanceChart runs={runs} />
-
       <div className="eval-detail-tabs">
         <div className="eval-tabs-header">
           <div className="eval-tabs-nav">
-            <button
-              className={`eval-tab ${activeTab === "runs" ? "active" : ""}`}
-              onClick={() => setActiveTab("runs")}
-            >
-              Runs
-            </button>
             <button
               className={`eval-tab ${activeTab === "settings" ? "active" : ""}`}
               onClick={() => setActiveTab("settings")}
             >
               Settings
+            </button>
+            <button
+              className={`eval-tab ${activeTab === "stats" ? "active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              Stats
             </button>
             <button
               className={`eval-tab ${activeTab === "code" ? "active" : ""}`}
@@ -253,10 +253,6 @@ export function EvalDetailPage() {
             </button>
           </div>
         </div>
-
-        {activeTab === "runs" && (
-          <RunList evalId={evalWithRelations.id} />
-        )}
 
         {activeTab === "settings" && (
           <div className="eval-detail-settings">
@@ -323,6 +319,16 @@ export function EvalDetailPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "stats" && (
+          <>
+            <ExecutionSummary evalId={evalWithRelations.id} />
+            <h3 className="section-label">Trends</h3>
+            <PerformanceChart runs={runs} />
+            <h3 className="section-label">Recent Runs</h3>
+            <RunList evalId={evalWithRelations.id} />
+          </>
         )}
 
         {activeTab === "code" && (

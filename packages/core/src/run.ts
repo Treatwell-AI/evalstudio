@@ -135,6 +135,7 @@ export function createRunModule(repo: Repository<Run>, deps: RunModuleDeps) {
           const run: Run = {
             id: randomUUID(),
             evalId: input.evalId,
+            connectorId: evalItem.connectorId,
             personaId,
             scenarioId: scenario.id,
             executionId: execution.id,

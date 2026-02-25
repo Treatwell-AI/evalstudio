@@ -76,6 +76,8 @@
 [x] As a user, I want to see individual run latencies as a scatter chart alongside the average latency line so that I can identify outliers and variance across runs
 [x] As a user, I want to click on a latency scatter dot to open the run conversation so that I can quickly investigate slow runs
 [x] As a user, I want detail page tabs to persist when navigating between entities of the same type so that I don't lose my place when switching between scenarios, evals, or personas
+[x] As a user, I want to see an execution summary on the Dashboard for each eval showing pass rate, stats, and failure details so that I can get a quick overview without navigating into each eval
+[x] As a user, I want to see an execution summary at the top of the Eval Stats tab so that I can immediately understand the latest execution results
 
 ### Results Review & Iteration
 

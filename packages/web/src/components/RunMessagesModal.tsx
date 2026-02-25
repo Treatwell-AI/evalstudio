@@ -1,4 +1,6 @@
 import { usePollingRun } from "../hooks/useRuns";
+import { useConnectors } from "../hooks/useConnectors";
+import { useScenarios } from "../hooks/useScenarios";
 import { MessagesDisplay, SimulationError } from "./MessagesDisplay";
 import { RunStatusIndicator } from "./RunStatusIndicator";
 import { EvaluatorResults } from "./EvaluatorResults";
@@ -10,12 +12,27 @@ interface RunMessagesModalProps {
 
 export function RunMessagesModal({ runId, onClose }: RunMessagesModalProps) {
   const { run, isLoading } = usePollingRun(runId);
+  const { data: connectors } = useConnectors();
+  const { data: scenarios } = useScenarios();
+
+  const connectorName = run?.connectorId
+    ? connectors?.find((c) => c.id === run.connectorId)?.name
+    : undefined;
+  const scenarioName = run?.scenarioId
+    ? scenarios?.find((s) => s.id === run.scenarioId)?.name
+    : undefined;
+
+  const titleParts: string[] = [];
+  if (run?.executionId != null) titleParts.push(`Evaluation #${run.executionId}`);
+  if (connectorName) titleParts.push(connectorName);
+  if (scenarioName) titleParts.push(scenarioName);
+  const title = titleParts.join(" · ") || "Run Messages";
 
   if (isLoading || !run) {
     return (
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal run-preview-modal" onClick={(e) => e.stopPropagation()}>
-          <h3>Run Messages</h3>
+          <h3 className="modal-title-ellipsis">Loading...</h3>
           <div className="loading">Loading run...</div>
           <div className="form-actions">
             <button className="btn btn-secondary" onClick={onClose}>
@@ -42,7 +59,7 @@ export function RunMessagesModal({ runId, onClose }: RunMessagesModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal run-preview-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Run Messages{run.executionId != null ? ` — Execution #${run.executionId}` : ""}</h3>
+        <h3 className="modal-title-ellipsis" title={title}>{title}</h3>
 
         <MessagesDisplay
           messages={run.messages}

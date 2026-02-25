@@ -337,8 +337,9 @@ export function PersonaDetailPage() {
 
         {activeTab === "stats" && (
           <>
+            <h3 className="section-label">Trends</h3>
             <PerformanceChart runs={runs} />
-
+            <h3 className="section-label">Recent Runs</h3>
             <RunList personaId={persona.id} />
           </>
         )}
