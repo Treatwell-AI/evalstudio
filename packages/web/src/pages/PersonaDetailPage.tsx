@@ -9,8 +9,7 @@ import { projectImageUrl } from "../lib/api";
 import { useProjectId } from "../hooks/useProjectId";
 import { HeadersEditor } from "../components/HeadersEditor";
 
-type PersonaTab = "runs" | "code";
-type ViewMode = "time" | "execution";
+type PersonaTab = "settings" | "stats" | "code";
 
 export function PersonaDetailPage() {
   const navigate = useNavigate();
@@ -26,14 +25,12 @@ export function PersonaDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [activeTab, setActiveTabState] = useState<PersonaTab>(
-    () => (localStorage.getItem("personaTab") as PersonaTab) || "runs"
+    () => (localStorage.getItem("personaTab") as PersonaTab) || "settings"
   );
   const setActiveTab = (tab: PersonaTab) => {
     setActiveTabState(tab);
     localStorage.setItem("personaTab", tab);
   };
-  const [viewMode, setViewMode] = useState<ViewMode>("execution");
-
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -233,114 +230,20 @@ export function PersonaDetailPage() {
       <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
-      <div className="persona-detail-content">
-        <div className="persona-detail-top">
-          <div className="persona-detail-left">
-            <div className="form-group">
-              <label htmlFor="persona-description">Description</label>
-              <p className="form-hint">
-                A brief description of this persona (shown in lists and dropdowns).
-              </p>
-              <input
-                id="persona-description"
-                type="text"
-                value={description}
-                onChange={(e) => handleChange(setDescription)(e.target.value)}
-                placeholder="Impatient customer who wants quick answers"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="persona-system-prompt">System Prompt</label>
-              <p className="form-hint">
-                Full character instructions for the LLM. Describe personality, behavior patterns, communication style, and any specific traits this persona should exhibit.
-              </p>
-              <textarea
-                id="persona-system-prompt"
-                value={systemPrompt}
-                onChange={(e) => handleChange(setSystemPrompt)(e.target.value)}
-                rows={10}
-                placeholder="You are an impatient customer who values their time. You tend to:
-- Get frustrated with long explanations
-- Ask direct questions and expect quick answers
-- Express urgency in your messages
-- Appreciate when issues are resolved efficiently"
-              />
-            </div>
-          </div>
-
-          <div className="persona-image-section">
-            <div className="persona-image-preview">
-              {imageUrl ? (
-                <img
-                  src={`${imageUrl}?t=${persona.updatedAt}`}
-                  alt={`${persona.name} avatar`}
-                  className="persona-image"
-                />
-              ) : (
-                <div className="persona-image-placeholder">
-                  <span>{persona.name.charAt(0).toUpperCase()}</span>
-                </div>
-              )}
-            </div>
-            <div className="persona-image-actions">
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleGenerateImage}
-                disabled={generateImage.isPending || !persona.systemPrompt}
-                title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
-              >
-                {generateImage.isPending ? "Generating..." : imageUrl ? "Regenerate Image" : "Generate Image"}
-              </button>
-              {generateError && <div className="form-error">{generateError}</div>}
-              {generateImage.isPending && (
-                <p className="form-hint">This may take a few seconds...</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <HeadersEditor
-          headers={customHeaders}
-          onChange={(updated) => {
-            setCustomHeaders(updated);
-            setHasChanges(true);
-          }}
-          hint="HTTP headers merged with connector headers when making requests. Persona headers take precedence over connector headers."
-        />
-      </div>
-
-      <div className="dashboard-card dashboard-card-wide">
-        <div className="dashboard-card-header">
-          <h3>Performance Overview</h3>
-          {runs.some(r => r.executionId) && (
-            <div className="performance-chart-toggle">
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
-                onClick={() => setViewMode("time")}
-              >
-                By Time
-              </button>
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
-                onClick={() => setViewMode("execution")}
-              >
-                By Execution
-              </button>
-            </div>
-          )}
-        </div>
-        <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} />
-      </div>
-
       <div className="persona-detail-tabs">
         <div className="persona-tabs-header">
           <div className="persona-tabs-nav">
             <button
-              className={`persona-tab ${activeTab === "runs" ? "active" : ""}`}
-              onClick={() => setActiveTab("runs")}
+              className={`persona-tab ${activeTab === "settings" ? "active" : ""}`}
+              onClick={() => setActiveTab("settings")}
             >
-              Runs
+              Settings
+            </button>
+            <button
+              className={`persona-tab ${activeTab === "stats" ? "active" : ""}`}
+              onClick={() => setActiveTab("stats")}
+            >
+              Stats
             </button>
             <button
               className={`persona-tab ${activeTab === "code" ? "active" : ""}`}
@@ -351,8 +254,93 @@ export function PersonaDetailPage() {
           </div>
         </div>
 
-        {activeTab === "runs" && (
-          <RunList personaId={persona.id} />
+        {activeTab === "settings" && (
+          <>
+            <div className="persona-detail-content">
+              <div className="persona-detail-top">
+                <div className="persona-detail-left">
+                  <div className="form-group">
+                    <label htmlFor="persona-description">Description</label>
+                    <p className="form-hint">
+                      A brief description of this persona (shown in lists and dropdowns).
+                    </p>
+                    <input
+                      id="persona-description"
+                      type="text"
+                      value={description}
+                      onChange={(e) => handleChange(setDescription)(e.target.value)}
+                      placeholder="Impatient customer who wants quick answers"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="persona-system-prompt">System Prompt</label>
+                    <p className="form-hint">
+                      Full character instructions for the LLM. Describe personality, behavior patterns, communication style, and any specific traits this persona should exhibit.
+                    </p>
+                    <textarea
+                      id="persona-system-prompt"
+                      value={systemPrompt}
+                      onChange={(e) => handleChange(setSystemPrompt)(e.target.value)}
+                      rows={10}
+                      placeholder="You are an impatient customer who values their time. You tend to:
+- Get frustrated with long explanations
+- Ask direct questions and expect quick answers
+- Express urgency in your messages
+- Appreciate when issues are resolved efficiently"
+                    />
+                  </div>
+                </div>
+
+                <div className="persona-image-section">
+                  <div className="persona-image-preview">
+                    {imageUrl ? (
+                      <img
+                        src={`${imageUrl}?t=${persona.updatedAt}`}
+                        alt={`${persona.name} avatar`}
+                        className="persona-image"
+                      />
+                    ) : (
+                      <div className="persona-image-placeholder">
+                        <span>{persona.name.charAt(0).toUpperCase()}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="persona-image-actions">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={handleGenerateImage}
+                      disabled={generateImage.isPending || !persona.systemPrompt}
+                      title={!persona.systemPrompt ? "Add a system prompt first" : "Generate portrait with AI"}
+                    >
+                      {generateImage.isPending ? "Generating..." : imageUrl ? "Regenerate Image" : "Generate Image"}
+                    </button>
+                    {generateError && <div className="form-error">{generateError}</div>}
+                    {generateImage.isPending && (
+                      <p className="form-hint">This may take a few seconds...</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <HeadersEditor
+                headers={customHeaders}
+                onChange={(updated) => {
+                  setCustomHeaders(updated);
+                  setHasChanges(true);
+                }}
+                hint="HTTP headers merged with connector headers when making requests. Persona headers take precedence over connector headers."
+              />
+            </div>
+          </>
+        )}
+
+        {activeTab === "stats" && (
+          <>
+            <PerformanceChart runs={runs} />
+
+            <RunList personaId={persona.id} />
+          </>
         )}
 
         {activeTab === "code" && (

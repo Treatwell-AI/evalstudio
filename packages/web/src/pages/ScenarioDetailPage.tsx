@@ -13,7 +13,6 @@ import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
 
 type ScenarioTab = "settings" | "stats" | "code";
-type ViewMode = "time" | "execution";
 
 export function ScenarioDetailPage() {
   const navigate = useNavigate();
@@ -37,8 +36,6 @@ export function ScenarioDetailPage() {
     setActiveTabState(tab);
     localStorage.setItem("scenarioTab", tab);
   };
-  const [viewMode, setViewMode] = useState<ViewMode>("execution");
-
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [seedMessages, setSeedMessages] = useState<Message[]>([]);
@@ -401,28 +398,7 @@ export function ScenarioDetailPage() {
 
         {activeTab === "stats" && (
           <>
-            <div className="dashboard-card dashboard-card-wide">
-              <div className="dashboard-card-header">
-                <h3>Performance Overview</h3>
-                {runs.some(r => r.executionId) && (
-                  <div className="performance-chart-toggle">
-                    <button
-                      className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
-                      onClick={() => setViewMode("time")}
-                    >
-                      By Time
-                    </button>
-                    <button
-                      className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
-                      onClick={() => setViewMode("execution")}
-                    >
-                      By Execution
-                    </button>
-                  </div>
-                )}
-              </div>
-              <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} />
-            </div>
+            <PerformanceChart runs={runs} />
 
             <RunList scenarioId={scenario.id} />
           </>

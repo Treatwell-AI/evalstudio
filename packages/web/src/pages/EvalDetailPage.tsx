@@ -11,7 +11,6 @@ import { PerformanceChart } from "../components/PerformanceChart";
 import { EvalWithRelations } from "../lib/api";
 
 type EvalTab = "runs" | "settings" | "code";
-type ViewMode = "time" | "execution";
 
 export function EvalDetailPage() {
   const navigate = useNavigate();
@@ -28,7 +27,6 @@ export function EvalDetailPage() {
     setActiveTabState(tab);
     localStorage.setItem("evalTab", tab);
   };
-  const [viewMode, setViewMode] = useState<ViewMode>("execution");
   const [scenarioSearch, setScenarioSearch] = useState("");
 
   // Load related data for dropdowns
@@ -230,28 +228,7 @@ export function EvalDetailPage() {
       <div className="page-body">
       {saveError && <div className="form-error">{saveError}</div>}
 
-      <div className="dashboard-card dashboard-card-wide">
-        <div className="dashboard-card-header">
-          <h3>Performance Overview</h3>
-          {runs.some(r => r.executionId) && (
-            <div className="performance-chart-toggle">
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
-                onClick={() => setViewMode("time")}
-              >
-                By Time
-              </button>
-              <button
-                className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
-                onClick={() => setViewMode("execution")}
-              >
-                By Execution
-              </button>
-            </div>
-          )}
-        </div>
-        <PerformanceChart runs={runs} viewMode={viewMode} showToggle={false} />
-      </div>
+      <PerformanceChart runs={runs} />
 
       <div className="eval-detail-tabs">
         <div className="eval-tabs-header">

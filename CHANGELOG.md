@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Persona detail page restructured into 3 tabs** — Settings (description, system prompt, image, headers), Stats (performance charts + runs), Code (snippets). Matches the tab layout of Scenario and Eval detail pages.
+- **Performance charts split into separate cards** — Pass rate/tokens and latency charts render as two independent cards (62/38 ratio) instead of nested inside a wrapper card, eliminating duplicate borders.
 - **Scenario detail page restructured into 3 tabs** — Settings (instructions, criteria, personas, evaluators), Stats (performance chart + runs), Code (snippets)
 - **Eval detail page restructured** — Settings (scenarios, connector) moved into dedicated tab; performance chart above tabs
 - **CSS scoping** — `.form-group` label/input styles scoped to direct children to prevent leaking into nested components (persona rows, evaluator cards)
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **DashboardPerformanceChart** — Replaced by the unified `PerformanceChart` component used across all pages
+- **Performance chart time-based view** — Removed "By Time" / "By Execution" toggle; charts now always group by execution ID
 
 ---
 

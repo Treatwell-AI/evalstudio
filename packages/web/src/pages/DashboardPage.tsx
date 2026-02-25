@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useEvals } from "../hooks/useEvals";
 import { useScenarios } from "../hooks/useScenarios";
@@ -7,11 +6,7 @@ import { useRuns } from "../hooks/useRuns";
 import { RunList } from "../components/RunList";
 import { PerformanceChart } from "../components/PerformanceChart";
 
-type ViewMode = "time" | "execution";
-
 export function DashboardPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("execution");
-
   const { data: evals, isLoading: loadingEvals } = useEvals();
   const { data: scenarios, isLoading: loadingScenarios } = useScenarios();
   const { data: personas, isLoading: loadingPersonas } = usePersonas();
@@ -74,36 +69,7 @@ export function DashboardPage() {
           )}
         </div>
 
-        <div className="dashboard-card dashboard-card-wide">
-          <div className="dashboard-card-header">
-            <h3>Performance Overview</h3>
-            {!isLoading && runs?.some(r => r.executionId) && (
-              <div className="performance-chart-toggle">
-                <button
-                  className={`performance-chart-toggle-btn ${viewMode === "time" ? "active" : ""}`}
-                  onClick={() => setViewMode("time")}
-                >
-                  By Time
-                </button>
-                <button
-                  className={`performance-chart-toggle-btn ${viewMode === "execution" ? "active" : ""}`}
-                  onClick={() => setViewMode("execution")}
-                >
-                  By Execution
-                </button>
-              </div>
-            )}
-          </div>
-          {isLoading ? (
-            <p className="text-muted">Loading...</p>
-          ) : (
-            <PerformanceChart
-              runs={runs || []}
-              viewMode={viewMode}
-              showToggle={false}
-            />
-          )}
-        </div>
+        {!isLoading && <PerformanceChart runs={runs || []} />}
 
         <div className="dashboard-card dashboard-card-wide">
           <h3>Recent Runs</h3>

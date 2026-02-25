@@ -2435,13 +2435,17 @@ body {
 
 /* Persona Detail Tabs */
 
+.persona-detail-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .persona-tabs-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
   border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.75rem;
 }
 
 .persona-tabs-nav {
@@ -2458,7 +2462,7 @@ body {
   color: var(--color-text-secondary);
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  margin-bottom: -0.8125rem;
+  margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -3627,7 +3631,13 @@ body {
   margin-right: 0.25rem;
 }
 
-/* Performance Chart */
+/* Performance Charts */
+.performance-charts {
+  display: flex;
+  gap: 1rem;
+  grid-column: span 3;
+}
+
 .performance-chart {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -3636,13 +3646,25 @@ body {
   box-shadow: var(--shadow);
 }
 
-.performance-chart .recharts-wrapper *:focus:not(:focus-visible) {
-  outline: none !important;
+.performance-chart-main {
+  flex: 62;
+  min-width: 0;
 }
 
-.performance-chart-row {
-  display: flex;
-  gap: 0;
+.performance-chart-latency {
+  flex: 38;
+  min-width: 0;
+}
+
+.performance-chart-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.performance-chart .recharts-wrapper *:focus:not(:focus-visible) {
+  outline: none !important;
 }
 
 .performance-chart-empty {
@@ -3655,87 +3677,6 @@ body {
   font-size: 0.875rem;
 }
 
-.performance-chart-single {
-  display: flex;
-  gap: 2rem;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 1.25rem 1.5rem;
-  box-shadow: var(--shadow);
-}
-
-.performance-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.performance-stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.performance-stat-label {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.performance-chart-toggle {
-  display: flex;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.performance-chart-toggle-btn {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.performance-chart-toggle-btn:hover {
-  background: var(--color-border);
-  color: var(--color-text);
-}
-
-.performance-chart-toggle-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: white;
-}
-
-/* Dashboard Performance Chart */
-.dashboard-performance-chart {
-  width: 100%;
-}
-
-.dashboard-performance-chart h3 {
-  margin: 0 0 1rem 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.dashboard-performance-chart .performance-chart {
-  margin-bottom: 0;
-}
-
-.dashboard-performance-chart .performance-chart-empty {
-  margin-bottom: 0;
-}
-
-.dashboard-performance-chart .performance-chart-single {
-  margin-bottom: 0;
-}
 
 /* LLM Configuration Section */
 .llm-config-section {
