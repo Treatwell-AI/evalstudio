@@ -14,8 +14,8 @@ cd my-evals
 ```
 
 This creates a `my-evals/` directory containing:
-- `evalstudio.config.json` -- project configuration (commit to git)
-- `data/` -- data directory for entities (auto-added to `.gitignore`)
+- `evalstudio.config.json` -- workspace configuration with project registry (commit to git)
+- `projects/{uuid}/data/` -- data directory for your first project
 
 ## 2. Verify Setup
 
@@ -28,8 +28,8 @@ You should see output showing the project directory.
 ## 3. Create Scenarios and Evals
 
 ```bash
-evalstudio scenario create --name "Greeting"
-evalstudio eval create --name "Greeting Test" --scenario "Greeting" --connector "My Connector"
+evalstudio scenario create "Greeting" -i "Say hello to the agent"
+evalstudio eval create -n "Greeting Test" --scenario "Greeting" -c "My Connector"
 ```
 
 ## Start the Server

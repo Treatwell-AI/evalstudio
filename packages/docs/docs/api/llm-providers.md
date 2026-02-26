@@ -97,10 +97,11 @@ curl http://localhost:3000/api/llm-providers/openai/models
 
 ## Configuring the LLM Provider
 
-The LLM provider is set via the project config endpoint:
+The LLM provider is set via the workspace or project config endpoints:
 
 ```bash
-curl -X PUT http://localhost:3000/api/project \
+# Set workspace-level defaults (inherited by all projects)
+curl -X PUT http://localhost:3000/api/workspace \
   -H "Content-Type: application/json" \
   -d '{
     "llmSettings": {
@@ -112,6 +113,19 @@ curl -X PUT http://localhost:3000/api/project \
       }
     }
   }'
+
+# Or set per-project overrides
+curl -X PUT http://localhost:3000/api/projects/PROJECT_ID/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "llmSettings": {
+      "provider": "anthropic",
+      "apiKey": "sk-ant-your-key",
+      "models": {
+        "evaluation": "claude-sonnet-4-5-20250929"
+      }
+    }
+  }'
 ```
 
-See [Project API](./projects.md) for full details.
+See [Projects API](./projects.md) for full details.

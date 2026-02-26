@@ -10,15 +10,10 @@ Manage connector configurations for bridging EvalStudio to external API endpoint
 
 ```typescript
 import {
-  createConnector,
-  getConnector,
-  getConnectorByName,
-  listConnectors,
-  updateConnector,
-  deleteConnector,
+  createProjectModules,
+  createStorageProvider,
+  resolveWorkspace,
   getConnectorTypes,
-  testConnector,
-  invokeConnector,
   type Connector,
   type ConnectorType,
   type ConnectorConfig,
@@ -30,6 +25,16 @@ import {
   type ConnectorInvokeResult,
   type Message,
 } from "@evalstudio/core";
+```
+
+## Setup
+
+All entity operations are accessed through project modules:
+
+```typescript
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
 ```
 
 ## Types
@@ -99,7 +104,7 @@ interface ConnectorTestResult {
 interface ConnectorInvokeInput {
   messages: Message[];  // Array of messages to send
   runId?: string;       // Optional run ID to use as thread_id (LangGraph only)
-  threadMessageCount?: number; // Number of messages already in thread (LangGraph only)
+  seenMessageIds?: Set<string>; // IDs of messages already sent/received (for filtering)
   extraHeaders?: Record<string, string>; // Extra headers merged with connector headers (take precedence)
 }
 ```
@@ -108,11 +113,13 @@ interface ConnectorInvokeInput {
 
 ```typescript
 interface ConnectorInvokeResult {
-  success: boolean;       // Whether the invocation succeeded
-  latencyMs: number;      // Response time in milliseconds
-  message?: Message;      // Assistant response message (on success)
-  rawResponse?: string;   // Raw response text (first 2000 chars)
-  error?: string;         // Error message (on failure)
+  success: boolean;             // Whether the invocation succeeded
+  latencyMs: number;            // Response time in milliseconds
+  messages?: Message[];         // Response messages (on success)
+  rawResponse?: string;         // Raw response text
+  error?: string;               // Error message (on failure)
+  tokensUsage?: TokensUsage;    // Token usage metadata
+  threadId?: string;            // Thread ID (LangGraph)
 }
 ```
 
@@ -165,21 +172,21 @@ Type alias for connector configuration.
 type ConnectorConfig = LangGraphConnectorConfig;
 ```
 
-## Functions
+## Methods
 
-### createConnector()
+### modules.connectors.create()
 
 Creates a new connector.
 
 ```typescript
-function createConnector(input: CreateConnectorInput): Connector;
+async function create(input: CreateConnectorInput): Promise<Connector>;
 ```
 
 **Throws**: Error if a connector with the same name already exists.
 
 ```typescript
 // LangGraph connector
-const langGraphConnector = createConnector({
+const langGraphConnector = await modules.connectors.create({
   name: "LangGraph Dev",
   type: "langgraph",
   baseUrl: "http://localhost:8123",
@@ -191,98 +198,85 @@ const langGraphConnector = createConnector({
 });
 ```
 
-### getConnector()
+### modules.connectors.get()
 
 Gets a connector by its ID.
 
 ```typescript
-function getConnector(id: string): Connector | undefined;
+async function get(id: string): Promise<Connector | undefined>;
 ```
 
 ```typescript
-const connector = getConnector("987fcdeb-51a2-3bc4-d567-890123456789");
+const connector = await modules.connectors.get("987fcdeb-51a2-3bc4-d567-890123456789");
 if (connector) {
   console.log(connector.name);
 }
 ```
 
-### getConnectorByName()
+### modules.connectors.getByName()
 
 Gets a connector by name.
 
 ```typescript
-function getConnectorByName(name: string): Connector | undefined;
+async function getByName(name: string): Promise<Connector | undefined>;
 ```
 
 ```typescript
-const connector = getConnectorByName("LangGraph Dev");
+const connector = await modules.connectors.getByName("LangGraph Dev");
 ```
 
-### listConnectors()
+### modules.connectors.list()
 
 Lists all connectors in the project.
 
 ```typescript
-function listConnectors(): Connector[];
+async function list(): Promise<Connector[]>;
 ```
 
 ```typescript
-const allConnectors = listConnectors();
+const allConnectors = await modules.connectors.list();
 ```
 
-### updateConnector()
+### modules.connectors.update()
 
 Updates an existing connector.
 
 ```typescript
-function updateConnector(id: string, input: UpdateConnectorInput): Connector | undefined;
+async function update(id: string, input: UpdateConnectorInput): Promise<Connector | undefined>;
 ```
 
 **Throws**: Error if updating to a name that already exists.
 
 ```typescript
-const updated = updateConnector(connector.id, {
+const updated = await modules.connectors.update(connector.id, {
   baseUrl: "https://new.api.com",
   headers: { Authorization: "Bearer new-token" },
 });
 ```
 
-### deleteConnector()
+### modules.connectors.delete()
 
 Deletes a connector by its ID.
 
 ```typescript
-function deleteConnector(id: string): boolean;
+async function delete(id: string): Promise<boolean>;
 ```
 
 ```typescript
-const deleted = deleteConnector(connector.id);
+const deleted = await modules.connectors.delete(connector.id);
 console.log(deleted ? "Deleted" : "Not found");
 ```
 
-### getConnectorTypes()
+### modules.connectors.test()
 
-Returns the supported connector types with descriptions.
+Tests a connector's connectivity by sending a request to the `/info` endpoint.
 
 ```typescript
-function getConnectorTypes(): Record<ConnectorType, string>;
+async function test(id: string): Promise<ConnectorTestResult>;
 ```
 
 ```typescript
-const types = getConnectorTypes();
-console.log(types.langgraph); // "LangGraph Dev API connector for langgraph-backed agents"
-```
-
-### testConnector()
-
-Tests a connector's connectivity by sending a "hello" message and checking the response.
-
-```typescript
-function testConnector(id: string): Promise<ConnectorTestResult>;
-```
-
-```typescript
-const result = await testConnector(connector.id);
+const result = await modules.connectors.test(connector.id);
 
 if (result.success) {
   console.log(`Connected in ${result.latencyMs}ms`);
@@ -292,34 +286,30 @@ if (result.success) {
 }
 ```
 
-Sends a GET request to the `/info` endpoint to verify connectivity.
-
-### invokeConnector()
+### modules.connectors.invoke()
 
 Invokes a connector by sending messages and returning the assistant's response. For LangGraph connectors, this waits for the run to complete before returning.
 
 ```typescript
-function invokeConnector(
-  id: string,
-  input: ConnectorInvokeInput
-): Promise<ConnectorInvokeResult>;
+async function invoke(id: string, input: ConnectorInvokeInput): Promise<ConnectorInvokeResult>;
 ```
 
 ```typescript
-const result = await invokeConnector(connector.id, {
+const result = await modules.connectors.invoke(connector.id, {
   messages: [
     { role: "user", content: "Hello, how can you help me?" }
   ]
 });
 
-if (result.success && result.message) {
-  console.log(`Response: ${result.message.content}`);
-  console.log(`Latency: ${result.latencyMs}ms`);
+if (result.success && result.messages) {
+  for (const msg of result.messages) {
+    console.log(`Response: ${msg.content}`);
 
-  // Responses may include tool calls
-  if (result.message.tool_calls) {
-    for (const call of result.message.tool_calls) {
-      console.log(`Tool: ${call.name}, Args: ${JSON.stringify(call.args)}`);
+    // Responses may include tool calls
+    if (msg.tool_calls) {
+      for (const call of msg.tool_calls) {
+        console.log(`Tool: ${call.name}, Args: ${JSON.stringify(call.args)}`);
+      }
     }
   }
 } else {
@@ -330,6 +320,21 @@ if (result.success && result.message) {
 Uses the `/threads/{thread_id}/runs/wait` endpoint which waits for the run to complete before returning the full response including any tool calls.
 
 When `runId` is provided, a thread is created with that ID (if it doesn't exist) and all runs are executed within that thread. This enables better organization and tracing of evaluation runs in LangSmith. Multi-turn conversations use `multitask_strategy: "enqueue"` to properly queue requests on the same thread.
+
+## Standalone Functions
+
+### getConnectorTypes()
+
+Returns the supported connector types with descriptions. This is a standalone function, not a module method.
+
+```typescript
+function getConnectorTypes(): Record<ConnectorType, string>;
+```
+
+```typescript
+const types = getConnectorTypes();
+console.log(types.langgraph); // "LangGraph Dev API connector for langgraph-backed agents"
+```
 
 ## Configuration Examples
 

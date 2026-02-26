@@ -10,19 +10,25 @@ Manage evals that define test configurations for scenarios. Evals can contain on
 
 ```typescript
 import {
-  createEval,
-  getEval,
-  getEvalByScenario,
-  getEvalWithRelations,
-  listEvals,
-  updateEval,
-  deleteEval,
+  createProjectModules,
+  createStorageProvider,
+  resolveWorkspace,
   type Eval,
   type EvalWithRelations,
   type CreateEvalInput,
   type UpdateEvalInput,
   type Message,
 } from "@evalstudio/core";
+```
+
+## Setup
+
+All entity operations are accessed through project modules:
+
+```typescript
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
 ```
 
 ## Types
@@ -33,9 +39,8 @@ import {
 interface Eval {
   id: string;                              // Unique identifier (UUID)
   name: string;                            // Display name for the eval
-  input: Message[];                        // Initial input messages (seed conversation)
   scenarioIds: string[];                   // Associated scenario IDs (required - at least one)
-  connectorId: string;                     // Connector for running this eval (required)
+  connectorId?: string;                    // Connector for running this eval
   createdAt: string;                       // ISO 8601 timestamp
   updatedAt: string;                       // ISO 8601 timestamp
 }
@@ -68,15 +73,6 @@ interface EvalWithRelations extends Eval {
 }
 ```
 
-### Message
-
-```typescript
-interface Message {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-```
-
 ### CreateEvalInput
 
 ```typescript
@@ -84,7 +80,6 @@ interface CreateEvalInput {
   name: string;                            // Required: display name for the eval
   connectorId: string;                     // Required: connector for running this eval
   scenarioIds: string[];                   // Required: at least one scenario ID
-  input?: Message[];                       // Default: []
 }
 ```
 
@@ -93,20 +88,19 @@ interface CreateEvalInput {
 ```typescript
 interface UpdateEvalInput {
   name?: string;                           // Update display name
-  input?: Message[];                       // Update input messages
   scenarioIds?: string[];                  // Update scenario IDs (at least one required)
   connectorId?: string;                    // Update connector for this eval
 }
 ```
 
-## Functions
+## Methods
 
-### createEval()
+### modules.evals.create()
 
 Creates a new eval.
 
 ```typescript
-function createEval(input: CreateEvalInput): Eval;
+async function create(input: CreateEvalInput): Promise<Eval>;
 ```
 
 **Throws**: Error if the connector doesn't exist, if any scenario doesn't exist, or if scenarioIds is empty.
@@ -115,115 +109,104 @@ Note: LLM provider for evaluation is configured at the project level via `evalst
 
 ```typescript
 // Create an eval with a single scenario
-const evalItem = createEval({
+const evalItem = await modules.evals.create({
   name: "Booking Test",
   connectorId: "connector-uuid",           // Required: connector for the agent
   scenarioIds: ["scenario-uuid"],          // Required: at least one scenario
 });
 
 // Create an eval with multiple scenarios (test collection)
-const multiScenarioEval = createEval({
+const multiScenarioEval = await modules.evals.create({
   name: "Full Agent Test Suite",
   connectorId: "connector-uuid",
-  scenarioIds: ["scenario-1", "scenario-2", "scenario-3"], // Multiple scenarios
-});
-
-// Create an eval with seed messages
-const seededEval = createEval({
-  name: "Seeded Conversation Test",
-  connectorId: "connector-uuid",
-  scenarioIds: ["scenario-uuid"],
-  input: [
-    { role: "user", content: "I need to cancel my booking" },
-    { role: "assistant", content: "I can help with that. Can you provide your booking ID?" },
-  ],
+  scenarioIds: ["scenario-1", "scenario-2", "scenario-3"],
 });
 ```
 
-### getEval()
+### modules.evals.get()
 
 Gets an eval by its ID.
 
 ```typescript
-function getEval(id: string): Eval | undefined;
+async function get(id: string): Promise<Eval | undefined>;
 ```
 
 ```typescript
-const evalItem = getEval("987fcdeb-51a2-3bc4-d567-890123456789");
+const evalItem = await modules.evals.get("987fcdeb-51a2-3bc4-d567-890123456789");
 ```
 
-### getEvalByScenario()
+### modules.evals.getByScenario()
 
 Gets an eval by scenario.
 
 ```typescript
-function getEvalByScenario(scenarioId: string): Eval | undefined;
+async function getByScenario(scenarioId: string): Promise<Eval | undefined>;
 ```
 
 ```typescript
-const evalItem = getEvalByScenario("scenario-uuid");
+const evalItem = await modules.evals.getByScenario("scenario-uuid");
 ```
 
-### getEvalWithRelations()
+### modules.evals.getWithRelations()
 
 Gets an eval by ID with scenario details included.
 
 ```typescript
-function getEvalWithRelations(id: string): EvalWithRelations | undefined;
+async function getWithRelations(id: string): Promise<EvalWithRelations | undefined>;
 ```
 
 ```typescript
-const evalItem = getEvalWithRelations("987fcdeb-51a2-3bc4-d567-890123456789");
+const evalItem = await modules.evals.getWithRelations("987fcdeb-51a2-3bc4-d567-890123456789");
 // evalItem.scenarios[0].name -> "Booking Cancellation"
 // evalItem.scenarios.length -> number of scenarios in the eval
 ```
 
-### listEvals()
+### modules.evals.list()
 
 Lists all evals in the project.
 
 ```typescript
-function listEvals(): Eval[];
+async function list(): Promise<Eval[]>;
 ```
 
 ```typescript
-const allEvals = listEvals();
+const allEvals = await modules.evals.list();
 ```
 
-### updateEval()
+### modules.evals.update()
 
 Updates an existing eval.
 
 ```typescript
-function updateEval(id: string, input: UpdateEvalInput): Eval | undefined;
+async function update(id: string, input: UpdateEvalInput): Promise<Eval | undefined>;
 ```
 
 **Throws**: Error if any scenario doesn't exist, or if scenarioIds is empty.
 
 ```typescript
 // Update to a single scenario
-const updated = updateEval(evalItem.id, {
+const updated = await modules.evals.update(evalItem.id, {
   scenarioIds: ["new-scenario-uuid"],
 });
 
 // Update to multiple scenarios
-const multiUpdated = updateEval(evalItem.id, {
+const multiUpdated = await modules.evals.update(evalItem.id, {
   scenarioIds: ["scenario-1", "scenario-2"],
 });
 ```
 
-### deleteEval()
+### modules.evals.delete()
 
 Deletes an eval by its ID.
 
 ```typescript
-function deleteEval(id: string): boolean;
+async function delete(id: string): Promise<boolean>;
 ```
 
 Returns `true` if the eval was deleted, `false` if not found.
 
 ```typescript
-const deleted = deleteEval(evalItem.id);
+const deleted = await modules.evals.delete(evalItem.id);
 ```
 
 ## Scenarios and Run Creation
@@ -234,7 +217,7 @@ Evals can contain multiple scenarios, allowing you to create comprehensive test 
 2. For each scenario, it uses the personas associated with that scenario
 3. A run is created for each scenario/persona combination
 
-For example, if an eval has 2 scenarios, and each scenario has 3 personas, running the eval creates 6 runs (2 × 3).
+For example, if an eval has 2 scenarios, and each scenario has 3 personas, running the eval creates 6 runs (2 x 3).
 
 Personas are associated with scenarios, not with evals directly. This allows different scenarios to test different persona types.
 

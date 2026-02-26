@@ -30,6 +30,8 @@ GET /api/projects/:projectId/runs?evalId=<eval-id>
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `evalId` | string | Filter runs by eval ID (returns sorted by createdAt desc) |
+| `scenarioId` | string | Filter runs by scenario ID (returns sorted by createdAt desc) |
+| `personaId` | string | Filter runs by persona ID (returns sorted by createdAt desc) |
 
 ### Response
 
@@ -49,14 +51,11 @@ GET /api/projects/:projectId/runs?evalId=<eval-id>
       { "role": "user", "content": "Hello" },
       { "role": "assistant", "content": "Hi there!" }
     ],
+    "latencyMs": 1500,
     "result": {
       "success": true,
       "score": 0.95,
       "reason": "Agent responded appropriately"
-    },
-    "metadata": {
-      "latencyMs": 1500,
-      "tokenUsage": { "input": 50, "output": 30 }
     },
     "createdAt": "2026-01-29T10:00:00.000Z",
     "updatedAt": "2026-01-29T10:00:15.000Z"
@@ -81,6 +80,7 @@ GET /api/projects/:projectId/runs/:id
   "status": "completed",
   "startedAt": "2026-01-29T10:00:00.000Z",
   "completedAt": "2026-01-29T10:00:15.000Z",
+  "latencyMs": 1500,
   "messages": [
     { "role": "user", "content": "Hello" },
     { "role": "assistant", "content": "Hi there!" }
@@ -89,10 +89,6 @@ GET /api/projects/:projectId/runs/:id
     "success": true,
     "score": 0.95,
     "reason": "Agent responded appropriately"
-  },
-  "metadata": {
-    "latencyMs": 1500,
-    "tokenUsage": { "input": 50, "output": 30 }
   },
   "createdAt": "2026-01-29T10:00:00.000Z",
   "updatedAt": "2026-01-29T10:00:15.000Z"
@@ -243,6 +239,7 @@ Content-Type: application/json
   "status": "completed",
   "startedAt": "2026-01-29T10:00:00.000Z",
   "completedAt": "2026-01-29T10:00:15.000Z",
+  "latencyMs": 1500,
   "messages": [
     { "role": "user", "content": "Hello" },
     { "role": "assistant", "content": "Hi there!" }
@@ -251,10 +248,6 @@ Content-Type: application/json
     "success": true,
     "score": 0.95,
     "reason": "Agent responded appropriately"
-  },
-  "metadata": {
-    "latencyMs": 1500,
-    "tokenUsage": { "input": 50, "output": 30 }
   }
 }
 ```
@@ -266,11 +259,12 @@ Content-Type: application/json
 | `status` | string | "queued", "pending", "running", "completed", or "error" |
 | `startedAt` | string | ISO timestamp when run started |
 | `completedAt` | string | ISO timestamp when run completed |
+| `latencyMs` | number | Total execution time in milliseconds |
+| `threadId` | string | Thread ID for LangGraph |
 | `messages` | array | Conversation messages |
 | `output` | object | Structured output |
 | `result` | object | Evaluation result with success, score, reason |
 | `error` | string | Error message if run has system error |
-| `metadata` | object | Additional metadata (latency, token usage, etc.) |
 
 All fields are optional. Only provided fields will be updated.
 
@@ -317,22 +311,9 @@ Retry a run with system errors by resetting it to "queued" status. Only runs wit
 
 ```http
 POST /api/projects/:projectId/runs/:id/retry
-Content-Type: application/json
 ```
 
-### Request Body
-
-```json
-{
-  "clearMessages": false
-}
-```
-
-### Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `clearMessages` | boolean | No | If true, clears the message history (default: false) |
+No request body required. The run is reset to "queued" status with cleared messages and a new thread ID.
 
 ### Response
 

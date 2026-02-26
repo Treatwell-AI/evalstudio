@@ -24,7 +24,7 @@ npx @evalstudio/cli status
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/evalstudio/evalstudio.git
+git clone https://github.com/Treatwell-AI/evalstudio.git
 cd evalstudio
 pnpm install
 pnpm build
@@ -32,17 +32,13 @@ pnpm build
 
 ## Configuration
 
-### Project Directory
+### Workspace & Projects
 
-EvalStudio uses a single-project model: one directory = one project. A project is defined by the presence of an `evalstudio.config.json` file, with data stored in a `data/` subdirectory.
+EvalStudio uses a workspace model: a directory containing `evalstudio.config.json` with a project registry. Projects are stored under `projects/{uuid}/data/`.
 
-EvalStudio resolves the project directory in this order:
+EvalStudio resolves the workspace by walking up from `cwd` looking for `evalstudio.config.json`. You can override with the `EVALSTUDIO_PROJECT_DIR` environment variable.
 
-1. `setProjectDir()` -- programmatic override (for tests or embedding)
-2. `EVALSTUDIO_PROJECT_DIR` -- environment variable
-3. **Local project** -- walks up from `cwd` looking for `evalstudio.config.json`, uses `data/` next to it
-
-To create a new project directory:
+To create a new workspace:
 
 ```bash
 evalstudio init my-evals
@@ -52,7 +48,7 @@ cd my-evals
 To override with an environment variable:
 
 ```bash
-export EVALSTUDIO_PROJECT_DIR=/path/to/project
+export EVALSTUDIO_PROJECT_DIR=/path/to/workspace
 evalstudio status
 ```
 

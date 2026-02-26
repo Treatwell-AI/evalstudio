@@ -63,6 +63,7 @@ Create a new scenario.
 | `successCriteria` | string | No | Natural language success criteria |
 | `failureCriteria` | string | No | Natural language failure criteria |
 | `failureCriteriaMode` | string | No | `"on_max_messages"` (default) or `"every_turn"` |
+| `evaluators` | array | No | Custom evaluators (assertions and/or metrics) |
 | `personaIds` | array | No | IDs of associated personas |
 
 ```json
@@ -165,6 +166,7 @@ Update an existing scenario.
 | `successCriteria` | string | No | Natural language success criteria |
 | `failureCriteria` | string | No | Natural language failure criteria |
 | `failureCriteriaMode` | string | No | `"on_max_messages"` (default) or `"every_turn"` |
+| `evaluators` | array | No | Custom evaluators (assertions and/or metrics) |
 | `personaIds` | array | No | IDs of associated personas |
 
 ```json

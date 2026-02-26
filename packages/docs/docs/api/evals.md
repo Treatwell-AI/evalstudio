@@ -30,7 +30,6 @@ GET /api/projects/:projectId/evals
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
     "name": "Booking Cancellation Test",
     "connectorId": "connector-uuid",
-    "input": [],
     "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
     "createdAt": "2026-01-28T10:00:00.000Z",
     "updatedAt": "2026-01-28T10:00:00.000Z"
@@ -58,7 +57,6 @@ GET /api/projects/:projectId/evals/:id?expand=true
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
-  "input": [],
   "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
   "scenarios": [
     {
@@ -110,8 +108,7 @@ Content-Type: application/json
 {
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
-  "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
-  "input": [{ "role": "user", "content": "I need to cancel" }]
+  "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"]
 }
 ```
 
@@ -124,7 +121,6 @@ Note: LLM provider for evaluation is configured at the project level via project
 | `name` | string | Yes | Display name for the eval |
 | `connectorId` | string | Yes | Connector for running this eval |
 | `scenarioIds` | string[] | Yes | Array of scenario IDs (at least one required) |
-| `input` | Message[] | No | Initial input messages (seed conversation) |
 
 ### Response
 
@@ -135,7 +131,6 @@ Note: LLM provider for evaluation is configured at the project level via project
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
   "name": "Booking Cancellation Test",
   "connectorId": "connector-uuid",
-  "input": [{ "role": "user", "content": "I need to cancel" }],
   "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
   "createdAt": "2026-01-28T10:00:00.000Z",
   "updatedAt": "2026-01-28T10:00:00.000Z"
@@ -174,7 +169,6 @@ All fields are optional. Only provided fields will be updated.
   "id": "987fcdeb-51a2-3bc4-d567-890123456789",
   "name": "Updated Eval Name",
   "connectorId": "connector-uuid",
-  "input": [],
   "scenarioIds": ["new-scenario-uuid-1", "new-scenario-uuid-2"],
   "createdAt": "2026-01-28T10:00:00.000Z",
   "updatedAt": "2026-01-28T10:30:00.000Z"

@@ -10,7 +10,7 @@ The LLM provider configuration defines the credentials used for evaluation judgi
 
 ```typescript
 import {
-  getLLMProviderFromConfig,
+  getLLMProviderFromProjectConfig,
   getDefaultModels,
   type LLMProvider,
   type LLMSettings,
@@ -74,18 +74,22 @@ interface LLMProvider {
 
 ## Functions
 
-### getLLMProviderFromConfig()
+### getLLMProviderFromProjectConfig()
 
-Reads the LLM provider from the project config and returns an `LLMProvider` object.
+Reads the effective project config and returns an `LLMProvider` object.
 
 ```typescript
-function getLLMProviderFromConfig(): LLMProvider;
+async function getLLMProviderFromProjectConfig(
+  storage: StorageProvider,
+  workspaceDir: string,
+  projectId: string,
+): Promise<LLMProvider>;
 ```
 
 **Throws**: Error if no LLM provider is configured in `evalstudio.config.json`.
 
 ```typescript
-const provider = getLLMProviderFromConfig();
+const provider = await getLLMProviderFromProjectConfig(storage, workspaceDir, projectId);
 console.log(provider.provider);  // "openai"
 ```
 

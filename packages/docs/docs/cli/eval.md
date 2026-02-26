@@ -200,7 +200,6 @@ Output:
     "id": "987fcdeb-51a2-3bc4-d567-890123456789",
     "name": "Booking Test Suite",
     "connectorId": "connector-uuid",
-    "input": [],
     "scenarioIds": ["scenario-uuid-1", "scenario-uuid-2"],
     "createdAt": "2026-01-28T10:00:00.000Z",
     "updatedAt": "2026-01-28T10:00:00.000Z"

@@ -6,43 +6,38 @@ sidebar_position: 1
 
 The `@evalstudio/web` package provides a web-based dashboard as an alternative to the CLI and API for managing EvalStudio.
 
-## Prerequisites
+## Quick Start
 
-The web dashboard requires the API server to be running:
+The easiest way to use the web dashboard is via the CLI:
 
 ```bash
-pnpm --filter @evalstudio/api start
+evalstudio serve --open
 ```
 
-This starts the API at http://localhost:3000.
+This starts the API server and serves the web dashboard at http://localhost:3000.
 
-## Running the Dashboard
+## Development Mode
 
-Start the development server:
+For local development with hot reload, run the API server and Vite dev server separately:
 
 ```bash
-pnpm --filter @evalstudio/web dev
+pnpm --filter @evalstudio/api start   # API on port 3000
+pnpm --filter @evalstudio/web dev     # Web on port 5173 (proxies /api to 3000)
 ```
 
 Open http://localhost:5173 in your browser.
 
 ## Features
 
-### Project Management
+The dashboard provides a complete UI for managing all EvalStudio entities:
 
-The dashboard provides a complete UI for managing projects:
-
-- **View projects**: See all projects in a card layout
-- **Create project**: Click "+ New Project" to add a new project
-- **Edit project**: Click "Edit" on any project card
-- **Delete project**: Click "Delete" to remove a project
-
-### Status Bar
-
-The header displays the current API connection status:
-
-- **Green**: API is connected and responding
-- **Red**: API is offline or unreachable
+- **Dashboard** — Overview with recent eval cards, run list, and aggregated performance charts
+- **Evals** — Create, configure, and run evaluations; view execution summaries and stats
+- **Scenarios** — Manage test scenarios with seed messages, criteria, and evaluators; JSONL import/export
+- **Personas** — Create personas with descriptions, custom headers, and AI-generated portraits
+- **Settings** — Configure connectors, LLM providers, and project settings
+- **Performance Charts** — Pass/fail rates, latency scatter plots, and token usage trends per eval, scenario, and persona
+- **Entity Switcher** — Navigate between entities via dropdown without returning to listing pages
 
 ## Building for Production
 
@@ -64,7 +59,7 @@ pnpm --filter @evalstudio/web preview
 
 ### API Proxy
 
-In development, the Vite dev server proxies `/api` requests to `http://localhost:3000`. This is configured in `vite.config.ts`:
+In development, the Vite dev server proxies `/api` requests to the API server. This is configured in `vite.config.ts`:
 
 ```typescript
 server: {
@@ -72,13 +67,12 @@ server: {
     "/api": {
       target: "http://localhost:3000",
       changeOrigin: true,
-      rewrite: (path) => path.replace(/^\/api/, ""),
     },
   },
 },
 ```
 
-For production, configure your web server or reverse proxy to route `/api` to the API server.
+In production, the web dashboard is bundled as static assets into the CLI and served by the API server directly — no separate proxy needed.
 
 ## Tech Stack
 

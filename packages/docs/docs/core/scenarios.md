@@ -10,17 +10,26 @@ Manage scenarios to define test context for conversations. Scenarios contain ins
 
 ```typescript
 import {
-  createScenario,
-  getScenario,
-  getScenarioByName,
-  listScenarios,
-  updateScenario,
-  deleteScenario,
+  createProjectModules,
+  createStorageProvider,
+  resolveWorkspace,
   type Scenario,
   type CreateScenarioInput,
   type UpdateScenarioInput,
+  type FailureCriteriaMode,
+  type ScenarioEvaluator,
   type Message,
 } from "@evalstudio/core";
+```
+
+## Setup
+
+All entity operations are accessed through project modules:
+
+```typescript
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
 ```
 
 ## Types
@@ -37,6 +46,7 @@ interface Scenario {
   successCriteria?: string;  // Natural language success criteria
   failureCriteria?: string;  // Natural language failure criteria
   failureCriteriaMode?: FailureCriteriaMode; // "on_max_messages" (default) or "every_turn"
+  evaluators?: ScenarioEvaluator[]; // Custom evaluators (assertions and/or metrics)
   personaIds?: string[]; // IDs of associated personas
   createdAt: string;     // ISO 8601 timestamp
   updatedAt: string;     // ISO 8601 timestamp
@@ -65,6 +75,7 @@ interface CreateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 ```
@@ -80,31 +91,32 @@ interface UpdateScenarioInput {
   successCriteria?: string;
   failureCriteria?: string;
   failureCriteriaMode?: FailureCriteriaMode;
+  evaluators?: ScenarioEvaluator[];
   personaIds?: string[];
 }
 ```
 
-## Functions
+## Methods
 
-### createScenario()
+### modules.scenarios.create()
 
 Creates a new scenario.
 
 ```typescript
-function createScenario(input: CreateScenarioInput): Scenario;
+async function create(input: CreateScenarioInput): Promise<Scenario>;
 ```
 
 **Throws**: Error if a scenario with the same name already exists.
 
 ```typescript
 // Simple scenario with just instructions
-const scenario = createScenario({
+const scenario = await modules.scenarios.create({
   name: "booking-cancellation",
   instructions: "Customer wants to cancel a haircut appointment for tomorrow. They have a scheduling conflict. Booking was made 3 days ago with 24h cancellation policy.",
 });
 
 // Scenario with initial messages to continue from a specific point
-const midConversationScenario = createScenario({
+const midConversationScenario = await modules.scenarios.create({
   name: "cancellation-mid-flow",
   instructions: "Continue the cancellation flow. Customer should receive refund confirmation.",
   messages: [
@@ -115,70 +127,70 @@ const midConversationScenario = createScenario({
 });
 ```
 
-### getScenario()
+### modules.scenarios.get()
 
 Gets a scenario by its ID.
 
 ```typescript
-function getScenario(id: string): Scenario | undefined;
+async function get(id: string): Promise<Scenario | undefined>;
 ```
 
 ```typescript
-const scenario = getScenario("987fcdeb-51a2-3bc4-d567-890123456789");
+const scenario = await modules.scenarios.get("987fcdeb-51a2-3bc4-d567-890123456789");
 ```
 
-### getScenarioByName()
+### modules.scenarios.getByName()
 
 Gets a scenario by its name.
 
 ```typescript
-function getScenarioByName(name: string): Scenario | undefined;
+async function getByName(name: string): Promise<Scenario | undefined>;
 ```
 
 ```typescript
-const scenario = getScenarioByName("booking-cancellation");
+const scenario = await modules.scenarios.getByName("booking-cancellation");
 ```
 
-### listScenarios()
+### modules.scenarios.list()
 
 Lists all scenarios in the project.
 
 ```typescript
-function listScenarios(): Scenario[];
+async function list(): Promise<Scenario[]>;
 ```
 
 ```typescript
-const allScenarios = listScenarios();
+const allScenarios = await modules.scenarios.list();
 ```
 
-### updateScenario()
+### modules.scenarios.update()
 
 Updates an existing scenario.
 
 ```typescript
-function updateScenario(id: string, input: UpdateScenarioInput): Scenario | undefined;
+async function update(id: string, input: UpdateScenarioInput): Promise<Scenario | undefined>;
 ```
 
 **Throws**: Error if updating to a name that already exists.
 
 ```typescript
-const updated = updateScenario(scenario.id, {
+const updated = await modules.scenarios.update(scenario.id, {
   instructions: "Customer wants to cancel appointment. VIP customer with flexible policy.",
 });
 ```
 
-### deleteScenario()
+### modules.scenarios.delete()
 
 Deletes a scenario by its ID.
 
 ```typescript
-function deleteScenario(id: string): boolean;
+async function delete(id: string): Promise<boolean>;
 ```
 
 Returns `true` if the scenario was deleted, `false` if not found.
 
 ```typescript
-const deleted = deleteScenario(scenario.id);
+const deleted = await modules.scenarios.delete(scenario.id);
 ```
 
 ## Storage

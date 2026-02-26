@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **CLI run command documentation** — Added `docs/cli/run.md` covering all 6 subcommands: `create`, `list`, `show`, `delete`, `process`, and `playground`
+
+### Fixed
+
+- **Documentation accuracy audit** — Verified all docs against actual codebase and fixed inaccuracies across 20 files in core, API, CLI, getting-started, and web sections. Key fixes: updated core docs to module factory pattern, removed fictional entity fields (`input` on evals, `metadata` on runs), fixed connector invoke response shape (`messages` plural), added missing fields (`evaluators` on scenarios, `latencyMs`/`threadId` on runs), corrected API endpoint paths, and updated LLM provider model list
+
 ## [0.6.0] - 2026-02-26
 
 ### Added

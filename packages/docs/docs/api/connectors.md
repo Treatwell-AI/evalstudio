@@ -335,10 +335,14 @@ Invoke a connector by sending messages and receiving the assistant's response. T
 {
   "success": true,
   "latencyMs": 523,
-  "message": {
-    "role": "assistant",
-    "content": "I found order #12345. How can I assist you with it?"
-  }
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "I found order #12345. How can I assist you with it?"
+    }
+  ],
+  "tokensUsage": { "input": 50, "output": 30 },
+  "threadId": "thread-uuid"
 }
 ```
 
@@ -348,8 +352,8 @@ Invoke a connector by sending messages and receiving the assistant's response. T
 {
   "success": false,
   "latencyMs": 145,
-  "rawResponse": "{\"error\": \"invalid_request\", \"message\": \"Missing required field\"}",
-  "error": "Failed to parse response: expected messages array"
+  "rawResponse": "{\"error\": \"invalid_request\"}",
+  "error": "HTTP 400: invalid_request"
 }
 ```
 
@@ -359,9 +363,11 @@ Invoke a connector by sending messages and receiving the assistant's response. T
 |-------|------|-------------|
 | `success` | boolean | Whether the invoke succeeded |
 | `latencyMs` | number | Response time in milliseconds |
-| `message` | object | The assistant's response message (on success) |
-| `rawResponse` | string | Raw response body for debugging (on failure) |
+| `messages` | array | Response messages from the agent (on success) |
+| `rawResponse` | string | Raw response body for debugging |
 | `error` | string | Error message (on failure) |
+| `tokensUsage` | object | Token usage metadata (input/output counts) |
+| `threadId` | string | Thread ID (LangGraph) |
 
 ### Example
 

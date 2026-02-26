@@ -10,22 +10,15 @@ Manage evaluation runs that track the execution of evals with specific runtime c
 
 ```typescript
 import {
-  createRun,
-  createRuns,
-  createPlaygroundRun,
-  getRun,
-  listRuns,
-  listRunsByEval,
-  updateRun,
-  deleteRun,
-  deleteRunsByEval,
+  createProjectModules,
+  createStorageProvider,
+  resolveWorkspace,
   RunProcessor,
   evaluateCriteria,
   generatePersonaMessage,
   type Run,
   type RunStatus,
   type RunResult,
-  type RunMetadata,
   type CreateRunInput,
   type CreatePlaygroundRunInput,
   type UpdateRunInput,
@@ -34,6 +27,16 @@ import {
   type CriteriaEvaluationResult,
   type GeneratePersonaMessageResult,
 } from "@evalstudio/core";
+```
+
+## Setup
+
+All entity operations are accessed through project modules:
+
+```typescript
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
 ```
 
 ## Types
@@ -45,18 +48,18 @@ interface Run {
   id: string;                    // Unique identifier (UUID)
   evalId?: string;               // Parent eval ID (optional for playground runs)
   personaId?: string;            // Persona ID used for this run
-  scenarioId: string;            // Scenario ID used for this run
+  scenarioId?: string;           // Scenario ID used for this run
   connectorId?: string;          // Connector ID (for playground runs without eval)
   executionId?: number;          // Auto-generated ID grouping runs in the same batch
   status: RunStatus;             // Run status
   startedAt?: string;            // ISO timestamp when run started
   completedAt?: string;          // ISO timestamp when run completed
+  latencyMs?: number;            // Total execution time in milliseconds
+  threadId?: string;             // Thread ID for LangGraph (regenerated on retry)
   messages: Message[];           // Conversation history (includes system prompt)
-  output?: Record<string, unknown>; // Structured output (for structured mode)
+  output?: Record<string, unknown>; // Structured output
   result?: RunResult;            // Evaluation result
   error?: string;                // Error message if failed
-  metadata?: RunMetadata;        // Additional run metadata
-  threadId?: string;             // Thread ID for LangGraph (regenerated on retry)
   createdAt: string;             // ISO 8601 timestamp
   updatedAt: string;             // ISO 8601 timestamp
 }
@@ -67,7 +70,6 @@ Note: For eval-based runs, the connector is configured at the Eval level. For pl
 The `messages` array includes all messages stored during execution:
 - System prompt (generated from persona/scenario)
 - Seed messages from scenario
-- Input messages from eval configuration
 - Response messages from the agent
 
 ### RunStatus
@@ -89,19 +91,6 @@ interface RunResult {
   success: boolean;    // Whether the eval passed
   score?: number;      // Optional score (0-1)
   reason?: string;     // Explanation of result
-}
-```
-
-### RunMetadata
-
-```typescript
-interface RunMetadata {
-  latencyMs?: number;             // Total execution time
-  tokenUsage?: {
-    input: number;
-    output: number;
-  };
-  [key: string]: unknown;         // Additional metadata
 }
 ```
 
@@ -134,11 +123,12 @@ interface UpdateRunInput {
   status?: RunStatus;
   startedAt?: string;
   completedAt?: string;
+  latencyMs?: number;
+  threadId?: string;
   messages?: Message[];
   output?: Record<string, unknown>;
   result?: RunResult;
   error?: string;
-  metadata?: RunMetadata;
 }
 ```
 
@@ -147,6 +137,7 @@ interface UpdateRunInput {
 ```typescript
 interface ListRunsOptions {
   evalId?: string;       // Filter by eval ID
+  scenarioId?: string;   // Filter by scenario ID
   status?: RunStatus;    // Filter by status
   limit?: number;        // Maximum number of runs to return
 }
@@ -165,20 +156,20 @@ interface RunProcessorOptions {
 }
 ```
 
-## Functions
+## Methods
 
-### createRuns()
+### modules.runs.createMany()
 
 Creates one or more runs for an eval. If the eval's scenario has multiple personas associated with it (`personaIds`), one run is created for each persona.
 
 ```typescript
-function createRuns(input: CreateRunInput): Run[];
+async function createMany(input: CreateRunInput): Promise<Run[]>;
 ```
 
 **Throws**: Error if the eval, scenario, or any persona doesn't exist.
 
 ```typescript
-const runs = createRuns({
+const runs = await modules.runs.createMany({
   evalId: "eval-uuid",
 });
 // If scenario has 3 personas, returns 3 runs
@@ -187,18 +178,18 @@ const runs = createRuns({
 // runs[0].status === "queued"
 ```
 
-### createRun()
+### modules.runs.create()
 
-Creates a single run for an eval. This is a convenience wrapper around `createRuns()` that returns only the first run.
+Creates a single run for an eval. This is a convenience wrapper around `createMany()` that returns only the first run.
 
 ```typescript
-function createRun(input: CreateRunInput): Run;
+async function create(input: CreateRunInput): Promise<Run>;
 ```
 
 **Throws**: Error if the eval doesn't exist.
 
 ```typescript
-const run = createRun({
+const run = await modules.runs.create({
   evalId: "eval-uuid",
 });
 // run.status === "queued"
@@ -206,18 +197,18 @@ const run = createRun({
 // run.executionId is auto-assigned
 ```
 
-### createPlaygroundRun()
+### modules.runs.createPlayground()
 
 Creates a run directly from a scenario without requiring an eval. Useful for testing scenarios in a playground environment before setting up formal evaluations.
 
 ```typescript
-function createPlaygroundRun(input: CreatePlaygroundRunInput): Run;
+async function createPlayground(input: CreatePlaygroundRunInput): Promise<Run>;
 ```
 
 **Throws**: Error if the scenario, connector, or persona doesn't exist.
 
 ```typescript
-const run = createPlaygroundRun({
+const run = await modules.runs.createPlayground({
   scenarioId: "scenario-uuid",
   connectorId: "connector-uuid",
   personaId: "persona-uuid",        // Optional
@@ -229,71 +220,99 @@ const run = createPlaygroundRun({
 
 The run is processed by `RunProcessor` like any other run. The processor checks for `connectorId` on the run itself when `evalId` is not present. LLM provider for evaluation is resolved from the project's `evalstudio.config.json` `llmSettings`.
 
-### getRun()
+### modules.runs.get()
 
 Gets a run by its ID.
 
 ```typescript
-function getRun(id: string): Run | undefined;
+async function get(id: string): Promise<Run | undefined>;
 ```
 
 ```typescript
-const run = getRun("run-uuid");
+const run = await modules.runs.get("run-uuid");
 ```
 
-### listRuns()
+### modules.runs.list()
 
 Lists runs with flexible filtering options.
 
 ```typescript
-function listRuns(options?: ListRunsOptions): Run[];
+async function list(options?: ListRunsOptions): Promise<Run[]>;
 ```
 
 ```typescript
 // List all runs
-const allRuns = listRuns();
+const allRuns = await modules.runs.list();
 
 // Filter by status
-const queuedRuns = listRuns({ status: "queued", limit: 10 });
+const queuedRuns = await modules.runs.list({ status: "queued", limit: 10 });
 
 // Filter by eval
-const evalRuns = listRuns({ evalId: "eval-uuid", status: "completed" });
+const evalRuns = await modules.runs.list({ evalId: "eval-uuid", status: "completed" });
+
+// Filter by scenario
+const scenarioRuns = await modules.runs.list({ scenarioId: "scenario-uuid" });
 ```
 
 When using the options-based API, results are sorted by `createdAt` (oldest first), making it suitable for queue processing.
 
-### listRunsByEval()
+### modules.runs.listByEval()
 
 Lists runs for a specific eval, sorted by creation date (newest first).
 
 ```typescript
-function listRunsByEval(evalId: string): Run[];
+async function listByEval(evalId: string): Promise<Run[]>;
 ```
 
 ```typescript
-const evalRuns = listRunsByEval("eval-uuid");
+const evalRuns = await modules.runs.listByEval("eval-uuid");
 // Returns runs sorted by createdAt descending
 ```
 
-### updateRun()
+### modules.runs.listByScenario()
+
+Lists runs for a specific scenario, sorted by creation date (newest first).
+
+```typescript
+async function listByScenario(scenarioId: string): Promise<Run[]>;
+```
+
+```typescript
+const scenarioRuns = await modules.runs.listByScenario("scenario-uuid");
+```
+
+### modules.runs.listByPersona()
+
+Lists runs for a specific persona, sorted by creation date (newest first).
+
+```typescript
+async function listByPersona(personaId: string): Promise<Run[]>;
+```
+
+```typescript
+const personaRuns = await modules.runs.listByPersona("persona-uuid");
+```
+
+### modules.runs.update()
 
 Updates an existing run.
 
 ```typescript
-function updateRun(id: string, input: UpdateRunInput): Run | undefined;
+async function update(id: string, input: UpdateRunInput): Promise<Run | undefined>;
 ```
 
 ```typescript
 // Start a run
-updateRun(run.id, {
+await modules.runs.update(run.id, {
   status: "running",
   startedAt: new Date().toISOString(),
 });
 
 // Complete a run with success
-updateRun(run.id, {
+await modules.runs.update(run.id, {
   status: "completed",
   completedAt: new Date().toISOString(),
+  latencyMs: 1500,
   messages: [
     { role: "user", content: "Hello" },
     { role: "assistant", content: "Hi there!" },
@@ -303,52 +322,46 @@ updateRun(run.id, {
     score: 0.95,
     reason: "Agent responded appropriately",
   },
-  metadata: {
-    latencyMs: 1500,
-    tokenUsage: { input: 50, output: 30 },
-  },
 });
 
 // Mark a run as error (system failure - retryable)
-updateRun(run.id, {
+await modules.runs.update(run.id, {
   status: "error",
   completedAt: new Date().toISOString(),
   error: "Connection timeout",
 });
 ```
 
-### deleteRun()
+### modules.runs.delete()
 
 Deletes a run by its ID.
 
 ```typescript
-function deleteRun(id: string): boolean;
+async function delete(id: string): Promise<boolean>;
 ```
 
 Returns `true` if the run was deleted, `false` if not found.
 
 ```typescript
-const deleted = deleteRun(run.id);
+const deleted = await modules.runs.delete(run.id);
 ```
 
-### deleteRunsByEval()
+### modules.runs.retry()
 
-Deletes all runs belonging to an eval.
+Retries a failed run by resetting it to "queued" status with a fresh thread ID.
 
 ```typescript
-function deleteRunsByEval(evalId: string): number;
+async function retry(id: string): Promise<Run | undefined>;
 ```
 
-Returns the number of runs deleted.
+**Throws**: Error if the run's status is not `"error"`. Only runs with system errors can be retried.
 
 ```typescript
-const count = deleteRunsByEval("eval-uuid");
-console.log(`Deleted ${count} runs`);
+const retriedRun = await modules.runs.retry(run.id);
+// retriedRun.status === "queued"
+// retriedRun.messages === []
+// retriedRun.threadId is regenerated
 ```
-
-## Cascade Deletion
-
-When an eval is deleted, all associated runs are automatically deleted via `deleteRunsByEval()`.
 
 ## RunProcessor
 
@@ -367,7 +380,7 @@ const processor = new RunProcessor({
     console.log(`Started processing run ${run.id}`);
   },
   onRunComplete: (run, result) => {
-    console.log(`Run ${run.id} completed:`, result.message?.content);
+    console.log(`Run ${run.id} completed`);
   },
   onRunError: (run, error) => {
     console.error(`Run ${run.id} failed:`, error.message);
@@ -420,7 +433,7 @@ const processor = new RunProcessor({
 });
 processor.start();
 
-// API usage (e.g., in Express/Fastify)
+// API usage (e.g., in Fastify)
 const processor = new RunProcessor({
   onStatusChange: (runId, status, run) => {
     websocket.broadcast({ type: 'run_status', runId, status, run });
@@ -457,7 +470,7 @@ When an eval has an LLM provider configured, the RunProcessor uses a multi-turn 
 
 If no LLM provider is configured, the processor falls back to single-turn execution (one request/response cycle).
 
-## Evaluation Functions
+## Standalone Functions
 
 ### evaluateCriteria()
 
@@ -468,7 +481,7 @@ interface EvaluateCriteriaInput {
   messages: Message[];
   successCriteria?: string;
   failureCriteria?: string;
-  llmProviderId: string;
+  llmProvider: LLMProvider;
   model?: string;
 }
 
@@ -488,7 +501,7 @@ const result = await evaluateCriteria({
   messages: conversationHistory,
   successCriteria: "User successfully booked an appointment",
   failureCriteria: "Agent refused to help or provided incorrect information",
-  llmProviderId: "provider-uuid",
+  llmProvider: provider,  // LLMProvider object from getLLMProviderFromProjectConfig()
 });
 
 console.log(result.successMet);   // true/false
@@ -506,7 +519,7 @@ interface GeneratePersonaMessageInput {
   messages: Message[];
   persona?: Persona;      // Optional - generates generic user message if not provided
   scenario: Scenario;
-  llmProviderId: string;
+  llmProvider: LLMProvider;
   model?: string;
 }
 
@@ -523,7 +536,7 @@ const result = await generatePersonaMessage({
   messages: conversationHistory,
   persona: userPersona,  // Optional
   scenario: testScenario,
-  llmProviderId: "provider-uuid",
+  llmProvider: provider,  // LLMProvider object
 });
 
 console.log(result.content);  // "I'd like to reschedule my appointment to next Tuesday"

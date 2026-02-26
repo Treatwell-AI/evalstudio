@@ -59,7 +59,6 @@ Immutable context for a specific project, passed to all entity functions.
 interface ProjectContext {
   id: string;           // UUID
   name: string;         // Display name
-  dataDir: string;      // Absolute path to projects/{uuid}/data/
   workspaceDir: string; // Absolute path to workspace root
 }
 ```

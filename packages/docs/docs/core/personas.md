@@ -10,16 +10,23 @@ Manage personas to simulate different user interactions during testing. Personas
 
 ```typescript
 import {
-  createPersona,
-  getPersona,
-  getPersonaByName,
-  listPersonas,
-  updatePersona,
-  deletePersona,
+  createProjectModules,
+  createStorageProvider,
+  resolveWorkspace,
   type Persona,
   type CreatePersonaInput,
   type UpdatePersonaInput,
 } from "@evalstudio/core";
+```
+
+## Setup
+
+All entity operations are accessed through project modules:
+
+```typescript
+const workspaceDir = resolveWorkspace();
+const storage = await createStorageProvider(workspaceDir);
+const modules = createProjectModules(storage, projectId);
 ```
 
 ## Types
@@ -62,20 +69,20 @@ interface UpdatePersonaInput {
 }
 ```
 
-## Functions
+## Methods
 
-### createPersona()
+### modules.personas.create()
 
 Creates a new persona.
 
 ```typescript
-function createPersona(input: CreatePersonaInput): Persona;
+async function create(input: CreatePersonaInput): Promise<Persona>;
 ```
 
 **Throws**: Error if a persona with the same name already exists.
 
 ```typescript
-const persona = createPersona({
+const persona = await modules.personas.create({
   name: "impatient-user",
   description: "A user who wants quick answers",
   systemPrompt: "You are an impatient user who values brevity and expects quick, concise responses.",
@@ -86,70 +93,70 @@ const persona = createPersona({
 });
 ```
 
-### getPersona()
+### modules.personas.get()
 
 Gets a persona by its ID.
 
 ```typescript
-function getPersona(id: string): Persona | undefined;
+async function get(id: string): Promise<Persona | undefined>;
 ```
 
 ```typescript
-const persona = getPersona("987fcdeb-51a2-3bc4-d567-890123456789");
+const persona = await modules.personas.get("987fcdeb-51a2-3bc4-d567-890123456789");
 ```
 
-### getPersonaByName()
+### modules.personas.getByName()
 
 Gets a persona by its name.
 
 ```typescript
-function getPersonaByName(name: string): Persona | undefined;
+async function getByName(name: string): Promise<Persona | undefined>;
 ```
 
 ```typescript
-const persona = getPersonaByName("impatient-user");
+const persona = await modules.personas.getByName("impatient-user");
 ```
 
-### listPersonas()
+### modules.personas.list()
 
 Lists all personas in the project.
 
 ```typescript
-function listPersonas(): Persona[];
+async function list(): Promise<Persona[]>;
 ```
 
 ```typescript
-const allPersonas = listPersonas();
+const allPersonas = await modules.personas.list();
 ```
 
-### updatePersona()
+### modules.personas.update()
 
 Updates an existing persona.
 
 ```typescript
-function updatePersona(id: string, input: UpdatePersonaInput): Persona | undefined;
+async function update(id: string, input: UpdatePersonaInput): Promise<Persona | undefined>;
 ```
 
 **Throws**: Error if updating to a name that already exists.
 
 ```typescript
-const updated = updatePersona(persona.id, {
+const updated = await modules.personas.update(persona.id, {
   systemPrompt: "You are a technical user who expects detailed, accurate responses.",
 });
 ```
 
-### deletePersona()
+### modules.personas.delete()
 
 Deletes a persona by its ID.
 
 ```typescript
-function deletePersona(id: string): boolean;
+async function delete(id: string): Promise<boolean>;
 ```
 
 Returns `true` if the persona was deleted, `false` if not found.
 
 ```typescript
-const deleted = deletePersona(persona.id);
+const deleted = await modules.personas.delete(persona.id);
 ```
 
 ## Storage
