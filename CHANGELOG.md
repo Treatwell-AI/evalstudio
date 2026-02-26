@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-02-26
+
 ### Added
 
 - **Entity switcher navigation** — Clicking Evals, Scenarios, or Personas in the sidebar now navigates directly to the last visited detail page (or the first item) instead of showing a list. A title-styled dropdown lets you switch between entities without leaving the detail view, with text search (when >5 items) and a "+ New" create action. Built with three reusable primitives (`EntitySwitcher`, `EntityRedirect`, `useLastVisited`) so future entities can adopt the same pattern.
