@@ -66,10 +66,10 @@ function discoverWorkspaceDir(startDir: string): string | null {
   while (true) {
     const configPath = join(current, CONFIG_FILENAME);
     if (existsSync(configPath)) {
-      // Verify it's a workspace config (has projects array)
+      // Verify it's a workspace config (has version field or projects array)
       try {
         const data = JSON.parse(readFileSync(configPath, "utf-8"));
-        if (Array.isArray(data.projects)) {
+        if (typeof data.version === "number" || Array.isArray(data.projects)) {
           return current;
         }
       } catch {
@@ -142,7 +142,7 @@ export function resolveWorkspace(startDir?: string): string {
  */
 export function listProjects(workspaceDir: string): ProjectInfo[] {
   const config = readWorkspaceConfigFile(workspaceDir);
-  return config.projects.map((p) => ({ id: p.id, name: p.name }));
+  return (config.projects ?? []).map((p) => ({ id: p.id, name: p.name }));
 }
 
 /**
@@ -253,10 +253,11 @@ export function resolveProjectFromCwd(startDir?: string): ProjectContext {
   const workspaceDir = discoverWorkspaceDir(start);
   if (workspaceDir) {
     const wsConfig = readWorkspaceConfigFile(workspaceDir);
-    if (wsConfig.projects.length === 1) {
-      return resolveProject(workspaceDir, wsConfig.projects[0].id);
+    const projects = wsConfig.projects ?? [];
+    if (projects.length === 1) {
+      return resolveProject(workspaceDir, projects[0].id);
     }
-    if (wsConfig.projects.length > 1) {
+    if (projects.length > 1) {
       throw new Error(
         "Multiple projects found. Use 'evalstudio use <project-id>' to switch to a project directory.",
       );
