@@ -33,11 +33,16 @@ The dashboard provides a complete UI for managing all EvalStudio entities:
 
 - **Dashboard** — Overview with recent eval cards, run list, and aggregated performance charts
 - **Evals** — Create, configure, and run evaluations; view execution summaries and stats
+  <img src="/evalstudio/img/evalstudio-overview-evalcard.png" width="80%" />
+
 - **Scenarios** — Manage test scenarios with seed messages, criteria, and evaluators; JSONL import/export
 - **Personas** — Create personas with descriptions, custom headers, and AI-generated portraits
-- **Settings** — Configure connectors, LLM providers, and project settings
+  <img src="/evalstudio/img/evalstudio-overview-scenario-personas.png" width="80%" />
+
 - **Performance Charts** — Pass/fail rates, latency scatter plots, and token usage trends per eval, scenario, and persona
-- **Entity Switcher** — Navigate between entities via dropdown without returning to listing pages
+  <img src="/evalstudio/img/evalstudio-overview-trends.png" width="80%" />
+
+- **Settings** — Configure connectors, LLM providers, and project settings
 
 ## Building for Production
 
