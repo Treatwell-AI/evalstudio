@@ -4,11 +4,11 @@
 
 - **Workspace** - A directory containing `evalstudio.config.json` with a project registry and shared defaults. Contains multiple projects under `projects/`.
 - **Project** - A UUID-identified directory under `projects/` with its own `data/` folder and configuration in the workspace config's `projects[]` array. Entities are isolated per project.
-- **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (e.g., HTTP, LangGraph)
-- **Eval** - A test collection combining one or more scenarios, input data, and connectors. Each scenario can have its own personas and criteria.
-- **Eval Group** - A category/tag for organizing evals (many-to-many relationship)
-- **Run** - An execution of one or more evals with specific runtime config (connector, LLM settings, etc.) - _naming TBD_
-- **Evaluator** - An LLM or human judge that scores/evaluates run results based on the eval's criteria
+- **Connector** - A project-scoped bridge that connects EvalStudio to a tested agent's API (currently LangGraph)
+- **Eval** - A test collection combining one or more scenarios with a connector. Each scenario can have its own personas and criteria.
+- **Execution** - Groups all runs created together from a single eval execution (auto-increment ID)
+- **Run** - A single test of one scenario/persona combination. Contains the conversation messages, connector response, and evaluation result.
+- **Evaluator** - An LLM judge (criteria) or custom evaluator (assertion/metric) that assesses run results
 
 ---
 

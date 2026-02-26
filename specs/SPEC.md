@@ -1,8 +1,8 @@
 # EvalStudio - Specification Document
 
-**Version:** 2.0
-**Date:** 2026-01-25
-**Status:** Draft
+**Version:** 3.0
+**Date:** 2026-02-26
+**Status:** Current
 
 ---
 
@@ -10,10 +10,10 @@
 
 - **Three Interfaces**: CLI, Web UI, and REST API - all equal first-class citizens
 - **Shared Core Engine**: All interfaces use the same evaluation engine and business logic
-- **CI-Ready**: CLI designed for automated testing in CI/CD pipelines
+- **CI-Ready**: CLI designed for automated testing in CI/CD pipelines with `--json` output
 - **API Integration**: REST API for programmatic access and custom integrations
 - **Decoupled Architecture**: Core engine, API server, and Web UI are independent modules
-- **Flexible Storage**: File-based JSON storage (git-friendly, works with CLI, API, and Web)
+- **Flexible Storage**: Filesystem (git-friendly JSON) or PostgreSQL (team collaboration)
 
 ---
 
@@ -24,14 +24,14 @@
 #### Eval Management
 
 - **Multiple Creation Methods**:
-  - CLI: Interactive prompts or direct JSON file editing
-  - Web UI: Visual eval editor with form-based creation
+  - CLI: Command-line eval creation with flags, or direct JSON file editing
+  - Web UI: Form-based eval creation and management
   - API: Programmatic eval creation via REST endpoints
 - **Flexible Storage**:
-  - File-based: JSON files in project directory (git-friendly)
-  - All interfaces (CLI, API, Web) use the same file-based storage
-- **Eval Organization**: Group related evals into named groups
-- **Version Control**: Git-friendly JSON format for file-based evals
+  - Filesystem: JSON files in `projects/{id}/data/` directory (git-friendly)
+  - PostgreSQL: Optional backend via `@evalstudio/postgres` for team collaboration
+  - All interfaces use the same storage backend
+- **Version Control**: Git-friendly JSON format for filesystem storage
 
 #### Message Format
 
@@ -54,47 +54,40 @@ EvalStudio uses a message-based format for conversations:
 
 #### Connectors
 
-- **Pluggable Architecture**: Define connectors for different endpoint types
+- **Strategy Pattern**: Connector strategies implement a common interface for invoking target systems
 - **Built-in Connectors**:
-  - LangGraph-based agents
-  - Custom connector support via plugin system (future)
-- **Configuration**: Store endpoint URLs, authentication, and connector-specific settings
+  - LangGraph Dev API connector for langgraph-backed agents
+- **Configuration**: Store endpoint URLs, headers, and connector-specific settings (e.g., assistantId)
 
 #### Evaluation Execution
 
-- **CLI Execution**: Run evals via `evalstudio run <suite>` command
-- **CI/CD Integration**: Exit codes and JSON output for automation
-- **Parallel Execution**: Configurable concurrency for multiple tests
-- **Progress Tracking**: Terminal progress bars and real-time status
-- **Retry Logic**: Handle transient failures gracefully
-- **Watch Mode**: Re-run tests on file changes (dev mode)
+- **Run Processing**: Background processor polls for queued runs and executes them
+- **Concurrent Execution**: Configurable concurrency via `--concurrency` flag (default: 3)
+- **CLI Output**: Formatted terminal output with colored status indicators and `--json` for machine-readable output
+- **Manual Retry**: Failed runs (status: "error") can be retried
 
 #### Evaluation Methods
 
-- **Expected Outcome Matching**:
-  - Exact string match on message content
-  - Regex pattern matching
-  - JSON schema validation (validates response structure)
-  - JSONPath assertions (e.g., `$.status == "success"`, `$.items.length > 0`)
-  - Custom JavaScript validators
-- **LLM-as-Judge**:
-  - Configurable LLM provider (OpenAI, Anthropic, etc.)
-  - Custom evaluation prompts
-  - Scoring rubrics (1-5 scale, pass/fail, etc.)
-  - Cost tracking for LLM evaluation calls
+- **LLM-as-Judge (Criteria)**:
+  - Configurable LLM provider (OpenAI, Anthropic)
+  - Natural language success/failure criteria defined per scenario
+  - Pass/fail evaluation with confidence score and reasoning
+- **Custom Evaluators**:
+  - Pluggable evaluator definitions via `EvaluatorRegistry`
+  - Two kinds: assertions (pass/fail gates) and metrics (measurements only)
+  - Built-in metrics: `tool-call-count`, `token-usage`
+  - Auto evaluators run on every scenario automatically
 
 #### Results & Reporting
 
-- **CLI Output**: Formatted terminal output with pass/fail summary
-- **File Output**: Results saved as JSON files (local or custom path)
-- **CI/CD Friendly**: Exit codes (0 for pass, 1 for fail), structured JSON
-- **Web Dashboard**: Browse and compare runs visually
+- **CLI Output**: Formatted terminal output with pass/fail summary, `--json` flag for automation
+- **Storage**: Results saved alongside eval data (filesystem or PostgreSQL)
+- **Web Dashboard**: Browse runs, view conversation transcripts, evaluator results
 - **Metrics**:
   - Pass/fail rates
   - Response latency
-  - Token usage (if available from connector)
-  - LLM judge scores
-  - Historical comparisons
+  - Token usage (from connector metadata)
+  - Custom evaluator metrics
 
 ### 1.2 Glossary & User Stories
 
@@ -104,29 +97,28 @@ EvalStudio uses a message-based format for conversations:
 
 #### CLI Workflow (Developer/CI)
 
-1. Install: `npm install -g evalstudio` or `npx evalstudio`
-2. Initialize: `evalstudio init` (creates config and eval directory structure)
-3. Create eval: `evalstudio eval create` (interactive prompts) or edit JSON files
-4. Run evals: `evalstudio run <suite-name>` or `evalstudio run evals/my-eval.json`
-5. View results: Terminal output + JSON file saved locally
-6. CI Integration: Use exit codes and JSON output for automation
+1. Install: `npm install -g @evalstudio/cli` or use `npx @evalstudio/cli`
+2. Initialize: `evalstudio init` (creates workspace config and first project)
+3. Configure: `evalstudio llm-provider set --provider openai --api-key sk-...`
+4. Create entities: `evalstudio connector create`, `evalstudio persona create`, `evalstudio scenario create`
+5. Create and run eval: `evalstudio eval create`, `evalstudio run create -e <eval>`, `evalstudio run process`
+6. CI Integration: All commands support `--json` for machine-readable output
 
 #### Web UI Workflow (QA/PM)
 
-1. Start server: `evalstudio serve` or deploy server separately
-2. Navigate to Web UI (e.g., http://localhost:3000)
-3. Create eval via visual editor (drag-and-drop conversation builder)
-4. Save eval to group
+1. Start server: `evalstudio serve` (or `evalstudio serve --open` to auto-open browser)
+2. Navigate to Web UI at http://localhost:3000
+3. Create connectors, personas, and scenarios via forms
+4. Create eval combining scenarios with a connector
 5. Run evaluation from UI
-6. View results in dashboard with charts and comparisons
+6. View results in dashboard with conversation transcripts and metrics
 
 #### API Workflow (Developer)
 
-1. Start API server: `evalstudio serve --api-only`
-2. Make API calls to create/manage evals programmatically
+1. Start API server: `evalstudio serve` (or `evalstudio serve --no-web` for API only)
+2. Make API calls to create/manage entities under `/api` prefix
 3. Trigger evaluation runs via POST request
-4. Poll for results or use webhooks
-5. Integrate into custom automation/monitoring systems
+4. Poll for run status and results
 
 ### 1.4 Web UI Structure
 
@@ -139,71 +131,45 @@ EvalStudio uses a message-based format for conversations:
 ├── Scenarios
 ├── Personas
 ├── Settings
+│   ├── General
 │   ├── Connectors
-│   ├── LLM Providers
-│   └── Users
+│   └── LLM Providers
 ```
 
 | Section         | Description                                                        |
 | --------------- | ------------------------------------------------------------------ |
-| **Dashboard**   | Overview metrics, recent evals, quick actions                      |
-| **Evals**       | Create, run, and view evaluation batches                           |
-| **Scenarios**   | Manage test scenarios (issue/request definitions)                  |
+| **Dashboard**   | Overview metrics, recent evals, run list                           |
+| **Evals**       | Create, run, and view evaluation results                           |
+| **Scenarios**   | Manage test scenarios with criteria and seed messages               |
 | **Personas**    | Manage customer personas for simulations                           |
 | **Settings**    |                                                                    |
-| › Connectors    | Configure connections to tested agents (HTTP, LangGraph)           |
-| › LLM Providers | Configure AI providers (OpenAI, Anthropic) for personas and judges |
-| › Users         | Manage user access and privileges (per-project)                    |
+| › General       | Project name and configuration                                     |
+| › Connectors    | Configure connections to LangGraph agents                          |
+| › LLM Providers | Configure AI providers (OpenAI, Anthropic) for evaluation and generation |
 
-### 1.5 Projects & Permissions
+### 1.5 Projects
 
 **Multi-Project Support:**
 
-- An account can contain multiple projects
+- A workspace can contain multiple projects
 - All entities are scoped to a single project (no shared data between projects)
-- Users can be invited to specific projects with different roles
+- Workspace defined by `evalstudio.config.json` in the root directory
 
 **Project-Scoped Entities:**
 
 ```
-Account
-└── Project A
+Workspace (evalstudio.config.json)
+└── Project A (projects/{uuid}/)
 │   ├── Evals
 │   ├── Scenarios
 │   ├── Personas
-│   └── Settings (Connectors, LLM Providers, Users)
-└── Project B
+│   └── Settings (Connectors, LLM Providers)
+└── Project B (projects/{uuid}/)
     ├── Evals
     ├── Scenarios
     ├── Personas
-    └── Settings (Connectors, LLM Providers, Users)
+    └── Settings (Connectors, LLM Providers)
 ```
-
-**User Roles (per-project):**
-
-| Role       | Evals, Scenarios, Personas | Settings    | Removable |
-| ---------- | -------------------------- | ----------- | --------- |
-| **Viewer** | Read                       | No access   | Yes       |
-| **Member** | Read, Write                | No access   | Yes       |
-| **Admin**  | Read, Write                | Read, Write | Yes       |
-| **Owner**  | Read, Write                | Read, Write | No        |
-
-**Permissions Matrix:**
-
-| Action                  | Viewer | Member | Admin | Owner |
-| ----------------------- | ------ | ------ | ----- | ----- |
-| View evals and results  | ✓      | ✓      | ✓     | ✓     |
-| Create/edit evals       |        | ✓      | ✓     | ✓     |
-| Create/edit scenarios   |        | ✓      | ✓     | ✓     |
-| Create/edit personas    |        | ✓      | ✓     | ✓     |
-| Run evals               |        | ✓      | ✓     | ✓     |
-| Configure connectors    |        |        | ✓     | ✓     |
-| Configure LLM providers |        |        | ✓     | ✓     |
-| Manage project users    |        |        | ✓     | ✓     |
-| Transfer ownership      |        |        |       | ✓     |
-| Delete project          |        |        |       | ✓     |
-
-> **Note:** Owner is automatically assigned to the project creator and cannot be removed. Ownership can only be transferred to another user.
 
 ---
 
@@ -211,115 +177,68 @@ Account
 
 > **Note:** System Components and Technology Stack have been moved to [ARCHITECTURE.md](ARCHITECTURE.md)
 
-## 6. Package Interaction & Usage Patterns
-
-### Standalone Core Usage (Programmatic)
-
-```typescript
-import { EvalStudio, HttpConnector, ExactMatchEvaluator } from "@evalstudio/core";
-
-const studio = new EvalStudio({
-  storage: "filesystem",
-  basePath: "./eval-tests",
-});
-
-// Load and run tests programmatically
-const results = await studio.runSuite("my-suite");
-console.log(results.summary);
-```
+## 3. Package Usage
 
 ### CLI Usage (Most Common)
 
 ```bash
-# Initialize project
+# Initialize workspace
 evalstudio init
 
-# Create eval interactively
-evalstudio eval create
+# Configure LLM provider
+evalstudio llm-provider set --provider openai --api-key sk-...
 
-# Run evals
-evalstudio run my-suite --parallel 10
+# Create entities
+evalstudio connector create "my-agent" --type langgraph --base-url "http://localhost:2024"
+evalstudio persona create "test-user" -d "A typical customer"
+evalstudio scenario create "greeting" -i "Say hello" --success-criteria "Agent responds politely"
 
-# Generate HTML report
-evalstudio report results.json --output report.html
+# Create eval and run it
+evalstudio eval create -n "my-eval" -c "my-agent" --scenario "greeting"
+evalstudio run create -e "my-eval"
+evalstudio run process
 
-# Start API server (optional)
-evalstudio serve --port 3000
+# Start API server + Web UI
+evalstudio serve --port 3000 --open
 ```
 
 ### API + Web UI Usage (Team Collaboration)
 
 ```bash
-# Start API server with web UI
-evalstudio serve --web
+# Start API server with web UI (default)
+evalstudio serve
 
-# Or run API server separately
-npm install @evalstudio/api
-npx @evalstudio/api start
+# Start API server without web UI
+evalstudio serve --no-web
 
 # Access web UI at http://localhost:3000
 ```
 
-### Hybrid Usage (Best of Both)
-
-```bash
-# Developers use CLI locally
-evalstudio run regression-tests
-
-# CI/CD uses CLI
-evalstudio run --ci --reporter json > results.json
-
-# Team uses Web UI for test creation and analysis
-evalstudio serve --web
-
-# All tests stored as JSON files in git
-# CLI, API, and Web UI all use the same storage
-```
-
----
-
-## 7. NPM Package Publishing
+## 4. NPM Packages
 
 ### Package Scope & Names
 
-- **Main Package**: `evalstudio` - Core evaluation engine
-- **CLI Package**: `@evalstudio/cli` - Command-line interface (may be bundled with main)
-- **API Package**: `@evalstudio/api` - REST API server
-- **Web Package**: `@evalstudio/web` - Web UI (static build or npm package)
-- **Docs Package**: `@evalstudio/docs` - Documentation site
+- **Core Package**: `@evalstudio/core` - Core evaluation engine (zero dependencies)
+- **CLI Package**: `@evalstudio/cli` - CLI, bundles API and Web UI
+- **API Package**: `@evalstudio/api` - Fastify REST API server
+- **Postgres Package**: `@evalstudio/postgres` - PostgreSQL storage backend (optional)
+- **Web Package**: `@evalstudio/web` - React Web UI (private, bundled into CLI)
+- **Docs Package**: `@evalstudio/docs` - Documentation site (private)
 
-### Installation Methods
-
-**CLI Usage (Global Install):**
+### Installation
 
 ```bash
-npm install -g evalstudio
+# CLI (recommended)
+npm install -g @evalstudio/cli
 # or
-npx evalstudio init
-```
+npx @evalstudio/cli init
 
-**Programmatic Usage:**
-
-```bash
-npm install evalstudio
-```
-
-**API Server:**
-
-```bash
-npm install @evalstudio/api
-# or
-npx @evalstudio/api start
-```
-
-**Web UI (Development):**
-
-```bash
-npm install @evalstudio/web
+# PostgreSQL backend (optional)
+npm install @evalstudio/postgres
 ```
 
 ### Versioning Strategy
 
-- Use semantic versioning (semver)
+- Semantic versioning (semver)
 - All packages versioned together (monorepo lockstep)
 - Breaking changes in core affect all packages

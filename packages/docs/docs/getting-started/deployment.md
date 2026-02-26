@@ -21,7 +21,7 @@ npm init -y
 ### 2. Install dependencies
 
 ```bash
-npm install @evalstudio/cli @evalstudio/postgres dotenv-cli
+npm install @evalstudio/cli @evalstudio/postgres
 ```
 
 ### 3. Initialize the project
@@ -69,18 +69,16 @@ Update your `package.json`:
 ```json
 {
   "scripts": {
-    "start": "dotenv -- evalstudio serve",
-    "db:init": "dotenv -- evalstudio db init"
+    "start": "evalstudio serve --port 3000",
+    "db:init": "evalstudio db init",
+    "db:status": "evalstudio db status"
   },
   "dependencies": {
     "@evalstudio/cli": "latest",
-    "@evalstudio/postgres": "latest",
-    "dotenv-cli": "latest"
+    "@evalstudio/postgres": "latest"
   }
 }
 ```
-
-The `dotenv --` prefix loads variables from `.env` before running the command, so the `${EVALSTUDIO_DATABASE_URL}` placeholder in the config resolves correctly.
 
 ### 7. Initialize the database
 
@@ -95,6 +93,15 @@ npm start
 ```
 
 This serves both the API and Web UI on port 3000 (configurable with `--port` or the `EVALSTUDIO_PORT` env var).
+
+## Folder structure
+
+```
+project
+│-- evalstudio.config.json
+│-- package-lock.json
+│-- package.json
+```
 
 ## Docker
 
@@ -127,8 +134,8 @@ docker run -p 3000:3000 \
 
 ## Environment Variables
 
-| Variable | Description |
-| --- | --- |
+| Variable                  | Description                                                |
+| ------------------------- | ---------------------------------------------------------- |
 | `EVALSTUDIO_DATABASE_URL` | PostgreSQL connection string (fallback when not in config) |
-| `EVALSTUDIO_PORT` | Server port (default: `3000`) |
-| `EVALSTUDIO_PROJECT_DIR` | Override project directory resolution |
+| `EVALSTUDIO_PORT`         | Server port (default: `3000`)                              |
+| `EVALSTUDIO_PROJECT_DIR`  | Override project directory resolution                      |

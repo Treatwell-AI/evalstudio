@@ -7,7 +7,7 @@ A flexible evaluation platform for testing chatbots, AI agents, and REST APIs. R
 - **Multi-turn conversation testing** - Define personas, scenarios, and seed messages to simulate realistic interactions
 - **LLM-as-judge evaluation** - Evaluate agent responses against success and failure criteria using LLM
 - **Multiple interfaces** - CLI for developers and CI/CD, Web UI for teams
-- **Connectors** - Test HTTP endpoints or LangGraph agents
+- **Connectors** - Test LangGraph agents via configurable endpoints
 - **Concurrent execution** - Run evaluations in parallel with configurable concurrency
 - **Git-friendly** - Tests stored as JSON files, works seamlessly with version control
 
@@ -22,7 +22,7 @@ npx @evalstudio/cli init
 npx @evalstudio/cli serve --open
 ```
 
-This creates an `evalstudio.config.json` and a `data/` directory, then opens the Web UI at `http://localhost:3000` where you can manage connectors, personas, scenarios, evals, and runs.
+This creates an `evalstudio.config.json` workspace config and a `projects/` directory with your first project, then opens the Web UI at `http://localhost:3000` where you can manage connectors, personas, scenarios, evals, and runs.
 
 ### CLI Workflow
 
@@ -32,7 +32,7 @@ Everything available in the Web UI can also be done from the command line. Insta
 npm install -g @evalstudio/cli
 
 # Configure an LLM provider for evaluation
-evalstudio llm-provider create "openai" --provider openai --api-key sk-...
+evalstudio llm-provider set --provider openai --api-key sk-...
 
 # Define the agent endpoint to test
 evalstudio connector create "my-agent" \
@@ -67,10 +67,11 @@ All commands support `--json` for machine-readable output.
 | `@evalstudio/core` | Core evaluation engine (zero dependencies) |
 | `@evalstudio/cli` | CLI — bundles API and Web UI via `evalstudio serve` |
 | `@evalstudio/api` | Fastify REST API server (embedded in CLI) |
+| `@evalstudio/postgres` | PostgreSQL storage backend (optional) |
 | `@evalstudio/web` | React Web UI (embedded in CLI) |
 | `@evalstudio/docs` | Documentation site (Docusaurus) |
 
-Only `@evalstudio/core` and `@evalstudio/cli` are published to npm. The API and Web UI are bundled into the CLI package.
+Published to npm: `@evalstudio/core`, `@evalstudio/cli`, `@evalstudio/api`, and `@evalstudio/postgres`. The Web UI is bundled into the CLI package.
 
 ## Documentation
 
@@ -134,12 +135,11 @@ When using Claude Code, these slash commands are available:
 
 | Command | Description |
 |---------|-------------|
-| `/feature` | Start new feature (creates branch, tracks progress) |
+| `/feature` | Feature workflow (creates branch, tracks progress) |
 | `/feature validate` | Run validation (typecheck, lint, test, build) |
 | `/feature changelog` | Generate changelog entry |
 | `/feature docs` | Update documentation |
 | `/feature complete` | Validate + changelog + docs + commit |
-| `/feature status` | Show current feature progress |
 | `/validate` | Run all validation steps (standalone) |
 | `/changelog` | Generate changelog from git history (standalone) |
 | `/docs` | Update documentation (standalone) |

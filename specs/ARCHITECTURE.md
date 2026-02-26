@@ -6,183 +6,157 @@ The system is built as a monorepo with independent, composable packages:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     @evalstudio/web                          │
-│         (React Frontend - Optional Component)                │
+│                     @evalstudio/web                         │
+│            (React Frontend - bundled in CLI)                │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ REST API / WebSocket
+                       │ REST API calls
                        │
 ┌──────────────────────▼──────────────────────────────────────┐
-│                   @evalstudio/api                            │
-│            (Express/Fastify Server - Optional)               │
-│              - REST endpoints                                │
-│              - WebSocket for real-time updates               │
-│              - Configures core with FileSystem adapter       │
+│                   @evalstudio/api                           │
+│                 (Fastify Server)                            │
+│              - REST endpoints under /api                    │
+│              - Serves web UI static assets                  │
 └──────────────────────┬──────────────────────────────────────┘
                        │ imports
                        │
-┌──────────────────────▼──────────────────────────────────────┐
-│                  evalstudio (Core Engine)                    │
-│                  Main Package - Required                     │
-│                                                              │
-│  ┌──────────────┐  ┌───────────────┐  ┌─────────────────┐ │
-│  │ Eval Manager │  │ Eval Executor │  │ Result Analyzer │ │
-│  └──────────────┘  └───────────────┘  └─────────────────┘ │
-│                                                              │
+┌──────────────────────▼─────────────────────────────────────┐
+│               @evalstudio/core (Core Engine)               │
+│                  All business logic                        │
+│                                                            │
+│  ┌──────────────┐  ┌───────────────┐  ┌─────────────────┐  │
+│  │  Eval CRUD   │  │ RunProcessor  │  │  LLM Client     │  │
+│  └──────────────┘  └───────────────┘  └─────────────────┘  │
+│                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │        Connector Registry & Plugin System            │  │
-│  │     (HTTP, LangGraph, Custom Connectors)             │  │
+│  │           Connector Strategies                       │  │
+│  │                (LangGraph)                           │  │
 │  └──────────────────────────────────────────────────────┘  │
-│                                                              │
+│                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │           Evaluator Implementations                  │  │
-│  │  (Exact, Regex, JSON Schema, LLM Judge, Custom)      │  │
+│  │       Evaluators (LLM-as-Judge + Custom)             │  │
+│  │  Built-in metrics: tool-call-count, token-usage      │  │
 │  └──────────────────────────────────────────────────────┘  │
-│                                                              │
+│                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │              Storage Adapters                        │  │
-│  │              (File System, Memory)                   │  │
+│  │     StorageProvider interface (pluggable backend)    │  │
 │  └──────────────────────────────────────────────────────┘  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ uses
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│                   @evalstudio/cli                            │
-│              (Commander.js CLI - Optional)                   │
-│              - Interactive test creation                     │
-│              - Run evaluations                               │
-│              - Report generation                             │
-└──────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────┘
+         ▲                             ▲
+         │ imports                     │ implements StorageProvider
+         │                             │
+┌────────┴───────────┐     ┌───────────┴──────────────────────┐
+│  @evalstudio/cli   │     │       @evalstudio/postgres       │
+│  (Commander.js)    │     │  (PostgreSQL storage backend)    │
+│  - CLI commands    │     │  - pg driver                     │
+│  - Embeds API +    │     │  - Schema migrations             │
+│    Web via serve   │     └──────────────────────────────────┘
+└────────────────────┘
 
-                       │ All components interact with
-                       ▼
-          ┌─────────────────────────────────────┐
-          │         Target Systems              │
-          │  (Chatbots, REST APIs, Agents)      │
-          └─────────────────────────────────────┘
-
-Storage Options (all via Core adapters):
-┌────────────────────────────────────────────────────────┐
-│  File System (JSON)  │  Memory (for testing)          │
-└────────────────────────────────────────────────────────┘
+Storage Options (selected via evalstudio.config.json):
+┌───────────────────────────────────────────────────────────────┐
+│ Filesystem (JSON files)  │  PostgreSQL (@evalstudio/postgres) │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 **Package Dependencies:**
 
-- `@evalstudio/core`: No dependencies on other packages (standalone)
-- `@evalstudio/cli`: Depends on `@evalstudio/core`
+- `@evalstudio/core`: No dependencies on other packages (standalone, zero production deps)
+- `@evalstudio/cli`: Depends on `@evalstudio/core` and `@evalstudio/api`
 - `@evalstudio/api`: Depends on `@evalstudio/core`
-- `@evalstudio/web`: Depends on `@evalstudio/api` (API client)
+- `@evalstudio/postgres`: Depends on `@evalstudio/core`
+- `@evalstudio/web`: No package dependencies on other workspace packages (communicates with API via HTTP at runtime)
 - `@evalstudio/docs`: Documentation site (independent)
 
 **Key Architectural Decisions:**
 
 1. **Core is King**: The `@evalstudio/core` package contains ALL business logic for:
-   - Test execution
-   - Connector system
-   - Evaluator implementations
-   - Storage adapters
+   - Entity CRUD (personas, scenarios, evals, runs, executions, connectors)
+   - Run processing and connector invocation
+   - Evaluator framework (LLM-as-judge criteria + custom evaluators)
+   - Storage abstraction (StorageProvider interface)
    - This ensures CLI, API, and programmatic usage all behave identically
 
-2. **CLI = Core + Terminal Interface**: The CLI is a thin wrapper around core that:
-   - Parses command-line arguments
-   - Provides interactive prompts
-   - Formats output for terminals
-   - Manages local file-based storage
+2. **CLI = Core + API + Terminal Interface**: The CLI is a thin wrapper around core that:
+   - Parses command-line arguments via Commander.js
+   - Formats output for terminals (text and `--json`)
+   - Embeds the API server and Web UI via the `serve` command
 
 3. **API = Core + HTTP Interface**: The API server is a thin wrapper that:
-   - Exposes core functionality via REST endpoints
-   - Configures core to use PostgreSQL storage adapter
-   - Provides WebSocket for real-time updates
-   - Handles authentication and multi-user scenarios
+   - Exposes core functionality via REST endpoints under `/api`
+   - Serves the web UI as static assets
+   - Configures the appropriate StorageProvider (filesystem or postgres)
 
 4. **Web = API Client**: The web UI is purely a frontend:
    - Makes HTTP calls to the API server
    - Has no direct access to core evaluation logic
-   - Provides visual interface for eval creation and result viewing
+   - Bundled as static assets into the CLI package at build time
 
-5. **Storage Flexibility**: The core supports multiple storage adapters:
-   - FileSystem: Git-friendly JSON files (used by CLI and API)
-   - Memory: Used for testing and temporary operations
+5. **Storage Flexibility**: The core defines a `StorageProvider` interface:
+   - **FilesystemStorageProvider**: Git-friendly JSON files in `projects/{id}/data/` (built-in)
+   - **PostgresStorageProvider**: Full PostgreSQL backend via `@evalstudio/postgres` (optional)
 
 ---
 
 ## Connector Interface
 
-Connectors implement a common interface for message-based communication:
+Connectors implement a strategy pattern for message-based communication with target systems:
 
 ```typescript
-interface Connector {
-  name: string;
-
-  // Execute a request and return the response
-  execute(request: ConnectorRequest): Promise<ConnectorResponse>;
+interface ConnectorInvokeInput {
+  messages: Message[];
+  runId?: string;
+  seenMessageIds?: Set<string>;
+  extraHeaders?: Record<string, string>;
 }
 
-interface ConnectorRequest {
-  // Messages for conversational input
-  messages: Array<{ role: string; content: string }>;
-}
-
-interface ConnectorResponse {
-  // Response message
-  message: { role: string; content: string };
-
-  // Metadata
+interface ConnectorInvokeResult {
+  success: boolean;
   latencyMs: number;
-  tokenUsage?: { input: number; output: number };
+  messages?: Message[];
+  rawResponse?: string;
+  error?: string;
+  tokensUsage?: TokensUsage;
+  threadId?: string;
 }
 ```
 
 **Built-in Connectors:**
 
-| Connector | Description |
-|-----------|-------------|
-| `HttpConnector` | Generic HTTP/REST API connector |
-| `LangGraphConnector` | LangGraph agent connector |
+| Connector            | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `LangGraphConnector` | LangGraph Dev API connector for langgraph-backed agents |
 
 ---
 
 ## Evaluator Interface
 
-Evaluators assess responses:
+Two evaluation systems run on each conversation turn:
+
+1. **LLM-as-Judge (criteria)**: Evaluates responses against natural language success/failure criteria defined on the scenario. Gates pass/fail.
+2. **Custom evaluators**: Pluggable evaluator definitions registered via `EvaluatorRegistry`. Two kinds:
+   - **Assertions**: Pass/fail gates (failure stops the run)
+   - **Metrics**: Measurements only (never cause failure)
 
 ```typescript
-interface Evaluator {
-  name: string;
-
-  // Evaluate a response against expected criteria
-  evaluate(context: EvaluatorContext): Promise<EvaluatorResult>;
-}
-
-interface EvaluatorContext {
-  // The value to evaluate
-  value: unknown;
-
-  // Full response for context
-  response: ConnectorResponse;
-
-  // Eval criteria
-  criteria: EvaluatorCriteria;
-}
-
-interface EvaluatorResult {
-  pass: boolean;
-  score?: number;       // 0-1 for scored evaluations
-  reason?: string;      // Explanation of result
-  details?: unknown;    // Evaluator-specific details
+interface EvaluatorDefinition {
+  type: string;
+  label: string;
+  description?: string;
+  kind: "assertion" | "metric";
+  auto?: boolean;
+  configSchema?: JsonSchema;
+  evaluate(ctx: EvaluatorContext): Promise<EvaluationResult>;
 }
 ```
 
 **Built-in Evaluators:**
 
-| Evaluator | Description |
-|-----------|-------------|
-| `ExactMatchEvaluator` | Exact string/value comparison |
-| `RegexEvaluator` | Regex pattern matching |
-| `JsonSchemaEvaluator` | Validates response against JSON schema |
-| `JsonPathEvaluator` | Assertions on JSON path values |
-| `LlmJudgeEvaluator` | LLM-based evaluation with custom prompts |
-| `CustomEvaluator` | User-provided JavaScript function |
+| Evaluator         | Kind   | Auto | Description                                |
+| ----------------- | ------ | ---- | ------------------------------------------ |
+| `tool-call-count` | metric | no   | Counts tool calls per conversation turn    |
+| `token-usage`     | metric | yes  | Reports input/output/total tokens per turn |
+
+Evaluators with `auto: true` run on every scenario automatically. Others must be explicitly added to a scenario's `evaluators[]` array.
 
 ---
 
@@ -190,73 +164,63 @@ interface EvaluatorResult {
 
 **Monorepo Structure:**
 
-- Package Manager: Yarn v3+ (workspaces)
-- Build System: Turborepo (for efficient builds across packages)
-- Shared TypeScript config and tooling across workspaces
+- Package Manager: pnpm 9.15+ (workspaces)
+- Build System: Turborepo (task orchestration across packages)
+- Shared TypeScript config via `tsconfig.base.json`
 
 **Package: `@evalstudio/core` (Core Engine)**
 
-- Runtime: Node.js 20+ with TypeScript
+- Runtime: Node.js 20+ with TypeScript (ESM)
 - LLM Client: Native fetch() to OpenAI and Anthropic APIs
   - Shared `chatCompletion()` utility for both providers
-  - LLM Judge evaluators for criteria evaluation
+  - LLM-as-judge criteria evaluation
   - Persona message generation
-- Storage Adapters: File System (built-in), Memory
+- Storage: StorageProvider interface with built-in FilesystemStorageProvider
 - Dependencies: Zero production dependencies
-- HTTP Client: Fetch API / Axios (for connectors)
-- Execution Engine (pluggable adapters):
-  - InMemoryExecutor: Sequential execution, no dependencies (default)
-  - WorkerThreadExecutor: Parallel via Node.js worker threads
+- HTTP Client: Native fetch() (for connectors)
 - Testing: Vitest
 - Published as: `@evalstudio/core` on npm
 
 **Package: `@evalstudio/cli`**
 
-- CLI Framework: Commander.js (argument parsing) + Ink (React-based terminal UI)
-- Interactive Prompts: Inquirer.js or Prompts
-- Progress/Spinners: Ink built-in components (or ora for simple scripts)
-- File Watcher: Chokidar (for watch mode)
-- Storage: Configures core with FileSystem adapter
-- Execution: Configures core with WorkerThreadExecutor (no Redis needed)
-- Report Generation: Generate HTML from templates
-- Published as: `@evalstudio/cli` on npm (or bundled with main package)
+- CLI Framework: Commander.js
+- Embeds `@evalstudio/api` for the `serve` command
+- Bundles web UI static assets via postbuild step
+- Published as: `@evalstudio/cli` on npm
 
 **Package: `@evalstudio/api`**
 
-- Framework: Fastify
-- API: RESTful + WebSocket for real-time updates
-- Storage: Configures core with FileSystem adapter
-- Execution: Configures core with WorkerThreadExecutor
-- Authentication: JWT (optional feature)
+- Framework: Fastify 5
+- API: RESTful endpoints under `/api` prefix
+- Serves web UI static assets via `@fastify/static`
 - Published as: `@evalstudio/api` on npm
+
+**Package: `@evalstudio/postgres`**
+
+- PostgreSQL storage backend implementing StorageProvider
+- Driver: pg (node-postgres)
+- Schema migrations built-in
+- Published as: `@evalstudio/postgres` on npm
 
 **Package: `@evalstudio/web`**
 
-- Framework: React 18+ with TypeScript (Vite for build)
-- Server State: TanStack Query (data fetching, caching)
-- Client State: Zustand (minimal, only if needed)
-- UI Components: shadcn/ui (Radix UI + Tailwind CSS)
-- Form Management: React Hook Form + Zod
-- API Client: TanStack Query (React Query)
-- Code Editor: Monaco Editor (for custom validators/JSON editing)
-- Charts: Recharts (pass rate, latency trends, performance over time)
-- Build: Static assets served by API server or CDN
-- Published as: `@evalstudio/web` on npm
+- Framework: React 18 with TypeScript
+- Build: Vite 6
+- Server State: TanStack Query (React Query)
+- Routing: React Router v7
+- Charts: Recharts
+- Styling: Custom CSS with CSS variables
+- Private package (bundled into CLI)
 
 **Package: `@evalstudio/docs`**
 
-- Documentation: Docusaurus (React-based)
+- Documentation: Docusaurus
 - Content: Markdown-based documentation
-- Hosted: GitHub Pages or Vercel
-- Published as: `@evalstudio/docs` on npm
+- Private package
 
-**Shared Dependencies:**
+**Shared Tooling:**
 
-- TypeScript 5+
-- ESLint + Prettier (code quality)
+- TypeScript 5.7+
+- ESLint (code quality)
 - Vitest (testing across all packages)
-- Native fetch() for LLM API calls (OpenAI, Anthropic)
-
-**Development Environment:**
-
-- Environment-based configuration (dotenv)
+- Native fetch() for all HTTP calls (LLM APIs, connectors)
