@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ScenarioList } from "../components/ScenarioList";
-import { useCreateScenario } from "../hooks/useScenarios";
+import { EntityRedirect } from "../components/EntityRedirect";
+import { useScenarios, useCreateScenario } from "../hooks/useScenarios";
 import { CreateScenarioInput } from "../lib/api";
 
 export function ScenariosPage() {
   const navigate = useNavigate();
+  const { data: scenarios, isLoading } = useScenarios();
   const createScenario = useCreateScenario();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [name, setName] = useState("");
@@ -16,7 +17,6 @@ export function ScenariosPage() {
     loading?: boolean;
   } | null>(null);
   const [showMenu, setShowMenu] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -50,7 +50,6 @@ export function ScenariosPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset input so the same file can be re-selected
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
@@ -100,7 +99,7 @@ export function ScenariosPage() {
     }
   };
 
-  return (
+  const fallback = (
     <div className="page">
       <div className="page-header">
         <h1>Scenarios</h1>
@@ -126,16 +125,6 @@ export function ScenariosPage() {
                   onClick={() => setShowMenu(false)}
                 />
                 <div className="menu-dropdown">
-                  <button
-                    className="menu-item"
-                    onClick={() => {
-                      setShowMenu(false);
-                      setSelectMode(true);
-                    }}
-                  >
-                    <svg className="menu-item-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10v4h10v-4" /><path d="M8 12V4" /><path d="M5 7l3-3 3 3" /></svg>
-                    Export JSONL
-                  </button>
                   <button
                     className="menu-item"
                     onClick={() => {
@@ -203,6 +192,10 @@ export function ScenariosPage() {
         );
       })()}
 
+      <div className="empty-state">
+        <p>No scenarios yet. Create a scenario to define test situations.</p>
+      </div>
+
       {showCreateModal && (
         <div className="modal-overlay" onClick={handleClose}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -240,11 +233,15 @@ export function ScenariosPage() {
           </div>
         </div>
       )}
-
-      <ScenarioList
-        selectMode={selectMode}
-        onExitSelectMode={() => setSelectMode(false)}
-      />
     </div>
+  );
+
+  return (
+    <EntityRedirect
+      entityType="scenario"
+      items={scenarios}
+      isLoading={isLoading}
+      fallback={fallback}
+    />
   );
 }

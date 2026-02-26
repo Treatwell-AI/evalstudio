@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { useEval, useUpdateEval, useDeleteEval } from "../hooks/useEvals";
+import { useParams, useNavigate } from "react-router-dom";
+import { useEval, useEvals, useUpdateEval, useDeleteEval } from "../hooks/useEvals";
 import { useScenarios } from "../hooks/useScenarios";
 import { useConnectors } from "../hooks/useConnectors";
 import { useRunsByEval } from "../hooks/useRuns";
+import { useLastVisited } from "../hooks/useLastVisited";
 import { RunList } from "../components/RunList";
 import { CreateRunDialog } from "../components/CreateRunDialog";
 import { EvalCodeSnippets } from "../components/EvalCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
 import { ExecutionSummary } from "../components/ExecutionSummary";
+import { EntitySwitcher } from "../components/EntitySwitcher";
+import { EvalForm } from "../components/EvalForm";
 import { EvalWithRelations } from "../lib/api";
 
 type EvalTab = "settings" | "stats" | "code";
@@ -17,9 +20,12 @@ export function EvalDetailPage() {
   const navigate = useNavigate();
   const { evalId } = useParams<{ evalId: string }>();
   const { data: evalItem, isLoading, error } = useEval(evalId ?? null, true);
+  const { data: allEvals = [] } = useEvals();
+  const lastVisited = useLastVisited("eval");
   const updateEval = useUpdateEval();
   const deleteEval = useDeleteEval();
   const [showCreateRunDialog, setShowCreateRunDialog] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [activeTab, setActiveTabState] = useState<EvalTab>(() => {
     const stored = localStorage.getItem("evalTab");
@@ -40,11 +46,15 @@ export function EvalDetailPage() {
 
   // Form state
   const [name, setName] = useState("");
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [scenarioIds, setScenarioIds] = useState<string[]>([]);
   const [connectorId, setConnectorId] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Persist last visited eval
+  useEffect(() => {
+    if (evalId) lastVisited.set(evalId);
+  }, [evalId, lastVisited]);
 
   // Load eval data into form when it changes
   useEffect(() => {
@@ -66,18 +76,14 @@ export function EvalDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Eval not found"}
         </div>
-        <Link to=".." relative="path" className="btn btn-secondary">
+        <button onClick={() => navigate("..", { relative: "path" })} className="btn btn-secondary">
           Back to Evals
-        </Link>
+        </button>
       </div>
     );
   }
 
   const evalWithRelations = evalItem as EvalWithRelations;
-
-  const getDisplayName = () => {
-    return name || evalWithRelations.name || evalWithRelations.id;
-  };
 
   const handleChange = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) => {
     return (value: T) => {
@@ -88,10 +94,16 @@ export function EvalDetailPage() {
 
   const handleDelete = async () => {
     setShowMenu(false);
-    const displayName = getDisplayName();
+    const displayName = name || evalWithRelations.name || evalWithRelations.id;
     if (confirm(`Delete eval "${displayName}"? This will also delete all associated runs.`)) {
       await deleteEval.mutateAsync(evalWithRelations.id);
-      navigate("..", { relative: "path" });
+      lastVisited.clear();
+      const remaining = allEvals.filter((e) => e.id !== evalWithRelations.id);
+      if (remaining.length > 0) {
+        navigate(`../${remaining[0].id}`, { relative: "path" });
+      } else {
+        navigate("..", { relative: "path" });
+      }
     }
   };
 
@@ -142,37 +154,22 @@ export function EvalDetailPage() {
     setHasChanges(false);
   };
 
+  const switcherItems = allEvals.map((e) => ({
+    id: e.id,
+    name: e.name || e.id,
+  }));
+
   return (
     <div className="page page-detail eval-detail-page">
       <div className="page-header">
         <div className="page-header-nav">
-          <Link to=".." relative="path" className="back-btn" title="Back to Evals">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 12L6 8l4-4" />
-            </svg>
-          </Link>
-          {isEditingTitle ? (
-            <input
-              type="text"
-              value={name || ""}
-              onChange={(e) => handleChange(setName)(e.target.value)}
-              onBlur={() => setIsEditingTitle(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setIsEditingTitle(false);
-                if (e.key === "Escape") {
-                  setName(evalItem.name);
-                  setIsEditingTitle(false);
-                }
-              }}
-              className="editable-title-input"
-              style={{ width: `${Math.max((name || "").length, 1) + 2}ch` }}
-              autoFocus
-            />
-          ) : (
-            <h1 className="editable-title" onClick={() => setIsEditingTitle(true)} title="Click to edit">
-              {getDisplayName()}
-            </h1>
-          )}
+          <EntitySwitcher
+            items={switcherItems}
+            activeId={evalWithRelations.id}
+            onSelect={(id) => navigate(`../${id}`, { relative: "path" })}
+            onCreate={() => setShowCreateForm(true)}
+            entityLabel="eval"
+          />
         </div>
         <div className="page-header-actions">
           {hasChanges && (
@@ -302,6 +299,17 @@ export function EvalDetailPage() {
 
               <div className="eval-secondary-fields">
                 <div className="form-group">
+                  <label htmlFor="eval-name">Name</label>
+                  <input
+                    type="text"
+                    id="eval-name"
+                    value={name}
+                    onChange={(e) => handleChange(setName)(e.target.value)}
+                    placeholder="Eval name"
+                  />
+                </div>
+
+                <div className="form-group">
                   <label htmlFor="eval-connector">Connector</label>
                   <select
                     id="eval-connector"
@@ -342,6 +350,16 @@ export function EvalDetailPage() {
         <CreateRunDialog
           evalId={evalWithRelations.id}
           onClose={() => setShowCreateRunDialog(false)}
+        />
+      )}
+
+      {showCreateForm && (
+        <EvalForm
+          evalId={null}
+          onClose={(createdId) => {
+            setShowCreateForm(false);
+            if (createdId) navigate(`../${createdId}`, { relative: "path" });
+          }}
         />
       )}
     </div>

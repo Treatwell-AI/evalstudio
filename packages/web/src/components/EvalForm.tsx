@@ -9,7 +9,7 @@ import { useConnectors } from "../hooks/useConnectors";
 
 interface EvalFormProps {
   evalId: string | null;
-  onClose: () => void;
+  onClose: (createdId?: string) => void;
 }
 
 export function EvalForm({ evalId, onClose }: EvalFormProps) {
@@ -74,11 +74,13 @@ export function EvalForm({ evalId, onClose }: EvalFormProps) {
           },
         });
       } else {
-        await createEval.mutateAsync({
+        const created = await createEval.mutateAsync({
           name: name.trim(),
           scenarioIds,
           connectorId,
         });
+        onClose(created.id);
+        return;
       }
       onClose();
     } catch (err) {
@@ -87,7 +89,7 @@ export function EvalForm({ evalId, onClose }: EvalFormProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={() => onClose()}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h3>{isEditing ? "Edit Eval" : "Create Eval"}</h3>
 
@@ -174,7 +176,7 @@ export function EvalForm({ evalId, onClose }: EvalFormProps) {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={onClose}
+              onClick={() => onClose()}
             >
               Cancel
             </button>

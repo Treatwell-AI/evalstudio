@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Entity switcher navigation** — Clicking Evals, Scenarios, or Personas in the sidebar now navigates directly to the last visited detail page (or the first item) instead of showing a list. A title-styled dropdown lets you switch between entities without leaving the detail view, with text search (when >5 items) and a "+ New" create action. Built with three reusable primitives (`EntitySwitcher`, `EntityRedirect`, `useLastVisited`) so future entities can adopt the same pattern.
+
 ### Changed
 
 - **Repository targeted operations** — Extended `Repository<T>` with `findById`, `findBy`, `save`, `saveMany`, `deleteById`, and `maxId` methods. All 6 entity modules (persona, scenario, connector, execution, eval, run) now use single-item operations instead of loading/rewriting entire collections. JSON backend delegates to file read/write; Postgres backend uses single-row SQL (SELECT, UPSERT, DELETE) for massive performance gains — the RunProcessor hot path drops from ~22 `findAll` + 13 `saveAll` per run to ~10 `findById` + ~13 `save`. Also eliminates race conditions between concurrent `findAll`/`saveAll` calls.

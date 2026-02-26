@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
-import { useScenario, useUpdateScenario, useDeleteScenario } from "../hooks/useScenarios";
+import { useScenario, useScenarios, useUpdateScenario, useDeleteScenario, useCreateScenario } from "../hooks/useScenarios";
 import { usePersonas } from "../hooks/usePersonas";
 import { useRunsByScenario } from "../hooks/useRuns";
+import { useLastVisited } from "../hooks/useLastVisited";
 import { Message, ScenarioEvaluator, projectImageUrl } from "../lib/api";
 import { useProjectId } from "../hooks/useProjectId";
 import { ScenarioPlaygroundModal } from "../components/ScenarioPlaygroundModal";
@@ -11,6 +12,7 @@ import { EvaluatorForm } from "../components/EvaluatorForm";
 import { RunList } from "../components/RunList";
 import { ScenarioCodeSnippets } from "../components/ScenarioCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
+import { EntitySwitcher } from "../components/EntitySwitcher";
 
 type ScenarioTab = "settings" | "stats" | "code";
 
@@ -19,16 +21,19 @@ export function ScenarioDetailPage() {
   const projectId = useProjectId();
   const { scenarioId } = useParams<{ scenarioId: string }>();
   const { data: scenario, isLoading, error } = useScenario(scenarioId ?? null);
+  const { data: allScenarios = [] } = useScenarios();
+  const lastVisited = useLastVisited("scenario");
   const { data: personas = [] } = usePersonas();
   const updateScenario = useUpdateScenario();
   const deleteScenario = useDeleteScenario();
+  const createScenario = useCreateScenario();
 
   // Load runs for performance chart
   const { data: runs = [] } = useRunsByScenario(scenarioId ?? "");
   const [showMenu, setShowMenu] = useState(false);
   const [showPlayground, setShowPlayground] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [activeTab, setActiveTabState] = useState<ScenarioTab>(
     () => (localStorage.getItem("scenarioTab") as ScenarioTab) || "settings"
   );
@@ -47,6 +52,11 @@ export function ScenarioDetailPage() {
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Persist last visited scenario
+  useEffect(() => {
+    if (scenarioId) lastVisited.set(scenarioId);
+  }, [scenarioId, lastVisited]);
 
   // Load scenario data into form when it changes
   useEffect(() => {
@@ -82,9 +92,9 @@ export function ScenarioDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Scenario not found"}
         </div>
-        <Link to=".." relative="path" className="btn btn-secondary">
+        <button onClick={() => navigate("..", { relative: "path" })} className="btn btn-secondary">
           Back to Scenarios
-        </Link>
+        </button>
       </div>
     );
   }
@@ -93,7 +103,13 @@ export function ScenarioDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete scenario "${scenario.name}"?`)) {
       await deleteScenario.mutateAsync(scenario.id);
-      navigate("..", { relative: "path" });
+      lastVisited.clear();
+      const remaining = allScenarios.filter((s) => s.id !== scenario.id);
+      if (remaining.length > 0) {
+        navigate(`../${remaining[0].id}`, { relative: "path" });
+      } else {
+        navigate("..", { relative: "path" });
+      }
     }
   };
 
@@ -136,7 +152,6 @@ export function ScenarioDetailPage() {
   };
 
   const handleCancel = () => {
-    // Reset to original values
     setName(scenario.name);
     setInstructions(scenario.instructions || "");
     setSeedMessages(scenario.messages || []);
@@ -150,41 +165,22 @@ export function ScenarioDetailPage() {
     setHasChanges(false);
   };
 
+  const switcherItems = allScenarios.map((s) => ({
+    id: s.id,
+    name: s.name || s.id,
+  }));
+
   return (
     <div className="page page-detail scenario-detail-page">
       <div className="page-header">
         <div className="page-header-nav">
-          <Link to=".." relative="path" className="back-btn" title="Back to Scenarios">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 12L6 8l4-4" />
-            </svg>
-          </Link>
-          {isEditingTitle ? (
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => handleChange(setName)(e.target.value)}
-              onBlur={() => setIsEditingTitle(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setIsEditingTitle(false);
-                if (e.key === "Escape") {
-                  setName(scenario.name);
-                  setIsEditingTitle(false);
-                }
-              }}
-              className="editable-title-input"
-              style={{ width: `${Math.max(name.length, 1) + 2}ch` }}
-              autoFocus
-            />
-          ) : (
-            <h1
-              className="editable-title"
-              onClick={() => setIsEditingTitle(true)}
-              title="Click to edit"
-            >
-              {name || scenario.name}
-            </h1>
-          )}
+          <EntitySwitcher
+            items={switcherItems}
+            activeId={scenario.id}
+            onSelect={(id) => navigate(`../${id}`, { relative: "path" })}
+            onCreate={() => setShowCreateModal(true)}
+            entityLabel="scenario"
+          />
         </div>
         <div className="page-header-actions">
           <button
@@ -270,7 +266,18 @@ export function ScenarioDetailPage() {
           <>
             <div className="dashboard-card scenario-edit-form">
               <div className="form-group">
-                <label htmlFor="scenario-instructions">📄 Instructions</label>
+                <label htmlFor="scenario-name">Name</label>
+                <input
+                  type="text"
+                  id="scenario-name"
+                  value={name}
+                  onChange={(e) => handleChange(setName)(e.target.value)}
+                  placeholder="Scenario name"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="scenario-instructions">Instructions</label>
                 <span className="form-hint">Describe using natural language the situation the user is facing.</span>
                 <textarea
                   id="scenario-instructions"
@@ -303,7 +310,7 @@ export function ScenarioDetailPage() {
             <div className="dashboard-card scenario-edit-form">
               <div className="form-group">
                 <div className="form-label-row">
-                  <label htmlFor="scenario-success">✅ Success Criteria</label>
+                  <label htmlFor="scenario-success">Success Criteria</label>
                   <span className="form-hint">Checked at every turn. The run stops and passes when met.</span>
                 </div>
                 <textarea
@@ -316,7 +323,7 @@ export function ScenarioDetailPage() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="scenario-failure">❌ Failure Criteria</label>
+                <label htmlFor="scenario-failure">Failure Criteria</label>
                 <textarea
                   id="scenario-failure"
                   value={failureCriteria}
@@ -418,6 +425,34 @@ export function ScenarioDetailPage() {
           personas={personas}
           onClose={() => setShowPlayground(false)}
         />
+      )}
+
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create Scenario</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const input = new FormData(e.currentTarget).get("name") as string;
+              if (input?.trim()) {
+                const created = await createScenario.mutateAsync({ name: input.trim() });
+                setShowCreateModal(false);
+                navigate(`../${created.id}`, { relative: "path" });
+              }
+            }}>
+              <div className="form-group">
+                <label htmlFor="new-scenario-name">Name</label>
+                <input id="new-scenario-name" name="name" type="text" placeholder="Booking Cancellation Request" autoFocus />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={createScenario.isPending}>
+                  {createScenario.isPending ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>

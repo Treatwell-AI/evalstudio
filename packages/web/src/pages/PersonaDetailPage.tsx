@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { usePersona, useUpdatePersona, useDeletePersona, useGeneratePersonaImage } from "../hooks/usePersonas";
+import { useParams, useNavigate } from "react-router-dom";
+import { usePersona, usePersonas, useUpdatePersona, useDeletePersona, useGeneratePersonaImage, useCreatePersona } from "../hooks/usePersonas";
 import { useRunsByPersona } from "../hooks/useRuns";
+import { useLastVisited } from "../hooks/useLastVisited";
 import { RunList } from "../components/RunList";
 import { PersonaCodeSnippets } from "../components/PersonaCodeSnippets";
 import { PerformanceChart } from "../components/PerformanceChart";
 import { StyleguideModal } from "../components/StyleguideModal";
+import { EntitySwitcher } from "../components/EntitySwitcher";
 import { projectImageUrl } from "../lib/api";
 import { useProjectId } from "../hooks/useProjectId";
 import { HeadersEditor } from "../components/HeadersEditor";
@@ -17,14 +19,17 @@ export function PersonaDetailPage() {
   const projectId = useProjectId();
   const { personaId } = useParams<{ personaId: string }>();
   const { data: persona, isLoading, error } = usePersona(personaId ?? null);
+  const { data: allPersonas = [] } = usePersonas();
+  const lastVisited = useLastVisited("persona");
   const updatePersona = useUpdatePersona();
   const deletePersona = useDeletePersona();
   const generateImage = useGeneratePersonaImage();
+  const createPersona = useCreatePersona();
 
   // Load runs for performance chart
   const { data: runs = [] } = useRunsByPersona(personaId ?? "");
   const [showMenu, setShowMenu] = useState(false);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTabState] = useState<PersonaTab>(
     () => (localStorage.getItem("personaTab") as PersonaTab) || "settings"
   );
@@ -40,6 +45,11 @@ export function PersonaDetailPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showStyleguideModal, setShowStyleguideModal] = useState(false);
+
+  // Persist last visited persona
+  useEffect(() => {
+    if (personaId) lastVisited.set(personaId);
+  }, [personaId, lastVisited]);
 
   // Load persona data into form when it changes
   useEffect(() => {
@@ -74,9 +84,9 @@ export function PersonaDetailPage() {
         <div className="error">
           {error instanceof Error ? error.message : "Persona not found"}
         </div>
-        <Link to=".." relative="path" className="btn btn-secondary">
+        <button onClick={() => navigate("..", { relative: "path" })} className="btn btn-secondary">
           Back to Personas
-        </Link>
+        </button>
       </div>
     );
   }
@@ -85,7 +95,13 @@ export function PersonaDetailPage() {
     setShowMenu(false);
     if (confirm(`Delete persona "${persona.name}"?`)) {
       await deletePersona.mutateAsync(persona.id);
-      navigate("..", { relative: "path" });
+      lastVisited.clear();
+      const remaining = allPersonas.filter((p) => p.id !== persona.id);
+      if (remaining.length > 0) {
+        navigate(`../${remaining[0].id}`, { relative: "path" });
+      } else {
+        navigate("..", { relative: "path" });
+      }
     }
   };
 
@@ -119,7 +135,6 @@ export function PersonaDetailPage() {
   };
 
   const handleCancel = () => {
-    // Reset to original values
     setName(persona.name);
     setDescription(persona.description || "");
     setSystemPrompt(persona.systemPrompt || "");
@@ -146,41 +161,22 @@ export function PersonaDetailPage() {
     ? projectImageUrl(projectId, persona.imageUrl)
     : null;
 
+  const switcherItems = allPersonas.map((p) => ({
+    id: p.id,
+    name: p.name || p.id,
+  }));
+
   return (
     <div className="page page-detail persona-detail-page">
       <div className="page-header">
         <div className="page-header-nav">
-          <Link to=".." relative="path" className="back-btn" title="Back to Personas">
-            <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 12L6 8l4-4" />
-            </svg>
-          </Link>
-          {isEditingTitle ? (
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => handleChange(setName)(e.target.value)}
-              onBlur={() => setIsEditingTitle(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") setIsEditingTitle(false);
-                if (e.key === "Escape") {
-                  setName(persona.name);
-                  setIsEditingTitle(false);
-                }
-              }}
-              className="editable-title-input"
-              style={{ width: `${Math.max(name.length, 1) + 2}ch` }}
-              autoFocus
-            />
-          ) : (
-            <h1
-              className="editable-title"
-              onClick={() => setIsEditingTitle(true)}
-              title="Click to edit"
-            >
-              {name || persona.name}
-            </h1>
-          )}
+          <EntitySwitcher
+            items={switcherItems}
+            activeId={persona.id}
+            onSelect={(id) => navigate(`../${id}`, { relative: "path" })}
+            onCreate={() => setShowCreateModal(true)}
+            entityLabel="persona"
+          />
         </div>
         <div className="page-header-actions">
           {hasChanges && (
@@ -261,6 +257,17 @@ export function PersonaDetailPage() {
             <div className="persona-detail-content">
               <div className="persona-detail-top">
                 <div className="persona-detail-left">
+                  <div className="form-group">
+                    <label htmlFor="persona-name">Name</label>
+                    <input
+                      id="persona-name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => handleChange(setName)(e.target.value)}
+                      placeholder="Persona name"
+                    />
+                  </div>
+
                   <div className="form-group">
                     <label htmlFor="persona-description">Description</label>
                     <p className="form-hint">
@@ -358,6 +365,34 @@ export function PersonaDetailPage() {
           onClose={() => setShowStyleguideModal(false)}
           isGenerating={generateImage.isPending}
         />
+      )}
+
+      {showCreateModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Create Persona</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const input = new FormData(e.currentTarget).get("name") as string;
+              if (input?.trim()) {
+                const created = await createPersona.mutateAsync({ name: input.trim() });
+                setShowCreateModal(false);
+                navigate(`../${created.id}`, { relative: "path" });
+              }
+            }}>
+              <div className="form-group">
+                <label htmlFor="new-persona-name">Name</label>
+                <input id="new-persona-name" name="name" type="text" placeholder="Impatient Customer" autoFocus />
+              </div>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={createPersona.isPending}>
+                  {createPersona.isPending ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
